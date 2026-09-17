@@ -1,27 +1,39 @@
 
 import { Announcement, MenuItem, CalendarEvent, BolognaFaculty } from './types';
-import { getApiUrl } from './config';
+import { getApiUrl, safeFetch } from './config';
 
 export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
-  const response = await fetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
-  if (response.ok) {
-    return response.json();
+  try {
+    const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
+    if (response.ok) {
+      return response.json();
+    }
+  } catch (err) {
+    console.error("Duyurular çekilemedi:", err);
   }
   return [];
 };
 
 export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
-  const response = await fetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
-  if (response.ok) {
-    return response.json();
+  try {
+    const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
+    if (response.ok) {
+      return response.json();
+    }
+  } catch (err) {
+    console.error("Haberler çekilemedi:", err);
   }
   return [];
 };
 
 export const getMenu = async (): Promise<MenuItem[]> => {
-  const response = await fetch(getApiUrl('/api/menu'));
-  if (response.ok) {
-    return response.json();
+  try {
+    const response = await safeFetch(getApiUrl('/api/menu'));
+    if (response.ok) {
+      return response.json();
+    }
+  } catch (err) {
+    console.error("Yemek listesi çekilemedi:", err);
   }
   return [];
 };

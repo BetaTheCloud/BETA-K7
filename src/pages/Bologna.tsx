@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BolognaFaculty, BolognaDepartment, BolognaCourse } from '../types';
 import { BookOpen, GraduationCap, Building2, ChevronRight, ArrowLeft, Users, FileText, CheckCircle2, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { getApiUrl } from '../config';
+import { getApiUrl, safeFetch } from '../config';
 
 
 const DEGREE_TYPES = [
@@ -28,7 +28,7 @@ export default function Bologna() {
   const loadFaculties = async (typeId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl(`/api/bologna/faculties?type=${typeId}`));
+      const response = await safeFetch(getApiUrl(`/api/bologna/faculties?type=${typeId}`));
       if (response.ok) {
         const data = await response.json();
         setFaculties(data);
@@ -279,7 +279,7 @@ export default function Bologna() {
     if (!dep.courses && dep.sUnitId) {
       setLoading(true);
       try {
-        const res = await fetch(getApiUrl(`/api/bologna/courses?sunit=${dep.sUnitId}`));
+        const res = await safeFetch(getApiUrl(`/api/bologna/courses?sunit=${dep.sUnitId}`));
         if (res.ok) {
           const courseData = await res.json();
             const newDep = { ...dep, courses: courseData };
@@ -372,7 +372,7 @@ export default function Bologna() {
                               if (!course.detailsLoaded && course.detailTarget && activeDepartment?.sUnitId) {
                                 setLoading(true);
                                 try {
-                                  const res = await fetch(getApiUrl(`/api/bologna/courseDetail?sunit=${activeDepartment.sUnitId}&target=${encodeURIComponent(course.detailTarget)}`));
+                                  const res = await safeFetch(getApiUrl(`/api/bologna/courseDetail?sunit=${activeDepartment.sUnitId}&target=${encodeURIComponent(course.detailTarget)}`));
                                   if (res.ok) {
                                     const details = await res.json();
                                     course.description = details.description || course.description;

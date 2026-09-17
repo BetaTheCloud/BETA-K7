@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { getApiUrl } from '../config';
+import { getApiUrl, safeFetch } from '../config';
 
 interface DetailModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ export default function DetailModal({ isOpen, onClose, url, title }: DetailModal
       setError(false);
       setContentHtml(null);
       
-      fetch(getApiUrl(`/api/detail?url=${encodeURIComponent(url)}`))
+      safeFetch(getApiUrl(`/api/detail?url=${encodeURIComponent(url)}`))
         .then(res => {
           if (!res.ok) throw new Error('Network response was not ok');
           return res.json();

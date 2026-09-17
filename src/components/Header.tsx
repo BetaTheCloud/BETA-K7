@@ -1,9 +1,12 @@
-import { Sun, Moon, Landmark } from 'lucide-react';
+import { useState } from 'react';
+import { Sun, Moon, Landmark, Server } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { PWAInstallButton } from './PWAInstallButton';
+import ApiConfigModal from './ApiConfigModal';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 bg-[#fcfbf9]/80 dark:bg-[#264653]/80 backdrop-blur-xl border-b border-[#e6e2d6]/80 dark:border-white/10 transition-colors">
@@ -26,8 +29,18 @@ export default function Header() {
         </div>
         
         {/* Actions Section */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setIsApiModalOpen(true)}
+            title="Sunucu / API Ayarı"
+            className="relative p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-500 dark:text-white/60 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
+            aria-label="API Ayarı"
+          >
+            <Server className="w-5 h-5" strokeWidth={1.5} />
+          </button>
+          
           <PWAInstallButton />
+          
           <button
             onClick={toggleTheme}
             className="relative p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-500 dark:text-white/60 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
@@ -42,6 +55,12 @@ export default function Header() {
         </div>
 
       </div>
+
+      {/* API Config & Live Test Modal */}
+      <ApiConfigModal 
+        isOpen={isApiModalOpen} 
+        onClose={() => setIsApiModalOpen(false)} 
+      />
     </header>
   );
 }
