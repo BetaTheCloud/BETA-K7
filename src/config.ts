@@ -1,15 +1,33 @@
 /**
  * Application & API Configuration
  * 
- * When running in standard web preview:
- * - API requests use relative paths like `/api/announcements`.
- * 
- * When running in an Android APK (Capacitor / Cordova / WebView / file://):
- * - It uses VITE_API_BASE_URL (e.g. https://your-app.onrender.com)
- * - Or a custom URL stored in localStorage ('CUSTOM_API_BASE_URL')
+ * Default Remote Backend (Render.com):
+ * https://beta-k7.onrender.com
  */
 
+export const DEFAULT_REMOTE_API_BASE = 'https://beta-k7.onrender.com';
+
+/**
+ * Determines whether the app is running in a mobile APK / WebView / Hybrid container.
+ */
+export function isMobileAppEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const isCapacitor = !!(window as any).Capacitor;
+  const isCordova = !!(window as any).cordova;
+  const isFileProtocol = window.location.protocol === 'file:';
+  const isCapacitorOrigin = 
+    window.location.origin === 'capacitor://localhost' || 
+    window.location.origin === 'ionic://localhost' ||
+    window.location.origin === 'http://localhost' ||
+    window.location.origin === 'https://localhost';
+  const isAndroidAppUserAgent = /Android.*wv|Version\/.*Chrome.*Mobile/i.test(navigator.userAgent);
+
+  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin || isAndroidAppUserAgent;
+}
+
 export function getEffectiveApiBase(): string {
+  // 1. User manual override stored in localStorage (via the settings modal)
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
     if (custom && custom.trim().length > 0) {
@@ -17,8 +35,19 @@ export function getEffectiveApiBase(): string {
     }
   }
 
+  // 2. Build-time environment variable (from .env)
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-  return envUrl;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // 3. Auto-detection for Mobile APK / WebView: If running inside an APK, use Render directly
+  if (isMobileAppEnvironment()) {
+    return DEFAULT_REMOTE_API_BASE;
+  }
+
+  // 4. Default for Web development / Unified proxy
+  return '';
 }
 
 export function setCustomApiBase(url: string): void {
