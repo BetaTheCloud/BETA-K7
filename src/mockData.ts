@@ -38,7 +38,20 @@ export const getMenu = async (): Promise<MenuItem[]> => {
   return [];
 };
 
-export const getCalendarEvents = async (): Promise<CalendarEvent[]> => {
+export const getCalendarEvents = async (force: boolean = false): Promise<CalendarEvent[]> => {
+  try {
+    const response = await safeFetch(getApiUrl(`/api/calendar${force ? '?force=true' : ''}`));
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("Canlı takvim çekilemedi, yerleşik veriler kullanılıyor:", err);
+  }
+
+  // Güvenli Yedek (Fallback)
   return [
     // GÜZ YARIYILI
     { id: 'g1', title: 'Özel Öğrenci Giden/Gelen Başvurusu Son Gün', date: '2026-08-14', term: 'Güz Yarıyılı', type: 'registration' },
@@ -58,7 +71,7 @@ export const getCalendarEvents = async (): Promise<CalendarEvent[]> => {
     { id: 'b4', title: 'Ders Ekleme-Bırakma ve Danışman Onayı', date: '2027-02-08', endDate: '2027-02-16', term: 'Bahar Yarıyılı', type: 'registration' },
     { id: 'b5', title: 'Bahar Yarıyılı Derslerinin Başlaması ve Sona Ermesi', date: '2027-02-15', endDate: '2027-06-11', term: 'Bahar Yarıyılı', type: 'other' },
 
-    // LİSANSÜSTÜ (Examples from the summary)
+    // LİSANSÜSTÜ
     { id: 'l1', title: 'Lisansüstü Güz Yarıyılı Başvuruları', date: '2026-08-03', endDate: '2026-08-18', term: 'Lisansüstü', type: 'registration' },
     { id: 'l2', title: 'Yazılı ve Sözlü Mülakat Sınavı', date: '2026-08-24', term: 'Lisansüstü', type: 'exam' },
     { id: 'l3', title: 'Katkı Payı Yatırma ve Ders Kayıtları', date: '2026-09-07', endDate: '2026-09-11', term: 'Lisansüstü', type: 'registration' },

@@ -41,7 +41,7 @@ export default function Calendar() {
     switch (type) {
       case 'exam': return 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border border-red-200 dark:border-red-500/20';
       case 'registration': return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20';
-      case 'holiday': return 'bg-amber-50 text-amber-700 dark:bg-[#1d3540]mber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20';
+      case 'holiday': return 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20';
       default: return 'bg-amber-50 text-emerald-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20';
     }
   };

@@ -68,7 +68,10 @@ let cachedAnnouncements: any[] = [];
 let cachedAnnouncementsTime = 0;
 let cachedNews: any[] = [];
 let cachedNewsTime = 0;
+let cachedCalendar: any[] = [];
+let cachedCalendarTime = 0;
 const CACHE_TTL = 5 * 60 * 1000;
+const CALENDAR_CACHE_TTL = 60 * 24 * 60 * 60 * 1000; // 60 days (2 months) smart cache
 
 // Simple chunking utility
 async function processInChunks<T, R>(items: T[], chunkSize: number, processor: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -440,6 +443,102 @@ app.get('/api/menu', async (req, res) => {
     res.json(menuItems);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch menu' });
+  }
+});
+
+const MONTH_MAP: Record<string, string> = {
+  'ocak': '01', 'şubat': '02', 'subat': '02', 'mart': '03', 'nisan': '04',
+  'mayıs': '05', 'mayis': '05', 'haziran': '06', 'temmuz': '07', 'ağustos': '08', 'agustos': '08',
+  'eylül': '09', 'eylul': '09', 'ekim': '10', 'kasım': '11', 'kasim': '11', 'aralık': '12', 'aralik': '12'
+};
+
+function parseTrDate(str: string): string {
+  if (!str) return '';
+  const parts = str.trim().split(/\s+/);
+  if (parts.length >= 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = MONTH_MAP[parts[1].toLowerCase()] || '01';
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+  return str;
+}
+
+function detectCalendarEventType(title: string): 'exam' | 'registration' | 'holiday' | 'other' {
+  const t = title.toLowerCase();
+  if (t.includes('sınav') || t.includes('sinav') || t.includes('vize') || t.includes('final') || t.includes('bütünleme') || t.includes('mülakat') || t.includes('muafiyet')) return 'exam';
+  if (t.includes('kayıt') || t.includes('kayit') || t.includes('başvuru') || t.includes('basvuru') || t.includes('ücret') || t.includes('katkı')) return 'registration';
+  if (t.includes('tatil') || t.includes('bayram')) return 'holiday';
+  return 'other';
+}
+
+app.get('/api/calendar', async (req, res) => {
+  try {
+    if (req.query.force !== 'true' && Date.now() - cachedCalendarTime < CALENDAR_CACHE_TTL && cachedCalendar.length > 0) {
+      return res.json(cachedCalendar);
+    }
+
+    const response = await axiosInstance.get('https://ogrenciisleri.kilis.edu.tr/tr/page/6461');
+    const $ = cheerio.load(response.data);
+    const events: any[] = [];
+    let currentTerm = 'Güz Yarıyılı';
+
+    $('table tr').each((i, el) => {
+      const text = $(el).text().replace(/\s+/g, ' ').trim();
+      if (text.toUpperCase().includes('BAHAR YARIYILI')) {
+        currentTerm = 'Bahar Yarıyılı';
+      } else if (text.toUpperCase().includes('GÜZ YARIYILI') || text.toUpperCase().includes('DERS YILI')) {
+        currentTerm = 'Güz Yarıyılı';
+      }
+
+      const tds = $(el).find('td');
+      if (tds.length === 3) {
+        const startText = $(tds[0]).text().trim();
+        const endText = $(tds[1]).text().trim();
+        const title = $(tds[2]).text().trim();
+
+        if (title && startText && !title.toUpperCase().includes('YARIYILI') && !startText.toUpperCase().includes('BAŞLANGIÇ')) {
+          events.push({
+            id: `cal-live-${events.length + 1}`,
+            title,
+            date: parseTrDate(startText),
+            endDate: endText ? parseTrDate(endText) : undefined,
+            term: currentTerm,
+            type: detectCalendarEventType(title),
+            rawStart: startText,
+            rawEnd: endText
+          });
+        }
+      } else if (tds.length === 2) {
+        const dateText = $(tds[0]).text().trim();
+        const title = $(tds[1]).text().trim();
+        if (title && dateText && !title.toUpperCase().includes('YARIYILI') && !dateText.toUpperCase().includes('BAŞLANGIÇ')) {
+          events.push({
+            id: `cal-live-${events.length + 1}`,
+            title,
+            date: parseTrDate(dateText),
+            term: currentTerm,
+            type: detectCalendarEventType(title),
+            rawStart: dateText
+          });
+        }
+      }
+    });
+
+    if (events.length > 0) {
+      cachedCalendar = events;
+      cachedCalendarTime = Date.now();
+      return res.json(events);
+    }
+
+    // Fallback to cached or empty
+    res.json(cachedCalendar);
+  } catch (error) {
+    console.error('Failed to fetch academic calendar:', error);
+    if (cachedCalendar.length > 0) {
+      return res.json(cachedCalendar);
+    }
+    res.status(500).json({ error: 'Failed to fetch academic calendar' });
   }
 });
 
