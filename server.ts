@@ -71,7 +71,7 @@ let cachedNewsTime = 0;
 let cachedCalendar: any[] = [];
 let cachedCalendarTime = 0;
 const CACHE_TTL = 5 * 60 * 1000;
-const CALENDAR_CACHE_TTL = 60 * 24 * 60 * 60 * 1000; // 60 days (2 months) smart cache
+const CALENDAR_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) smart cache
 
 // Simple chunking utility
 async function processInChunks<T, R>(items: T[], chunkSize: number, processor: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -464,11 +464,57 @@ function parseTrDate(str: string): string {
   return str;
 }
 
-function detectCalendarEventType(title: string): 'exam' | 'registration' | 'holiday' | 'other' {
+function detectCalendarEventType(title: string, term?: string): 'exam' | 'registration' | 'holiday' | 'other' {
   const t = title.toLowerCase();
-  if (t.includes('sınav') || t.includes('sinav') || t.includes('vize') || t.includes('final') || t.includes('bütünleme') || t.includes('mülakat') || t.includes('muafiyet')) return 'exam';
-  if (t.includes('kayıt') || t.includes('kayit') || t.includes('başvuru') || t.includes('basvuru') || t.includes('ücret') || t.includes('katkı')) return 'registration';
-  if (t.includes('tatil') || t.includes('bayram')) return 'holiday';
+  
+  // 1. Resmi Tatiller / Bayramlar / Özel Günler
+  if (term === 'Resmi Tatiller' || 
+      t.includes('tatil') || 
+      t.includes('bayram') || 
+      t.includes('yılbaşı') || 
+      t.includes('yilbasi') ||
+      t.includes('günü') || 
+      t.includes('gunu') ||
+      t.includes('arefe') ||
+      t.includes('1 mayıs') ||
+      t.includes('23 nisan') ||
+      t.includes('19 mayıs') ||
+      t.includes('15 temmuz') ||
+      t.includes('30 ağustos') ||
+      t.includes('29 ekim')) {
+    return 'holiday';
+  }
+
+  // 2. Kayıt ve Başvuru Süreçleri
+  if (t.includes('başvuru') || 
+      t.includes('basvuru') || 
+      t.includes('kayıt') || 
+      t.includes('kayit') || 
+      t.includes('katkı payı') || 
+      t.includes('öğrenim ücreti') || 
+      t.includes('ücret') || 
+      t.includes('ekle-bırak') || 
+      t.includes('ekle bırak') || 
+      t.includes('danışman') || 
+      t.includes('kabul listesi')) {
+    return 'registration';
+  }
+
+  // 3. Sınavlar ve Not Süreçleri
+  if (t.includes('sınav') || 
+      t.includes('sinav') || 
+      t.includes('vize') || 
+      t.includes('final') || 
+      t.includes('bütünleme') || 
+      t.includes('mülakat') || 
+      t.includes('muafiyet sınavı') || 
+      t.includes('yeterlilik') || 
+      t.includes('öbs’ne girişi') || 
+      t.includes('notları')) {
+    return 'exam';
+  }
+
+  // 4. Genel Eğitim / Ders Başlangıç-Bitiş / Staj
   return 'other';
 }
 
@@ -484,10 +530,12 @@ app.get('/api/calendar', async (req, res) => {
     let currentTerm = 'Güz Yarıyılı';
 
     $('table tr').each((i, el) => {
-      const text = $(el).text().replace(/\s+/g, ' ').trim();
-      if (text.toUpperCase().includes('BAHAR YARIYILI')) {
+      const text = $(el).text().replace(/\s+/g, ' ').trim().toUpperCase();
+      if (text.includes('RESMİ TATİLLER') || text.includes('RESMI TATILLER')) {
+        currentTerm = 'Resmi Tatiller';
+      } else if (text.includes('BAHAR YARIYILI')) {
         currentTerm = 'Bahar Yarıyılı';
-      } else if (text.toUpperCase().includes('GÜZ YARIYILI') || text.toUpperCase().includes('DERS YILI')) {
+      } else if (text.includes('GÜZ YARIYILI') || text.includes('DERS YILI')) {
         currentTerm = 'Güz Yarıyılı';
       }
 
@@ -497,14 +545,14 @@ app.get('/api/calendar', async (req, res) => {
         const endText = $(tds[1]).text().trim();
         const title = $(tds[2]).text().trim();
 
-        if (title && startText && !title.toUpperCase().includes('YARIYILI') && !startText.toUpperCase().includes('BAŞLANGIÇ')) {
+        if (title && startText && !title.toUpperCase().includes('YARIYILI') && !title.toUpperCase().includes('RESMİ TATİLLER') && !startText.toUpperCase().includes('BAŞLANGIÇ')) {
           events.push({
             id: `cal-live-${events.length + 1}`,
             title,
             date: parseTrDate(startText),
             endDate: endText ? parseTrDate(endText) : undefined,
             term: currentTerm,
-            type: detectCalendarEventType(title),
+            type: detectCalendarEventType(title, currentTerm),
             rawStart: startText,
             rawEnd: endText
           });
@@ -512,13 +560,13 @@ app.get('/api/calendar', async (req, res) => {
       } else if (tds.length === 2) {
         const dateText = $(tds[0]).text().trim();
         const title = $(tds[1]).text().trim();
-        if (title && dateText && !title.toUpperCase().includes('YARIYILI') && !dateText.toUpperCase().includes('BAŞLANGIÇ')) {
+        if (title && dateText && !title.toUpperCase().includes('YARIYILI') && !title.toUpperCase().includes('RESMİ TATİLLER') && !dateText.toUpperCase().includes('BAŞLANGIÇ')) {
           events.push({
             id: `cal-live-${events.length + 1}`,
             title,
             date: parseTrDate(dateText),
             term: currentTerm,
-            type: detectCalendarEventType(title),
+            type: detectCalendarEventType(title, currentTerm),
             rawStart: dateText
           });
         }

@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import DetailModal from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
+import LoadingState from '../components/LoadingState';
 
 export default function News() {
   const [news, setNews] = useState<Announcement[]>([]);
@@ -31,11 +32,7 @@ export default function News() {
   const categories = Array.from(new Set(news.map(n => n.category)));
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-neutral-500">Haberler yükleniyor...</div>
-      </div>
-    );
+    return <LoadingState message="Haberler Yükleniyor..." subtitle="Üniversite haberleri güncelleniyor" />;
   }
 
   return (

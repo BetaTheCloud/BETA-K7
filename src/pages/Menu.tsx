@@ -4,6 +4,7 @@ import { getMenu } from '../mockData';
 import { MenuItem } from '../types';
 import { CalendarDays, ChefHat, Utensils } from 'lucide-react';
 import { cn } from '../lib/utils';
+import LoadingState from '../components/LoadingState';
 
 export default function Menu() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -19,11 +20,7 @@ export default function Menu() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-neutral-500">Menü yükleniyor...</div>
-      </div>
-    );
+    return <LoadingState message="Yemek Menüsü Yükleniyor..." subtitle="Aylık yemekhane listesi alınıyor" />;
   }
 
   const todayStr = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' }).toLowerCase();

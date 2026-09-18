@@ -6,6 +6,7 @@ import { cn } from '../lib/utils';
 import { Toaster, toast } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { OfflineIndicator } from './OfflineIndicator';
+import { ServerColdStartAlert } from './ServerColdStartAlert';
 import { getAnnouncements } from '../mockData';
 
 export default function Layout() {
@@ -69,6 +70,7 @@ export default function Layout() {
     <div className="min-h-screen bg-[#f4f1ea] dark:bg-[#1d3540] text-stone-800 dark:text-white/90 font-sans flex flex-col md:flex-row">
       <Toaster position="top-center" />
       <OfflineIndicator />
+      <ServerColdStartAlert />
       
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 bg-[#fcfbf9] dark:bg-[#264653] border-r border-[#e6e2d6] dark:border-white/10 z-40">

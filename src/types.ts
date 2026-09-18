@@ -22,8 +22,10 @@ export interface CalendarEvent {
   title: string;
   date: string;
   endDate?: string;
-  term?: 'Güz Yarıyılı' | 'Bahar Yarıyılı' | 'Genel' | 'Lisansüstü';
+  term?: 'Güz Yarıyılı' | 'Bahar Yarıyılı' | 'Resmi Tatiller' | 'Lisansüstü' | string;
   type: 'exam' | 'holiday' | 'registration' | 'other';
+  rawStart?: string;
+  rawEnd?: string;
 }
 
 export interface BolognaCourse {

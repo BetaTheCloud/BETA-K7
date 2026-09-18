@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import DetailModal from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
+import LoadingState from '../components/LoadingState';
 
 export default function Announcements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -32,11 +33,7 @@ export default function Announcements() {
   const categories = Array.from(new Set(announcements.map(a => a.category)));
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-neutral-500">Duyurular yükleniyor...</div>
-      </div>
-    );
+    return <LoadingState message="Duyurular Yükleniyor..." subtitle="Üniversite duyuruları güncelleniyor" />;
   }
 
   return (

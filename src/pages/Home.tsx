@@ -8,6 +8,7 @@ import DetailModal from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
+import LoadingState from '../components/LoadingState';
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -64,14 +65,7 @@ export default function Home() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-800 rounded-full"></div>
-          <div className="text-neutral-500 dark:text-neutral-400">Yükleniyor...</div>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Ana Sayfa Yükleniyor..." subtitle="Duyurular, haberler ve yemek menüsü alınıyor" />;
   }
 
   const filteredAnnouncements = searchQuery 

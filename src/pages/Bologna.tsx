@@ -5,6 +5,7 @@ import { BolognaFaculty, BolognaDepartment, BolognaCourse } from '../types';
 import { BookOpen, GraduationCap, Building2, ChevronRight, ArrowLeft, Users, FileText, CheckCircle2, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
+import LoadingState from '../components/LoadingState';
 
 
 const DEGREE_TYPES = [
@@ -148,40 +149,43 @@ export default function Bologna() {
       </header>
 
       {/* Main Content Area */}
-      <AnimatePresence mode="wait">
-        
-        {/* LEVEL 0: DEGREE TYPES */}
-        {!activeDegreeType && (
-          <motion.div 
-            key="degrees"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-          >
-            {DEGREE_TYPES.map((deg) => (
-              <button
-                key={deg.id}
-                onClick={() => {
-                   setActiveDegreeType(deg);
-                   loadFaculties(deg.id);
-                   setSearchQuery('');
-                }}
-                className="flex flex-col items-center justify-center p-8 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-300 dark:hover:border-amber-500/30 hover:shadow-md transition-all group"
-              >
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  {deg.id === 'myo' && <Building2 strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
-                  {deg.id === 'lis' && <GraduationCap strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
-                  {deg.id === 'yls' && <BookOpen strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
-                  {deg.id === 'dok' && <FileText strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
-                </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {deg.name}
-                </h3>
-              </button>
-            ))}
-          </motion.div>
-        )}
+      {loading ? (
+        <LoadingState message="Bologna Bilgi Paketi Yükleniyor..." subtitle="Program ve müfredat verileri alınıyor" />
+      ) : (
+        <AnimatePresence mode="wait">
+          
+          {/* LEVEL 0: DEGREE TYPES */}
+          {!activeDegreeType && (
+            <motion.div 
+              key="degrees"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            >
+              {DEGREE_TYPES.map((deg) => (
+                <button
+                  key={deg.id}
+                  onClick={() => {
+                     setActiveDegreeType(deg);
+                     loadFaculties(deg.id);
+                     setSearchQuery('');
+                  }}
+                  className="flex flex-col items-center justify-center p-8 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-300 dark:hover:border-amber-500/30 hover:shadow-md transition-all group"
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    {deg.id === 'myo' && <Building2 strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
+                    {deg.id === 'lis' && <GraduationCap strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
+                    {deg.id === 'yls' && <BookOpen strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
+                    {deg.id === 'dok' && <FileText strokeWidth={1.5} className="w-8 h-8 text-amber-600 dark:text-amber-400" />}
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {deg.name}
+                  </h3>
+                </button>
+              ))}
+            </motion.div>
+          )}
 
         {/* LEVEL 1: FACULTIES */}
         {activeDegreeType && !activeFaculty && (
@@ -525,6 +529,7 @@ export default function Bologna() {
           </motion.div>
         )}
       </AnimatePresence>
+      )}
     </motion.div>
   );
 }
