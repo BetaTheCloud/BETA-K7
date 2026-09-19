@@ -33,6 +33,18 @@ export default function ApiConfigModal({ isOpen, onClose, onSaved }: ApiConfigMo
     }
   }, [isOpen]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   const handlePasswordSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
     if (passwordInput.trim() === ADMIN_PASSCODE) {
@@ -90,12 +102,17 @@ export default function ApiConfigModal({ isOpen, onClose, onSaved }: ApiConfigMo
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div 
+          onClick={onClose}
+          className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex min-h-screen items-center justify-center bg-black/65 backdrop-blur-sm"
+        >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="w-full max-w-md bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-6 shadow-2xl text-stone-800 dark:text-white"
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
+            className="w-full max-w-md my-auto bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl text-stone-800 dark:text-white max-h-[calc(100vh-2rem)] overflow-y-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-stone-200/60 dark:border-white/10">
