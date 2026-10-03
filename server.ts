@@ -6,6 +6,8 @@ import qs from 'qs';
 import * as cheerio from 'cheerio';
 import https from 'https';
 import cors from 'cors';
+import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
+import { ACADEMIC_STAFF_DATA } from './src/data/staffData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -889,6 +891,46 @@ app.get('/api/phonebook', async (req, res) => {
   }
 });
 
+// --- AKADEMİK & İDARİ PERSONEL (FAKÜLTE, ENSTİTÜ, YO, MYO, KONSERVATUVAR, KOORDİNATÖRLÜK BAZLI) ---
+app.get('/api/staff', (req, res) => {
+  try {
+    const faculty = ((req.query.faculty || 'all') as string).toLowerCase().trim();
+    const department = ((req.query.department || 'all') as string).toLowerCase().trim();
+    const category = ((req.query.category || 'all') as string).toLowerCase().trim();
+    const q = ((req.query.q || req.query.search || '') as string).toLowerCase().trim();
+
+    let list = ACADEMIC_STAFF_DATA;
+
+    if (category && category !== 'all' && category !== 'tümü') {
+      list = list.filter(s => s.unitCategory && s.unitCategory.toLowerCase() === category);
+    }
+
+    if (faculty && faculty !== 'all' && faculty !== 'tümü') {
+      list = list.filter(s => s.facultyId.toLowerCase() === faculty);
+    }
+
+    if (department && department !== 'all' && department !== 'tümü') {
+      list = list.filter(s => s.department.toLowerCase().includes(department));
+    }
+
+    if (q) {
+      list = list.filter(s => 
+        s.fullName.toLowerCase().includes(q) ||
+        s.title.toLowerCase().includes(q) ||
+        s.role.toLowerCase().includes(q) ||
+        s.department.toLowerCase().includes(q) ||
+        s.facultyName.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q)
+      );
+    }
+
+    res.json(list);
+  } catch (error) {
+    console.error('Staff API error:', error);
+    res.json(ACADEMIC_STAFF_DATA);
+  }
+});
+
 let cachedEvents: any[] = [];
 let cachedEventsTime = 0;
 
@@ -951,704 +993,44 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// --- AUTHENTIC VERIFIED FORMS FROM OFFICIAL UNIVERSITY PORTALS ---
-// 1. https://ogrenciisleri.kilis.edu.tr/tr/department-forms (18 Form)
-// 2. https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d (32 Form)
-const DEFAULT_AUTHENTIC_FORMS = [
-  // --- ÖĞRENCİ İŞLERİ DAİRE BAŞKANLIĞI FORMLARI (ogrenciisleri.kilis.edu.tr) ---
-  {
-    id: 'form-oidb-1',
-    title: 'Öğrenci Diploma Kayıp Dilekçesi',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Öğrenci Dilekçeleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/945464751766650323.Öğrenci diploma kayıp dilekçesi.docx',
-    description: 'Diplomasını kaybeden mezunların yeni diploma veya mezuniyet belgesi talebi için başvuru dilekçesi (DOCX)'
-  },
-  {
-    id: 'form-oidb-2',
-    title: 'Öğrenci Kimlik Kartı Kayıp Dilekçesi',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Öğrenci Dilekçeleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/93603571766650418.Öğrenci kimlik kartı kayıp dilekçesi.docx',
-    description: 'Üniversite kimlik kartını kaybeden veya zayi eden öğrencilerin yeni kart basım talebi (DOCX)'
-  },
-  {
-    id: 'form-oidb-3',
-    title: 'Dönem Sonu Ek Sınav Dilekçesi',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Sınav & Not İşlemleri',
-    fileType: 'doc',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/914493791766659460.ek_sinav_dilekcesi (1).doc',
-    description: 'Dönem sonu tek veya ek sınav haklarından yararlanmak isteyen son sınıf öğrencileri için sınav başvuru formu (DOC)'
-  },
-  {
-    id: 'form-oidb-4',
-    title: 'Azami Süre Öğrencileri İçin Sınav Dilekçesi',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Sınav & Not İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9499248661766650999.azami dilekce ornegi.docx',
-    description: '2547 sayılı kanun uyarınca azami öğrenim süresini dolduran öğrencilerin 2 ek sınav hakkı dilekçesi (DOCX)'
-  },
-  {
-    id: 'form-oidb-5',
-    title: 'Örnek Ders Dağılım Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Kayıt & Ders İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9676114061766738993.Örnek Ders Dağılım Formu.docx',
-    description: 'Fakülte ve bölümlerin yarıyıl bazlı haftalık ders programı ve öğretim elemanı dağılım şablonu (DOCX)'
-  },
-  {
-    id: 'form-oidb-6',
-    title: 'Özel Öğrenci Başvuru Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Öğrenci Dilekçeleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9170567891766652987.Özel Öğrenci Başvuru Formu.docx',
-    description: 'Başka bir üniversitede veya üniversitemizde özel öğrenci statüsünde ders almak isteyenlerin başvuru formu (DOCX)'
-  },
-  {
-    id: 'form-oidb-7',
-    title: 'Özel Öğrenci Öğrenim Protokolü',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Öğrenci Dilekçeleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9767595081766653069.özel öğr.öğrenim protokolü.docx',
-    description: 'Özel öğrencilik süresince alınacak derslerin kredilerinin ve AKTS denkliğinin onay protokolü (DOCX)'
-  },
-  {
-    id: 'form-oidb-8',
-    title: 'Harç İade Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Kayıt & Ders İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9838737511767686774.harc_dilekcesi.docx',
-    description: 'Fazla veya sehven yatırılan harç/öğrenim ücretinin IBAN hesabına iade edilmesi için talep dilekçesi (DOCX)'
-  },
-  {
-    id: 'form-oidb-9',
-    title: 'AGNO Yatay Geçiş Sonuç Tablo Örneği',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yatay Geçiş & İntibak',
-    fileType: 'xlsx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/932976721766653261.AGNO Yatay Geçiş Tablo Örneği.xlsx',
-    description: 'Kurumlararası ve kurum içi ağırlıklı genel not ortalaması (AGNO) ile yatay geçiş değerlendirme sonuç tablosu (XLSX)'
-  },
-  {
-    id: 'form-oidb-10',
-    title: 'Ek Madde-1 Yatay Geçiş Sonuç İlanı Tablosu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yatay Geçiş & İntibak',
-    fileType: 'xlsx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9647419351766660926.Ek Madde-1 yatay_gecis_sonucların_ilanı tablosu.xlsx',
-    description: 'Merkezi yerleştirme puanı (Ek Madde-1) yatay geçiş değerlendirme ve ilan tablosu şablonu (XLSX)'
-  },
-  {
-    id: 'form-oidb-11',
-    title: 'Üniversiteden İlişik Kesme Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Kayıt & Ders İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9836798861767691725.ilişik kesme formu.docx',
-    description: 'Mezuniyet veya kendi isteğiyle kaydını sildirecek öğrencilerin kütüphane, laboratuvar ve SKS onay formu (DOCX)'
-  },
-  {
-    id: 'form-oidb-12',
-    title: 'Mazeretli Not Bildirim Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Sınav & Not İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9303658041767689785.not_bildirim_formu.docx',
-    description: 'Mazeret sınavına giren veya maddi hata sonucu notu değişen öğrenciler için öğretim üyesi not bildirim belgesi (DOCX)'
-  },
-  {
-    id: 'form-oidb-13',
-    title: 'Ders İntibak Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yatay Geçiş & İntibak',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9133417691767689978.İntibak Formu (1).docx',
-    description: 'Yatay geçiş, DGS veya af kapsamında gelen öğrencilerin önceki derslerinin sayılması için intibak komisyonu formu (DOCX)'
-  },
-  {
-    id: 'form-oidb-14',
-    title: 'Ders Kataloğu Hazırlama (Örnek)',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Kayıt & Ders İşlemleri',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9853010351767690301.Ders Katalog Örneği(1).docx',
-    description: 'Bölümlerin Bologna ve AKTS ders kataloğu içerik hazırlama standart şablonu (DOCX)'
-  },
-  {
-    id: 'form-oidb-15',
-    title: 'Yaz Okulu Açılması İstenen Dersler Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yaz Okulu',
-    fileType: 'xlsx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9480746011767690518.Standart Form yaz okulu açılacak dersler.xlsx',
-    description: 'Yaz öğretiminde bölüm veya dekanlıklarca açılması planlanan derslerin talep listesi (XLSX)'
-  },
-  {
-    id: 'form-oidb-16',
-    title: 'Yaz Okulunda Diğer Üniversitelerden Ders Talep Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yaz Okulu',
-    fileType: 'pdf',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9517221841767690958.yaz okulunda üniversite dışı ders alma formu.pdf',
-    description: 'Üniversitemizde açılmayan yaz okulu derslerini başka bir üniversiteden almak isteyen öğrencilerin izin ve onay formu (PDF)'
-  },
-  {
-    id: 'form-oidb-17',
-    title: 'Yaz Okulu Kayıt Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yaz Okulu',
-    fileType: 'docx',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/9525665031766661008.yaz okul kayıt formu örneği.docx',
-    description: 'Kilis 7 Aralık Üniversitesi yaz okuluna kayıt yaptıracak öğrenciler için ders kayıt dilekçesi (DOCX)'
-  },
-  {
-    id: 'form-oidb-18',
-    title: 'Yatay Geçiş Yapmasında Engel Yoktur Formu',
-    source: 'ogrenciisleri.kilis.edu.tr',
-    sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-    sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-    category: 'Yatay Geçiş & İntibak',
-    fileType: 'pdf',
-    downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/files/department_forms/952941881769673037.YATAY GEÇİŞE ENGEL YOKTUR FORMU.pdf',
-    description: 'Başka bir üniversiteye yatay geçiş yapacak öğrencilerin üniversitemizden temin ettiği ilişik ve disiplin onay belgesi (PDF)'
-  },
-
-  // --- ÜNİVERSİTE GENEL MATBU FORMLARI - REKTÖRLÜK (kilis.edu.tr) ---
-  {
-    id: 'form-kilis-1',
-    title: 'AKADEMİK KİMLİK BAŞVURU FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5cef18.doc',
-    description: 'Akademik personelin kurumsal üniversite kimlik kartı basımı için başvuru formu (DOC)'
-  },
-  {
-    id: 'form-kilis-2',
-    title: 'ARAÇ İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Lojistik & Tesisler',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5d263e.doc',
-    description: 'Resmi görevlendirme, teknik gezi ve organizasyonlar için üniversite taşıt talep formu (DOC)'
-  },
-  {
-    id: 'form-kilis-3',
-    title: 'TAŞINIR İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Satınalma & Ayniyat',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5d4247.xls',
-    description: 'Birimlerin kırtasiye, donanım ve taşınır tüketim malzemesi ambar talep belgesi (XLS)'
-  },
-  {
-    id: 'form-kilis-4',
-    title: 'PERSONEL İZİN FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'docx',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5d5fb3.docx',
-    description: 'Yıllık izin, mazeret izni ve idari izin talepleri için Personel Daire Başkanlığı onay formu (DOCX)'
-  },
-  {
-    id: 'form-kilis-5',
-    title: 'AKADEMİK PERSONEL GÖREVLENDİRME TALEP FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5d7e48.doc',
-    description: 'Kongre, sempozyum, konferans ve bilimsel toplantı katılımı için 39. madde görevlendirme formu (DOC)'
-  },
-  {
-    id: 'form-kilis-6',
-    title: 'DEMİRBAŞ EŞYA ÇIKIŞ FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Satınalma & Ayniyat',
-    fileType: 'xlt',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695545460cd09.xlt',
-    description: 'Birimler arası demirbaş eşya devri ve çıkış işlemlerinde kullanılan resmi tutanak (XLT)'
-  },
-  {
-    id: 'form-kilis-7',
-    title: 'İHTİYAÇ BELGESİ (İdari ve Mali İşler Daire Başkanlığı)',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Satınalma & Ayniyat',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/69554587a59fd.xls',
-    description: 'Mal ve hizmet alımları öncesi idari ve mali işlere sunulan resmi ihtiyaç bildirim formu (XLS)'
-  },
-  {
-    id: 'form-kilis-8',
-    title: 'BASIM TALEP FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Satınalma & Ayniyat',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/69554587a731e.xls',
-    description: 'Kitap, dergi, afiş, broşür ve matbaa basım talepleri için yetkili onay formu (XLS)'
-  },
-  {
-    id: 'form-kilis-9',
-    title: 'BİLGİSAYAR ONARIM VE SERVİS FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/69554587a894b.xls',
-    description: 'Donanım ve yazılım arızalarında Bilgi İşlem Daire Başkanlığına iletilen servis fişi (XLS)'
-  },
-  {
-    id: 'form-kilis-10',
-    title: 'E-POSTA ADRESİ İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b34ee0.doc',
-    description: 'Personel ve birimler için kurumsal @kilis.edu.tr uzantılı e-posta adresi açma formu (DOC)'
-  },
-  {
-    id: 'form-kilis-11',
-    title: 'TELEFON ARIZA İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b369e2.doc',
-    description: 'Dahili santral telefon hatlarındaki ses ve bağlantı sorunları için bildirim formu (DOC)'
-  },
-  {
-    id: 'form-kilis-12',
-    title: 'TELEFON HATTI İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b38202.xls',
-    description: 'Yeni açılan ofis ve birimler için yeni dahili telefon hattı tahsis talep formu (XLS)'
-  },
-  {
-    id: 'form-kilis-13',
-    title: 'TELEFON HATTI YER DEĞİŞİKLİĞİ İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b39722.xls',
-    description: 'Oda ve bina değişikliğinde mevcut dahili numaranın nakil talebi (XLS)'
-  },
-  {
-    id: 'form-kilis-14',
-    title: 'TELEFON HATTI RESMİ GÖRÜSME FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b3b132.xls',
-    description: 'Şehirlerarası veya uluslararası kurumsal telefon görüşmeleri izin ve kayıt formu (XLS)'
-  },
-  {
-    id: 'form-kilis-15',
-    title: 'TELEFON HATTI ZİMMET / DEVİR FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b3ceaf.doc',
-    description: 'Dahili telefon cihazı ve hattının personeller arası devir ve teslim tutanağı (DOC)'
-  },
-  {
-    id: 'form-kilis-16',
-    title: 'HİZMET PASAPORTU İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955460b3ec80.doc',
-    description: 'Yurt dışı resmi görevlendirmelerde Gri Pasaport (Hizmet Pasaportu) talep belgesi (DOC)'
-  },
-  {
-    id: 'form-kilis-17',
-    title: 'SALON İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Lojistik & Tesisler',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547075c4c9.doc',
-    description: 'Konferans salonları, amfiler ve toplantı salonlarının tahsisi için talep formu (DOC)'
-  },
-  {
-    id: 'form-kilis-18',
-    title: 'AKADEMİK FAALİYET FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547075e2cb.doc',
-    description: 'Öğretim elemanlarının yıllık akademik yayın, proje ve etkinlik beyan belgesi (DOC)'
-  },
-  {
-    id: 'form-kilis-19',
-    title: 'PROJE İSTATİK BİLGİLERİ',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547075fc05.doc',
-    description: 'BAP, TÜBİTAK ve AB projelerinin üniversite istatistik veri tabanına giriş formu (DOC)'
-  },
-  {
-    id: 'form-kilis-20',
-    title: 'İŞÇİ PERFORMANS DEĞERLENDİRME FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955470761927.doc',
-    description: 'Sürekli işçi ve sözleşmeli personelin yıllık periyodik performans değerlendirme formu (DOC)'
-  },
-  {
-    id: 'form-kilis-21',
-    title: 'YEMEKHANE ANKET FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Lojistik & Tesisler',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955470763532.doc',
-    description: 'Yemek kalitesi, porsiyon ve hijyen memnuniyet anketi değerlendirme formu (DOC)'
-  },
-  {
-    id: 'form-kilis-22',
-    title: 'GÜNCEL İLETİŞİM BİLGİ FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547076509a.doc',
-    description: 'Personelin adres, GSM numarası ve acil durum iletişim bilgilerini güncelleme formu (DOC)'
-  },
-  {
-    id: 'form-kilis-23',
-    title: 'BETEK BAŞVURU FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/69554707670ac.doc',
-    description: 'Bilimsel ve Teknolojik Araştırmalar Uygulama ve Araştırma Merkezi analiz başvuru formu (DOC)'
-  },
-  {
-    id: 'form-kilis-24',
-    title: 'ÖYP 6 AYLIK FAALİYET RAPORU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'docx',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955470768e2e.docx',
-    description: 'Öğretim Üyesi Yetiştirme Programı kapsamındaki araştırma görevlilerinin 6 aylık gelişim raporu (DOCX)'
-  },
-  {
-    id: 'form-kilis-25',
-    title: 'YÖNETİM KURULU / SENATODA GÖRÜŞÜLMESİ GEREKEN KONULARLA İLGİLİ BİLGİ FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547076ac1f.doc',
-    description: 'Üniversite Senatosu veya Yönetim Kuruluna sunulacak gündem maddeleri ve gerekçe özeti (DOC)'
-  },
-  {
-    id: 'form-kilis-26',
-    title: 'AKADEMİK PERSONEL BİLGİ İSTEK FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547076cc11.doc',
-    description: 'Özlük hakları, hizmet belgesi ve akademik kadro bilgi talepleri için müracaat belgesi (DOC)'
-  },
-  {
-    id: 'form-kilis-27',
-    title: 'BİLİMSEL SOSYAL VE KÜLTÜREL ETKİNLİKLER',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Akademik Faaliyet & Kadro',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547076e958.doc',
-    description: 'Kampüs içi panel, konferans, dinleti ve sergi organizasyon bildirim ve izin formu (DOC)'
-  },
-  {
-    id: 'form-kilis-28',
-    title: 'ÜSTÜN BAŞARI BELGESİ, BAŞARI BELGESİ, ÖDÜL, PLAKET, ONUR ÖDÜLÜ TALEP FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'İdari & Personel',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955470773140.doc',
-    description: 'Yıl içerisinde üstün başarı gösteren akademik/idari personel ve öğrencilere ödül teklif formu (DOC)'
-  },
-  {
-    id: 'form-kilis-29',
-    title: 'DOĞRUDAN TEMİN ONAY BELGESİ',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Satınalma & Ayniyat',
-    fileType: 'xls',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695547077518f.xls',
-    description: '4734 sayılı Kamu İhale Kanunu 22/d maddesi doğrudan temin onay ve piyasa fiyat araştırma formu (XLS)'
-  },
-  {
-    id: 'form-kilis-30',
-    title: 'EBYS YETKİ DEVİR FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'doc',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6955470776e43.doc',
-    description: 'Elektronik Belge Yönetim Sistemi (EBYS) vekalet, imza ve onay yetkisi devir formu (DOC)'
-  },
-  {
-    id: 'form-kilis-31',
-    title: 'PLAKA TANIMA SİSTEMİ',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Bilgi İşlem & İletişim',
-    fileType: 'docx',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/6a75d7f899b6d.docx',
-    description: 'Kampüs giriş nizamiye otomatik bariyer geçişi için araç plaka kayıt ve tanımlama formu (DOCX)'
-  },
-  {
-    id: 'form-kilis-32',
-    title: 'KAMU KONUTLARI TALEP FORMU',
-    source: 'kilis.edu.tr',
-    sourceName: 'Üniversite Genel Matbu Formları',
-    sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-    category: 'Lojistik & Tesisler',
-    fileType: 'xlsx',
-    downloadUrl: 'https://www.kilis.edu.tr/documents/documents/69a045be3d89f.xlsx',
-    description: 'Üniversite lojman ve konut tahsisi için puanlama kriterlerini içeren başvuru formu (XLSX)'
-  }
-];
-
+// --- AUTHENTIC VERIFIED FORMS & MULTI-FACULTY SCRAPING ---
+const DEFAULT_AUTHENTIC_FORMS = AUTHENTIC_FORMS_DATA;
 let cachedForms: any[] = [];
 let cachedFormsTime = 0;
 
-app.get('/api/forms', async (req, res) => {
+app.get('/api/forms', (req, res) => {
   try {
-    const sourceQuery = ((req.query.source || 'all') as string).toLowerCase();
-    const categoryQuery = ((req.query.category || 'all') as string).toLowerCase();
+    const facultyQuery = ((req.query.faculty || 'all') as string).toLowerCase().trim();
+    const categoryQuery = ((req.query.category || 'all') as string).toLowerCase().trim();
     const searchQuery = ((req.query.q || req.query.search || '') as string).toLowerCase().trim();
 
-    // Refresh scrape if cache is expired
-    if (Date.now() - cachedFormsTime >= CACHE_TTL || cachedForms.length === 0) {
-      const scrapedList: any[] = [];
+    let activeForms = AUTHENTIC_FORMS_DATA;
 
-      // 1. Scrape ogrenciisleri.kilis.edu.tr/tr/department-forms
-      try {
-        const r1 = await axiosInstance.get('https://ogrenciisleri.kilis.edu.tr/tr/department-forms', { timeout: 6000 });
-        const $1 = cheerio.load(r1.data);
-        let oidbCount = 1;
-        $1('a[href]').each((i, a) => {
-          const href = $1(a).attr('href') || '';
-          if (!href.includes('/files/department_forms/')) return;
-          const downloadUrl = href.startsWith('http') ? href : `https://ogrenciisleri.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-          let title = $1(a).closest('div.card, div.list-group-item, li, tr, div').text().replace(/İndir/gi, '').trim().replace(/\s+/g, ' ');
-          if (!title || title.length > 80) {
-            const filename = decodeURIComponent(href.split('/').pop() || '');
-            title = filename.replace(/^[0-9.]+/g, '').replace(/\.[^/.]+$/, '').trim();
-          }
-          const ext = downloadUrl.split('.').pop()?.toLowerCase().split('?')[0] || 'docx';
-
-          let subcategory = 'Öğrenci Dilekçeleri';
-          const tl = title.toLowerCase();
-          if (tl.includes('yatay geçiş') || tl.includes('intibak')) {
-            subcategory = 'Yatay Geçiş & İntibak';
-          } else if (tl.includes('yaz okul')) {
-            subcategory = 'Yaz Okulu';
-          } else if (tl.includes('harç') || tl.includes('ilişik') || tl.includes('ders dağılım') || tl.includes('ders katalog')) {
-            subcategory = 'Kayıt & Ders İşlemleri';
-          } else if (tl.includes('sınav') || tl.includes('not')) {
-            subcategory = 'Sınav & Not İşlemleri';
-          }
-
-          scrapedList.push({
-            id: `form-oidb-${oidbCount++}`,
-            title: title,
-            source: 'ogrenciisleri.kilis.edu.tr',
-            sourceName: 'Öğrenci İşleri Daire Başkanlığı',
-            sourceUrl: 'https://ogrenciisleri.kilis.edu.tr/tr/department-forms',
-            category: subcategory,
-            fileType: ext,
-            downloadUrl: downloadUrl,
-            description: `K7AÜ Öğrenci İşleri Daire Başkanlığı resmi formu (${ext.toUpperCase()})`
-          });
-        });
-      } catch (err) {
-        console.warn('OİDB forms scrape warning, using fallback for OİDB');
-      }
-
-      // 2. Scrape kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d
-      try {
-        const r2 = await axiosInstance.get('https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d', { timeout: 6000 });
-        const $2 = cheerio.load(r2.data);
-        let kilisCount = 1;
-        $2('table tr').each((i, tr) => {
-          const tds = $2(tr).find('td');
-          if (tds.length === 0) return;
-          const rawTitle = $2(tds[0]).text().trim();
-          const a = $2(tr).find('a[href]');
-          let href = a.attr('href') || '';
-          if (!rawTitle || !href) return;
-          if (!href.startsWith('http')) {
-            href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-          }
-          const ext = href.split('.').pop()?.toLowerCase().split('?')[0] || 'doc';
-
-          let subcategory = 'İdari & Personel';
-          const tl = rawTitle.toLowerCase();
-          if (tl.includes('bilgisayar') || tl.includes('e-posta') || tl.includes('telefon') || tl.includes('ebys') || tl.includes('plaka')) {
-            subcategory = 'Bilgi İşlem & İletişim';
-          } else if (tl.includes('araç') || tl.includes('salon') || tl.includes('konut') || tl.includes('yemekhane')) {
-            subcategory = 'Lojistik & Tesisler';
-          } else if (tl.includes('akademik') || tl.includes('öyp') || tl.includes('faaliyet') || tl.includes('bilimsel') || tl.includes('senato') || tl.includes('başarı')) {
-            subcategory = 'Akademik Faaliyet & Kadro';
-          } else if (tl.includes('taşınır') || tl.includes('demirbaş') || tl.includes('ihtiyaç') || tl.includes('basım') || tl.includes('doğrudan temin')) {
-            subcategory = 'Satınalma & Ayniyat';
-          }
-
-          scrapedList.push({
-            id: `form-kilis-${kilisCount++}`,
-            title: rawTitle,
-            source: 'kilis.edu.tr',
-            sourceName: 'Üniversite Genel Matbu Formları',
-            sourceUrl: 'https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d',
-            category: subcategory,
-            fileType: ext,
-            downloadUrl: href,
-            description: `Kilis 7 Aralık Üniversitesi Rektörlüğü resmi matbu formu (${ext.toUpperCase()})`
-          });
-        });
-      } catch (err) {
-        console.warn('kilis.edu.tr matbu formlar scrape warning, using fallback for kilis');
-      }
-
-      if (scrapedList.length >= 30) {
-        cachedForms = scrapedList;
-        cachedFormsTime = Date.now();
-      } else {
-        cachedForms = DEFAULT_AUTHENTIC_FORMS;
-        cachedFormsTime = Date.now();
-      }
-    }
-
-    let activeForms = cachedForms.length > 0 ? cachedForms : DEFAULT_AUTHENTIC_FORMS;
-
-    // Filter by source
-    if (sourceQuery === 'ogrenciisleri' || sourceQuery.includes('ogrenci')) {
-      activeForms = activeForms.filter(f => f.source === 'ogrenciisleri.kilis.edu.tr');
-    } else if (sourceQuery === 'kilis' || sourceQuery.includes('matbu') || sourceQuery.includes('genel')) {
-      activeForms = activeForms.filter(f => f.source === 'kilis.edu.tr');
+    // Filter by faculty
+    if (facultyQuery && facultyQuery !== 'all' && facultyQuery !== 'tümü') {
+      activeForms = activeForms.filter(f => f.faculty && f.faculty.toLowerCase() === facultyQuery);
     }
 
     // Filter by category
-    if (categoryQuery !== 'all' && categoryQuery !== 'tümü') {
-      activeForms = activeForms.filter(f => f.category.toLowerCase().includes(categoryQuery));
+    if (categoryQuery && categoryQuery !== 'all' && categoryQuery !== 'tümü') {
+      activeForms = activeForms.filter(f => f.category && f.category.toLowerCase().includes(categoryQuery));
     }
 
     // Filter by search query
     if (searchQuery) {
       activeForms = activeForms.filter(f => 
         f.title.toLowerCase().includes(searchQuery) ||
-        f.description.toLowerCase().includes(searchQuery) ||
-        f.category.toLowerCase().includes(searchQuery) ||
-        f.fileType.toLowerCase().includes(searchQuery)
+        (f.description || '').toLowerCase().includes(searchQuery) ||
+        (f.sourceName || '').toLowerCase().includes(searchQuery) ||
+        (f.category || '').toLowerCase().includes(searchQuery) ||
+        (f.fileType || '').toLowerCase().includes(searchQuery)
       );
     }
 
     res.json(activeForms);
   } catch (error) {
     console.error('Forms API error, returning verified default forms:', error);
-    res.json(DEFAULT_AUTHENTIC_FORMS);
+    res.json(AUTHENTIC_FORMS_DATA);
   }
 });
 

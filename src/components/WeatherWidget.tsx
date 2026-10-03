@@ -13,8 +13,10 @@ import {
   Droplets, 
   Wind, 
   Umbrella,
-  Sparkles
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
+import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
 
 interface WeatherData {
   temperature: number;
@@ -31,15 +33,19 @@ interface WeatherWidgetProps {
 
 export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [detailedWeather, setDetailedWeather] = useState<DetailedWeatherInfo | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     async function fetchWeather() {
       try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day&daily=precipitation_probability_max&forecast_days=1&timezone=Europe%2FIstanbul');
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,apparent_temperature,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=2&timezone=Europe%2FIstanbul';
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
+        
         setWeather({
           temperature: data.current.temperature_2m,
           humidity: data.current.relative_humidity_2m,
@@ -47,6 +53,62 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           rainChance: data.daily.precipitation_probability_max[0] || 0,
           weathercode: data.current.weather_code,
           is_day: data.current.is_day,
+        });
+
+        // Compute hourly items (+0h, +1h, +2h, +4h, +6h, +8h, +12h, +24h)
+        const times: string[] = data.hourly.time || [];
+        const currentTimeIso = data.current.time || '';
+        let baseIndex = times.findIndex((t: string) => t >= currentTimeIso);
+        if (baseIndex === -1) baseIndex = 0;
+
+        const targetOffsets = [
+          { offset: 0, label: 'Şu An' },
+          { offset: 1, label: '+1 Saat' },
+          { offset: 2, label: '+2 Saat' },
+          { offset: 4, label: '+4 Saat' },
+          { offset: 6, label: '+6 Saat' },
+          { offset: 8, label: '+8 Saat' },
+          { offset: 12, label: '+12 Saat' },
+          { offset: 24, label: '+24 Saat' }
+        ];
+
+        const hourlyList: HourlyForecastItem[] = [];
+
+        for (const item of targetOffsets) {
+          const idx = baseIndex + item.offset;
+          if (idx < times.length) {
+            const timeRaw = times[idx];
+            const timeStr = timeRaw.includes('T') ? timeRaw.split('T')[1].slice(0, 5) : timeRaw;
+            hourlyList.push({
+              hourOffset: item.offset,
+              label: item.label,
+              timeStr: timeStr,
+              temp: data.hourly.temperature_2m[idx] ?? data.current.temperature_2m,
+              apparentTemp: data.hourly.apparent_temperature?.[idx] ?? data.current.temperature_2m,
+              precipitationProb: data.hourly.precipitation_probability?.[idx] ?? 0,
+              windSpeed: data.hourly.wind_speed_10m?.[idx] ?? 0,
+              weatherCode: data.hourly.weather_code?.[idx] ?? 0,
+              isDay: data.hourly.is_day?.[idx] ?? 1,
+            });
+          }
+        }
+
+        setDetailedWeather({
+          temperature: data.current.temperature_2m,
+          apparentTemperature: data.current.apparent_temperature || data.current.temperature_2m,
+          humidity: data.current.relative_humidity_2m,
+          windSpeed: data.current.wind_speed_10m,
+          windDirection: data.current.wind_direction_10m || 0,
+          surfacePressure: data.current.surface_pressure || 1013,
+          rainChance: data.daily.precipitation_probability_max[0] || 0,
+          weathercode: data.current.weather_code,
+          is_day: data.current.is_day,
+          tempMin: data.daily.temperature_2m_min?.[0] ?? data.current.temperature_2m,
+          tempMax: data.daily.temperature_2m_max?.[0] ?? data.current.temperature_2m,
+          sunrise: data.daily.sunrise?.[0] || '',
+          sunset: data.daily.sunset?.[0] || '',
+          uvIndexMax: data.daily.uv_index_max?.[0] || 0,
+          hourlyList
         });
         
         if (onWeatherChange) {
@@ -205,60 +267,83 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const Icon = theme.Icon;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="group relative flex items-center w-full sm:w-auto gap-3.5 bg-white/[0.08] hover:bg-white/[0.12] transition-all backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 shadow-lg overflow-hidden"
-    >
-      {/* Dynamic ambient background glow */}
-      <div className={`absolute -inset-1 rounded-2xl ${theme.glowAura} blur-xl opacity-60 pointer-events-none transition-all group-hover:opacity-100`}></div>
+    <>
+      <motion.button 
+        type="button"
+        onClick={() => setIsModalOpen(true)}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        aria-label="Detaylı 1-2-4-6-8 saatlik hava durumu tahminini aç"
+        className="group relative flex items-center w-full sm:w-auto gap-3.5 bg-white/[0.08] hover:bg-white/[0.14] transition-all backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 hover:border-amber-400/40 shadow-lg overflow-hidden text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+      >
+        {/* Dynamic ambient background glow */}
+        <div className={`absolute -inset-1 rounded-2xl ${theme.glowAura} blur-xl opacity-60 pointer-events-none transition-all group-hover:opacity-100`}></div>
 
-      {/* Animated Weather Icon Badge with Ping status */}
-      <div className="relative shrink-0">
-        <motion.div 
-          animate={{ y: [0, -2, 0] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-          className={`relative w-11 h-11 rounded-2xl ${theme.bgColor} flex items-center justify-center border shadow-inner`}
-        >
-          <Icon className={`w-6 h-6 ${theme.color} animate-pulse`} strokeWidth={1.75} />
-        </motion.div>
+        {/* Animated Weather Icon Badge with Ping status */}
+        <div className="relative shrink-0">
+          <motion.div 
+            animate={{ y: [0, -2, 0] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+            className={`relative w-11 h-11 rounded-2xl ${theme.bgColor} flex items-center justify-center border shadow-inner`}
+          >
+            <Icon className={`w-6 h-6 ${theme.color} animate-pulse`} strokeWidth={1.75} />
+          </motion.div>
 
-        {/* Live Status Ping Dot */}
-        <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
-          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${theme.pingColor} opacity-75`}></span>
-          <span className={`relative inline-flex rounded-full h-3.5 w-3.5 ${theme.pingBg} border border-white/40`}></span>
-        </span>
-      </div>
-      
-      {/* Weather Metrics & Text */}
-      <div className="flex flex-col justify-center min-w-0 z-10">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold font-display tracking-tight text-white leading-none drop-shadow-sm">
-            {Math.round(weather.temperature)}°
-          </span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${theme.badge} truncate tracking-wide`}>
-            {theme.text}
+          {/* Live Status Ping Dot */}
+          <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${theme.pingColor} opacity-75`}></span>
+            <span className={`relative inline-flex rounded-full h-3.5 w-3.5 ${theme.pingBg} border border-white/40`}></span>
           </span>
         </div>
         
-        {/* Environmental Indicators */}
-        <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-medium text-white/80">
-          <div className="flex items-center gap-1" title="Yağış İhtimali">
-            <Umbrella className="w-3.5 h-3.5 text-sky-300" strokeWidth={1.75} />
-            <span>%{weather.rainChance}</span>
+        {/* Weather Metrics & Text */}
+        <div className="flex flex-col justify-center min-w-0 z-10 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold font-display tracking-tight text-white leading-none drop-shadow-sm">
+              {Math.round(weather.temperature)}°
+            </span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${theme.badge} truncate tracking-wide`}>
+              {theme.text}
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+              <Sparkles className="w-2.5 h-2.5" />
+              1, 2, 4, 6, 8s Tahmin
+            </span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-white/30"></div>
-          <div className="flex items-center gap-1" title="Bağıl Nem">
-            <Droplets className="w-3.5 h-3.5 text-blue-300" strokeWidth={1.75} />
-            <span>%{weather.humidity}</span>
-          </div>
-          <div className="w-1 h-1 rounded-full bg-white/30"></div>
-          <div className="flex items-center gap-1" title="Rüzgar Hızı">
-            <Wind className="w-3.5 h-3.5 text-stone-300" strokeWidth={1.75} />
-            <span>{Math.round(weather.windSpeed)} km/s</span>
+          
+          {/* Environmental Indicators */}
+          <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-medium text-white/80">
+            <div className="flex items-center gap-1" title="Yağış İhtimali">
+              <Umbrella className="w-3.5 h-3.5 text-sky-300" strokeWidth={1.75} />
+              <span>%{weather.rainChance}</span>
+            </div>
+            <div className="w-1 h-1 rounded-full bg-white/30"></div>
+            <div className="flex items-center gap-1" title="Bağıl Nem">
+              <Droplets className="w-3.5 h-3.5 text-blue-300" strokeWidth={1.75} />
+              <span>%{weather.humidity}</span>
+            </div>
+            <div className="w-1 h-1 rounded-full bg-white/30"></div>
+            <div className="flex items-center gap-1" title="Rüzgar Hızı">
+              <Wind className="w-3.5 h-3.5 text-stone-300" strokeWidth={1.75} />
+              <span>{Math.round(weather.windSpeed)} km/s</span>
+            </div>
           </div>
         </div>
-      </div>
-    </motion.div>
+
+        {/* Right Arrow / Detail Hint */}
+        <div className="shrink-0 p-1.5 rounded-xl bg-white/5 group-hover:bg-white/15 text-white/60 group-hover:text-amber-300 transition-colors z-10">
+          <ChevronRight className="w-4 h-4" />
+        </div>
+      </motion.button>
+
+      {/* Comprehensive Weather Detail Modal with 1, 2, 4, 6, 8 Hour Forecasts */}
+      <WeatherDetailModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        weather={detailedWeather}
+      />
+    </>
   );
 }

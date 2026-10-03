@@ -69,6 +69,29 @@ export interface PhonebookEntry {
   email: string;
 }
 
+export type StaffUnitCategory = 'all' | 'fakulte' | 'enstitu' | 'yuksekokul' | 'myo' | 'konservatuvar' | 'koordinatorluk';
+
+export interface AcademicStaffMember {
+  id: string;
+  fullName: string;
+  title: string;
+  name: string;
+  role: string;
+  facultyId: string;
+  facultyName: string;
+  facultyShortName: string;
+  department: string;
+  unitCategory?: StaffUnitCategory;
+  email: string;
+  image?: string;
+  phone?: string;
+  sourceUrl: string;
+  yokUrl?: string;
+  scholarUrl?: string;
+  orcidUrl?: string;
+  publonsUrl?: string;
+}
+
 export interface CampusEvent {
   id: string;
   title: string;
@@ -82,9 +105,11 @@ export interface CampusEvent {
 export interface CampusForm {
   id: string;
   title: string;
-  source: 'kilis.edu.tr' | 'ogrenciisleri.kilis.edu.tr';
+  source: 'kilis.edu.tr' | 'ogrenciisleri.kilis.edu.tr' | 'faculty';
   sourceName: string;
   sourceUrl: string;
+  faculty?: string;
+  department?: string;
   category: string;
   fileType: string;
   downloadUrl: string;

@@ -9,7 +9,7 @@ import {
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, PhoneCall, Calendar, Bus, FileText, BookOpen, Trophy, Hotel, Wifi, MapPin, LayoutGrid } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, PhoneCall, Calendar, Bus, FileText, BookOpen, Trophy, Hotel, Wifi, MapPin, LayoutGrid, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
@@ -172,10 +172,10 @@ export default function Home() {
             className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-emerald-500/50 hover:shadow-md transition-all active:scale-95"
           >
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
-              <PhoneCall className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
-            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Rehber</span>
-            <span className="text-[10px] text-stone-400 dark:text-white/40">Dahili & Tel</span>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Personel</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Fakülte & Bölüm</span>
           </Link>
 
           <Link

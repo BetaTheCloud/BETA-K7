@@ -25,12 +25,22 @@ import {
   Landmark,
   Share2,
   X,
-  FileCheck
+  FileCheck,
+  School,
+  Building2,
+  Filter,
+  Users,
+  UserCheck,
+  Award,
+  Globe
 } from 'lucide-react';
+import { FACULTIES_FILTER_LIST, AUTHENTIC_FORMS_DATA } from '../data/formsData';
+import { STAFF_FACULTIES_LIST, ACADEMIC_STAFF_DATA } from '../data/staffData';
 import {
   getPhonebook,
   getEvents,
   getForms,
+  getStaff,
   getTransportInfo,
   getLibraryInfo,
   getSportsInfo,
@@ -40,6 +50,7 @@ import {
   FALLBACK_PHONEBOOK,
   FALLBACK_EVENTS,
   FALLBACK_FORMS,
+  FALLBACK_STAFF,
   FALLBACK_TRANSPORT,
   FALLBACK_LIBRARY,
   FALLBACK_SPORTS,
@@ -47,7 +58,7 @@ import {
   FALLBACK_IT_HELP,
   FALLBACK_CAMPUS_MAP
 } from '../mockData';
-import { PhonebookEntry, CampusEvent, CampusForm, CampusBuilding } from '../types';
+import { PhonebookEntry, AcademicStaffMember, StaffUnitCategory, CampusEvent, CampusForm, CampusBuilding } from '../types';
 import LoadingState from '../components/LoadingState';
 import DetailModal from '../components/DetailModal';
 import toast from 'react-hot-toast';
@@ -78,7 +89,8 @@ export default function CampusHub() {
   // Instant fallback-backed states so screen is never blank!
   const [phonebook, setPhonebook] = useState<PhonebookEntry[]>(FALLBACK_PHONEBOOK);
   const [events, setEvents] = useState<CampusEvent[]>(FALLBACK_EVENTS);
-  const [forms, setForms] = useState<CampusForm[]>(FALLBACK_FORMS);
+  const [forms, setForms] = useState<CampusForm[]>(AUTHENTIC_FORMS_DATA);
+  const [staffList, setStaffList] = useState<AcademicStaffMember[]>(FALLBACK_STAFF);
   const [transport, setTransport] = useState<any>(FALLBACK_TRANSPORT);
   const [library, setLibrary] = useState<any>(FALLBACK_LIBRARY);
   const [sports, setSports] = useState<any>(FALLBACK_SPORTS);
@@ -86,13 +98,18 @@ export default function CampusHub() {
   const [itHelp, setItHelp] = useState<any>(FALLBACK_IT_HELP);
   const [mapLocations, setMapLocations] = useState<CampusBuilding[]>(FALLBACK_CAMPUS_MAP);
 
-  // Search in Directory
+  // Search in Directory / Phonebook
   const [directorySearch, setDirectorySearch] = useState('');
   const [searchingDirectory, setSearchingDirectory] = useState(false);
 
-  // Forms filter state: Multi-Source & Categorization
-  const [formSource, setFormSource] = useState<'all' | 'ogrenciisleri' | 'kilis'>('all');
-  const [formSubcategory, setFormSubcategory] = useState<string>('Tümü');
+  // Staff (Personel) filter state: Unit Category, Unit & Department Categorization
+  const [selectedStaffCategory, setSelectedStaffCategory] = useState<StaffUnitCategory>('all');
+  const [selectedStaffFaculty, setSelectedStaffFaculty] = useState<string>('all');
+  const [selectedStaffDepartment, setSelectedStaffDepartment] = useState<string>('Tümü');
+  const [staffSearch, setStaffSearch] = useState<string>('');
+
+  // Forms filter state: Pure Faculty Categorization
+  const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
   const [formSearch, setFormSearch] = useState<string>('');
 
   // Map campus filter
@@ -118,7 +135,7 @@ export default function CampusHub() {
     let isMounted = true;
     async function loadAllData() {
       try {
-        const [pb, ev, fm, tr, lib, sp, ht, it, ml] = await Promise.all([
+        const [pb, ev, fm, tr, lib, sp, ht, it, ml, st] = await Promise.all([
           getPhonebook(''),
           getEvents(),
           getForms(),
@@ -127,13 +144,24 @@ export default function CampusHub() {
           getSportsInfo(),
           getHotelInfo(),
           getItHelpInfo(),
-          getCampusMapLocations()
+          getCampusMapLocations(),
+          getStaff()
         ]);
 
         if (!isMounted) return;
         if (pb && pb.length > 0) setPhonebook(pb);
         if (ev && ev.length > 0) setEvents(ev);
-        if (fm && fm.length > 0) setForms(fm);
+        const REQUIRED_FAC = ['fen', 'gsf', 'iibf', 'ilahiyat', 'iletisim', 'itbf', 'egitim', 'mmf', 'spor', 'ubf', 'sbf', 'ziraat'];
+        if (fm && Array.isArray(fm) && REQUIRED_FAC.every(fac => fm.some(item => item && item.faculty === fac))) {
+          setForms(fm);
+        } else {
+          setForms(AUTHENTIC_FORMS_DATA);
+        }
+        if (st && Array.isArray(st) && st.length >= ACADEMIC_STAFF_DATA.length) {
+          setStaffList(st);
+        } else {
+          setStaffList(ACADEMIC_STAFF_DATA);
+        }
         if (tr && tr.cityRoutes) setTransport(tr);
         if (lib && lib.name) setLibrary(lib);
         if (sp && sp.facilities) setSports(sp);
@@ -171,7 +199,7 @@ export default function CampusHub() {
 
   const tabs: { key: TabKey; label: string; icon: any; color: string }[] = [
     { key: 'all', label: 'Genel Bakış', icon: Compass, color: 'text-stone-700 dark:text-stone-300' },
-    { key: 'directory', label: 'Rehber', icon: PhoneCall, color: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'directory', label: 'Personel', icon: Users, color: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'events', label: 'Etkinlikler', icon: Calendar, color: 'text-rose-600 dark:text-rose-400' },
     { key: 'transport', label: 'Ulaşım', icon: Bus, color: 'text-blue-600 dark:text-blue-400' },
     { key: 'forms', label: 'Dilekçe & Form', icon: FileText, color: 'text-amber-600 dark:text-amber-400' },
@@ -182,42 +210,123 @@ export default function CampusHub() {
     { key: 'map', label: 'Yerleşkeler', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
   ];
 
-  // Available subcategories depending on selected source portal
-  const availableSubcategories = React.useMemo(() => {
-    let sourceForms = forms;
-    if (formSource === 'ogrenciisleri') {
-      sourceForms = forms.filter((f) => f.source === 'ogrenciisleri.kilis.edu.tr');
-    } else if (formSource === 'kilis') {
-      sourceForms = forms.filter((f) => f.source === 'kilis.edu.tr');
+  // Category meta helper
+  const getUnitCategoryMeta = (cat?: StaffUnitCategory) => {
+    switch (cat) {
+      case 'fakulte':
+        return { label: 'Fakülte', shortLabel: 'Fakülte', badgeClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' };
+      case 'enstitu':
+        return { label: 'Enstitü', shortLabel: 'Enstitü', badgeClass: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20' };
+      case 'yuksekokul':
+        return { label: 'Yüksekokul', shortLabel: 'Yüksekokul', badgeClass: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20' };
+      case 'myo':
+        return { label: 'Meslek Yüksekokulu', shortLabel: 'MYO', badgeClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' };
+      case 'konservatuvar':
+        return { label: 'Konservatuvar', shortLabel: 'Konservatuvar', badgeClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20' };
+      case 'koordinatorluk':
+        return { label: 'Koordinatörlük', shortLabel: 'Koordinatörlük', badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20' };
+      default:
+        return { label: 'Birim', shortLabel: 'Birim', badgeClass: 'bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/20' };
     }
-    const cats = Array.from(new Set(sourceForms.map((f) => f.category))).filter(Boolean);
-    return ['Tümü', ...cats];
-  }, [forms, formSource]);
+  };
 
-  const filteredForms = forms.filter((f) => {
-    // 1. Source filter
-    if (formSource === 'ogrenciisleri' && f.source !== 'ogrenciisleri.kilis.edu.tr') return false;
-    if (formSource === 'kilis' && f.source !== 'kilis.edu.tr') return false;
+  // Staff (Personel) Active Faculty / Unit Configuration
+  const activeStaffFacultyConfig = React.useMemo(() => {
+    return STAFF_FACULTIES_LIST.find((f) => f.id === selectedStaffFaculty);
+  }, [selectedStaffFaculty]);
 
-    // 2. Subcategory filter
-    if (formSubcategory !== 'Tümü' && f.category !== formSubcategory) return false;
-
-    // 3. Search filter
-    if (formSearch.trim()) {
-      const q = formSearch.toLowerCase().trim();
-      const matchTitle = f.title.toLowerCase().includes(q);
-      const matchDesc = (f.description || '').toLowerCase().includes(q);
-      const matchCat = (f.category || '').toLowerCase().includes(q);
-      const matchExt = (f.fileType || '').toLowerCase().includes(q);
-      if (!matchTitle && !matchDesc && !matchCat && !matchExt) return false;
+  // Visible units filtered by selected category
+  const visibleStaffUnits = React.useMemo(() => {
+    if (selectedStaffCategory === 'all') {
+      return STAFF_FACULTIES_LIST;
     }
+    return STAFF_FACULTIES_LIST.filter(fac => fac.id === 'all' || fac.category === selectedStaffCategory);
+  }, [selectedStaffCategory]);
 
-    return true;
-  });
+  // Available departments for the selected staff faculty/unit
+  const availableStaffDepartments = React.useMemo(() => {
+    if (selectedStaffFaculty === 'all') {
+      return ['Tümü'];
+    }
+    return activeStaffFacultyConfig ? activeStaffFacultyConfig.departments : ['Tümü'];
+  }, [selectedStaffFaculty, activeStaffFacultyConfig]);
 
-  const handleSourceChange = (src: 'all' | 'ogrenciisleri' | 'kilis') => {
-    setFormSource(src);
-    setFormSubcategory('Tümü');
+  const handleStaffCategoryChange = (cat: StaffUnitCategory) => {
+    setSelectedStaffCategory(cat);
+    setSelectedStaffFaculty('all');
+    setSelectedStaffDepartment('Tümü');
+  };
+
+  const handleStaffFacultyChange = (facId: string) => {
+    setSelectedStaffFaculty(facId);
+    setSelectedStaffDepartment('Tümü');
+    if (facId !== 'all') {
+      const target = STAFF_FACULTIES_LIST.find(f => f.id === facId);
+      if (target && selectedStaffCategory !== 'all' && target.category !== selectedStaffCategory) {
+        setSelectedStaffCategory(target.category);
+      }
+    }
+  };
+
+  // Filtered staff list by category, faculty/unit, department and search
+  const filteredStaff = React.useMemo(() => {
+    return staffList.filter((s) => {
+      // 1. Category filter
+      if (selectedStaffCategory !== 'all' && selectedStaffFaculty === 'all') {
+        if (s.unitCategory !== selectedStaffCategory) return false;
+      }
+
+      // 2. Faculty / Unit filter
+      if (selectedStaffFaculty !== 'all' && s.facultyId !== selectedStaffFaculty) return false;
+
+      // 3. Department filter
+      if (selectedStaffDepartment !== 'Tümü' && s.department !== selectedStaffDepartment) return false;
+
+      // 4. Search query
+      if (staffSearch.trim()) {
+        const q = staffSearch.toLowerCase().trim();
+        const matchName = (s.fullName || '').toLowerCase().includes(q);
+        const matchRole = (s.role || '').toLowerCase().includes(q);
+        const matchDep = (s.department || '').toLowerCase().includes(q);
+        const matchFac = (s.facultyName || '').toLowerCase().includes(q);
+        const matchMail = (s.email || '').toLowerCase().includes(q);
+        const matchTitle = (s.title || '').toLowerCase().includes(q);
+        if (!matchName && !matchRole && !matchDep && !matchFac && !matchMail && !matchTitle) return false;
+      }
+
+      return true;
+    });
+  }, [staffList, selectedStaffCategory, selectedStaffFaculty, selectedStaffDepartment, staffSearch]);
+
+  // Selected faculty object for forms
+  const activeFacultyConfig = React.useMemo(() => {
+    return FACULTIES_FILTER_LIST.find((f) => f.id === selectedFaculty);
+  }, [selectedFaculty]);
+
+  // Clean faculty-based filtering without confusing department pills
+  const filteredForms = React.useMemo(() => {
+    return forms.filter((f) => {
+      // 1. Faculty filter
+      if (selectedFaculty !== 'all' && f.faculty !== selectedFaculty) return false;
+
+      // 2. Search filter
+      if (formSearch.trim()) {
+        const q = formSearch.toLowerCase().trim();
+        const matchTitle = (f.title || '').toLowerCase().includes(q);
+        const matchDesc = (f.description || '').toLowerCase().includes(q);
+        const matchCat = (f.category || '').toLowerCase().includes(q);
+        const matchExt = (f.fileType || '').toLowerCase().includes(q);
+        const matchSource = (f.sourceName || '').toLowerCase().includes(q);
+        const matchFaculty = (f.faculty || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc && !matchCat && !matchExt && !matchSource && !matchFaculty) return false;
+      }
+
+      return true;
+    });
+  }, [forms, selectedFaculty, formSearch]);
+
+  const handleFacultyChange = (facId: string) => {
+    setSelectedFaculty(facId);
   };
 
   const filteredLocations = mapLocations.filter((l) => {
@@ -284,22 +393,22 @@ export default function CampusHub() {
           >
             {/* Quick Grid of all 9 Modules */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* 1. Rehber */}
+              {/* 1. Personel Rehberi */}
               <div
                 onClick={() => handleTabChange('directory')}
                 className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg transition-all"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <PhoneCall className="w-5 h-5" />
+                    <Users className="w-5 h-5" />
                   </div>
                   <span className="text-xs text-stone-400 dark:text-white/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1">
                     Görüntüle <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Telefon Rehberi</h3>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Personel Rehberi</h3>
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Akademisyen ve personel dahili no, e-posta ve oda telefonu arama.
+                  12 Fakülte ve tüm bölümlerin güncel akademik kadrosu, unvanları ve doğrudan iletişim adresleri.
                 </p>
               </div>
 
@@ -458,95 +567,447 @@ export default function CampusHub() {
           </motion.div>
         )}
 
-        {/* ================= 1. REHBER (TELEFON REHBERİ) ================= */}
+        {/* ================= 1. PERSONEL (FAKÜLTE & BÖLÜM BAZLI AKADEMİK PERSONEL) ================= */}
         {activeTab === 'directory' && (
           <motion.div
             key="directory"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            {/* Search Box */}
-            <form onSubmit={handlePhonebookSearch} className="relative">
-              <input
-                type="text"
-                placeholder="Öğretim görevlisi, personel adı veya birim ara..."
-                value={directorySearch}
-                onChange={(e) => setDirectorySearch(e.target.value)}
-                className="w-full pl-11 pr-24 py-3.5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 outline-none text-stone-900 dark:text-white"
-              />
-              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-              <button
-                type="submit"
-                disabled={searchingDirectory}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold tracking-wide transition-colors"
-              >
-                {searchingDirectory ? 'Aranıyor...' : 'Ara'}
-              </button>
-            </form>
+            {/* Faculty & Department Filter Card */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                    <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    Üniversite Personel Rehberi
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                    Fakülteler, Enstitü, Yüksekokul, Meslek Yüksekokulları, Konservatuvar ve Koordinatörlüklerin güncel kadrosu ve iletişim bilgileri.
+                  </p>
+                </div>
 
-            <div className="text-xs text-stone-400 dark:text-white/40 flex items-center justify-between px-1">
-              <span>Toplam {phonebook.length} kayıt listelendi</span>
-              <span>Santral: 0348 814 26 66</span>
-            </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                    {filteredStaff.length} / {staffList.length} Personel
+                  </span>
+                  <span className="text-stone-400 hidden sm:inline">Santral: 0348 814 26 66</span>
+                </div>
+              </div>
 
-            {/* List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {phonebook.map((person) => (
-                <div
-                  key={person.id}
-                  className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 space-y-3 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                        {person.name}
-                      </h4>
-                      <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">
-                        {person.title} {person.role ? `• ${person.role}` : ''}
-                      </p>
-                      <p className="text-[11px] text-stone-400 dark:text-white/40 mt-0.5">
-                        {person.department}
-                      </p>
-                    </div>
+              {/* 1. Level: Unit Category Selector */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Birim Türü Kategorisi
+                  </span>
+                  {selectedStaffCategory !== 'all' && (
+                    <button
+                      onClick={() => handleStaffCategoryChange('all')}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+                    >
+                      Tüm Kategorileri Göster
+                    </button>
+                  )}
+                </div>
 
-                    {person.extension && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  {[
+                    { key: 'all' as StaffUnitCategory, label: 'Tüm Birimler', count: staffList.length },
+                    { key: 'fakulte' as StaffUnitCategory, label: 'Fakülteler', count: staffList.filter(s => s.unitCategory === 'fakulte').length },
+                    { key: 'enstitu' as StaffUnitCategory, label: 'Enstitü', count: staffList.filter(s => s.unitCategory === 'enstitu').length },
+                    { key: 'yuksekokul' as StaffUnitCategory, label: 'Yüksekokul', count: staffList.filter(s => s.unitCategory === 'yuksekokul').length },
+                    { key: 'myo' as StaffUnitCategory, label: 'Meslek Yüksekokulları', count: staffList.filter(s => s.unitCategory === 'myo').length },
+                    { key: 'konservatuvar' as StaffUnitCategory, label: 'Konservatuvar', count: staffList.filter(s => s.unitCategory === 'konservatuvar').length },
+                    { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler', count: staffList.filter(s => s.unitCategory === 'koordinatorluk').length },
+                  ].map((cat) => {
+                    const isCatActive = selectedStaffCategory === cat.key;
+                    return (
                       <button
-                        onClick={() => copyToClipboard(person.extension, 'Dahili No')}
-                        title="Dahili numarayı kopyala"
-                        className="shrink-0 flex items-center gap-1 text-[11px] font-mono px-2 py-1 bg-stone-100 dark:bg-white/10 rounded text-stone-600 dark:text-white/80 hover:bg-amber-500/20 hover:text-amber-600 transition-colors"
+                        key={cat.key}
+                        type="button"
+                        onClick={() => handleStaffCategoryChange(cat.key)}
+                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                          isCatActive
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
+                            : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-50 dark:hover:bg-white/10'
+                        }`}
                       >
-                        <Copy className="w-3 h-3" />
-                        <span>Dahili: {person.extension}</span>
+                        <span>{cat.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          isCatActive ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/60'
+                        }`}>
+                          {cat.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Level: Unit Selector Grid */}
+              <div className="space-y-2 pt-1 border-t border-stone-200/60 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wide">
+                    <School className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    {selectedStaffCategory === 'all'
+                      ? 'Fakülte, Enstitü, Yüksekokul & Birim Seçimi'
+                      : `${getUnitCategoryMeta(selectedStaffCategory).label} Seçimi`}
+                  </span>
+                  {selectedStaffFaculty !== 'all' && (
+                    <button
+                      onClick={() => handleStaffFacultyChange('all')}
+                      className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+                    >
+                      Tüm {selectedStaffCategory === 'all' ? 'Birimleri' : getUnitCategoryMeta(selectedStaffCategory).label + 'leri'} Göster
+                    </button>
+                  )}
+                </div>
+
+                {/* Units Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {visibleStaffUnits.map((fac) => {
+                    const isSelected = selectedStaffFaculty === fac.id;
+                    const count = fac.id === 'all'
+                      ? (selectedStaffCategory === 'all' ? staffList.length : staffList.filter(s => s.unitCategory === selectedStaffCategory).length)
+                      : staffList.filter((s) => s.facultyId === fac.id).length;
+                    const catMeta = getUnitCategoryMeta(fac.category);
+
+                    return (
+                      <button
+                        key={fac.id}
+                        type="button"
+                        onClick={() => handleStaffFacultyChange(fac.id)}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-500/30'
+                            : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white/80 hover:border-emerald-500/50 hover:bg-stone-50 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold truncate">
+                              {fac.shortName}
+                            </span>
+                            {fac.id !== 'all' && (
+                              <span className={`text-[9px] px-1 py-0.2 rounded font-semibold shrink-0 border ${
+                                isSelected ? 'bg-white/20 text-white border-white/30' : catMeta.badgeClass
+                              }`}>
+                                {catMeta.shortLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
+                            {fac.id === 'all' ? (selectedStaffCategory === 'all' ? 'Tüm Üniversite' : `Tüm ${catMeta.label}`) : fac.name}
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Level: Department / Anabilim Dalı Selector */}
+              {selectedStaffFaculty !== 'all' && availableStaffDepartments.length > 1 && (
+                <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                      <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Bölüm / Program / Anabilim Dalı Seçimi ({activeStaffFacultyConfig?.shortName})
+                    </span>
+                    {selectedStaffDepartment !== 'Tümü' && (
+                      <button
+                        onClick={() => setSelectedStaffDepartment('Tümü')}
+                        className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+                      >
+                        Tüm Bölümler ({activeStaffFacultyConfig?.shortName})
                       </button>
                     )}
                   </div>
 
-                  <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-2 text-xs">
-                    <a
-                      href={`tel:${person.phone ? person.phone.replace(/\s+/g, '') : '03488142666'}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium hover:bg-emerald-500/20 transition-colors"
-                    >
-                      <PhoneCall className="w-3.5 h-3.5" />
-                      <span>{person.phone || '0348 814 26 66'}</span>
-                    </a>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    {availableStaffDepartments.map((dept) => {
+                      const isDeptActive = selectedStaffDepartment === dept;
+                      const deptCount = dept === 'Tümü'
+                        ? staffList.filter(s => s.facultyId === selectedStaffFaculty).length
+                        : staffList.filter(s => s.facultyId === selectedStaffFaculty && s.department === dept).length;
 
-                    {person.email ? (
-                      <a
-                        href={`mailto:${person.email}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-500/20 transition-colors truncate max-w-[180px]"
-                      >
-                        <Mail className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{person.email}</span>
-                      </a>
-                    ) : (
-                      <span className="text-[11px] text-stone-400">E-posta belirtilmedi</span>
-                    )}
+                      return (
+                        <button
+                          key={dept}
+                          type="button"
+                          onClick={() => setSelectedStaffDepartment(dept)}
+                          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                            isDeptActive
+                              ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/30'
+                              : 'bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
+                          }`}
+                        >
+                          <span>{dept}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            isDeptActive ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/15 text-stone-600 dark:text-white/60'
+                          }`}>
+                            {deptCount}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Active Unit Direct Portal Link */}
+              {activeStaffFacultyConfig && activeStaffFacultyConfig.sourceUrl && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <School className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                    <div className="text-xs">
+                      <span className="font-bold text-emerald-900 dark:text-emerald-300">{activeStaffFacultyConfig.name}</span>
+                      {selectedStaffDepartment !== 'Tümü' && (
+                        <span className="text-emerald-700 dark:text-emerald-400 ml-1.5">• {selectedStaffDepartment}</span>
+                      )}
+                      <span className="text-stone-500 dark:text-white/60 ml-1.5">({filteredStaff.length} personel)</span>
+                    </div>
+                  </div>
+                  <a
+                    href={activeStaffFacultyConfig.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 self-start sm:self-auto shadow-sm"
+                  >
+                    <span>{activeStaffFacultyConfig.shortName} Resmi Sayfasını Aç</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
             </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Personel adı, unvan (Prof, Doç, Dr), bölüm veya e-posta ara..."
+                value={staffSearch}
+                onChange={(e) => setStaffSearch(e.target.value)}
+                className="w-full pl-11 pr-10 py-3.5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-emerald-500 outline-none text-stone-900 dark:text-white"
+              />
+              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+              {staffSearch && (
+                <button
+                  onClick={() => setStaffSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Staff Grid */}
+            {filteredStaff.length === 0 ? (
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                  <Users className="w-6 h-6" />
+                </div>
+                <h4 className="font-display font-bold text-lg text-stone-900 dark:text-white">
+                  Aramanızla Eşleşen Personel Bulunamadı
+                </h4>
+                <p className="text-xs text-stone-500 dark:text-white/60 max-w-md mx-auto">
+                  "{staffSearch || (activeStaffFacultyConfig && activeStaffFacultyConfig.name)}" kriterleri için sonuç bulunamadı. Filtreleri sıfırlayabilirsiniz.
+                </p>
+                <button
+                  onClick={() => {
+                    setStaffSearch('');
+                    setSelectedStaffCategory('all');
+                    setSelectedStaffFaculty('all');
+                    setSelectedStaffDepartment('Tümü');
+                  }}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors"
+                >
+                  Filtreleri Sıfırla
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredStaff.map((person) => {
+                  const initials = person.name
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join('')
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={person.id}
+                      className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-emerald-500/40 hover:shadow-md transition-all group"
+                    >
+                      <div className="space-y-3">
+                        {/* Top Avatar & Name Info */}
+                        <div className="flex items-start gap-3">
+                          {/* Photo / Avatar with fallback */}
+                          <div className="relative shrink-0">
+                            {person.image ? (
+                              <img
+                                src={person.image}
+                                alt={person.fullName}
+                                className="w-14 h-14 rounded-xl object-cover object-top border border-stone-200 dark:border-white/10 shadow-sm"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const sibling = e.currentTarget.nextElementSibling;
+                                  if (sibling) (sibling as HTMLElement).style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-sm flex items-center justify-center shadow-sm ${
+                                person.image ? 'hidden' : 'flex'
+                              }`}
+                            >
+                              {initials || 'K7'}
+                            </div>
+                          </div>
+
+                          {/* Names & Titles */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                {person.title}
+                              </span>
+                              {person.role && person.role !== 'Öğretim Üyesi' && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 truncate max-w-[140px]">
+                                  {person.role}
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-display font-bold text-sm text-stone-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors leading-snug line-clamp-1">
+                              {person.name}
+                            </h4>
+                            <p className="text-[11px] text-stone-500 dark:text-white/60 mt-0.5 line-clamp-1">
+                              {person.department}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Unit & Category Badge */}
+                        <div className="flex items-center justify-between gap-1.5 text-[11px] text-stone-600 dark:text-white/70 bg-stone-100/70 dark:bg-white/5 px-2.5 py-1.5 rounded-lg border border-stone-200/50 dark:border-white/5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <School className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="truncate font-medium">{person.facultyName}</span>
+                          </div>
+                          {person.unitCategory && (
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold shrink-0 border ${getUnitCategoryMeta(person.unitCategory).badgeClass}`}>
+                              {getUnitCategoryMeta(person.unitCategory).shortLabel}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Email Contact */}
+                        {person.email ? (
+                          <div className="flex items-center justify-between gap-1.5 text-xs bg-stone-50 dark:bg-white/5 p-2 rounded-xl border border-stone-200/50 dark:border-white/5">
+                            <a
+                              href={`mailto:${person.email}`}
+                              className="flex items-center gap-1.5 text-stone-700 dark:text-stone-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate font-mono text-[11px]"
+                            >
+                              <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span className="truncate">{person.email}</span>
+                            </a>
+                            <button
+                              onClick={() => copyToClipboard(person.email, 'E-posta')}
+                              title="E-posta adresini kopyala"
+                              className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded shrink-0"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-stone-400 dark:text-white/40 italic px-1">
+                            E-posta adresi belirtilmemiş
+                          </div>
+                        )}
+
+                        {/* Academic Profiles & Social Badges */}
+                        {(person.yokUrl || person.scholarUrl || person.orcidUrl || person.publonsUrl) && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                            {person.yokUrl && (
+                              <a
+                                href={person.yokUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="YÖK Akademik Profili"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                              >
+                                <span>YÖK</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {person.scholarUrl && (
+                              <a
+                                href={person.scholarUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Google Scholar Profili"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                              >
+                                <span>Scholar</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                            {person.orcidUrl && (
+                              <a
+                                href={person.orcidUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="ORCID Profili"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+                              >
+                                <span>ORCID</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="pt-2.5 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-2">
+                        {person.email ? (
+                          <a
+                            href={`mailto:${person.email}`}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-semibold tracking-wide transition-all shadow-sm"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>E-posta Gönder</span>
+                          </a>
+                        ) : (
+                          <div className="flex-1 text-center py-2 text-xs text-stone-400 font-medium">
+                            İletişim Bilgisi Yok
+                          </div>
+                        )}
+
+                        <a
+                          href={person.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Resmi Fakülte Personel Sayfasında Gör"
+                          className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-600 dark:text-white/80 transition-colors shrink-0"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -760,15 +1221,15 @@ export default function CampusHub() {
             className="space-y-5"
           >
             {/* Official Source Selection Segmented Tabs */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3 sm:p-4 space-y-3.5 shadow-sm">
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3 sm:p-5 space-y-4 shadow-sm">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
                     <FileText className="w-5 h-5 text-amber-600 dark:text-amber-500" />
-                    Resmi Matbu ve Başvuru Formları
+                    Resmi Matbu, Fakülte ve Öğrenci Dilekçeleri
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
-                    Kilis 7 Aralık Üniversitesi resmi web sitelerinden derlenmiş doğrudan indirilebilir güncel belgeler.
+                    K7AÜ Rektörlüğü, Öğrenci İşleri ve 12 Fakülteye ait onaylı güncel matbu form ve dilekçeler.
                   </p>
                 </div>
 
@@ -778,148 +1239,144 @@ export default function CampusHub() {
                 </div>
               </div>
 
-              {/* Source Switcher Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                <button
-                  onClick={() => handleSourceChange('all')}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                    formSource === 'all'
-                      ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-amber-500/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileCheck className="w-4 h-4 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold truncate">Tüm Belgeler</div>
-                      <div className={`text-[10px] truncate ${formSource === 'all' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
-                        2 Resmi Portal
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                    formSource === 'all' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
-                  }`}>
-                    50
+              {/* Faculty Categories Selection */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wide">
+                    <School className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Fakülte Seçimi (Kategoriler)
                   </span>
-                </button>
+                  {selectedFaculty !== 'all' && (
+                    <button
+                      onClick={() => handleFacultyChange('all')}
+                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold"
+                    >
+                      Tüm Fakülteleri Göster
+                    </button>
+                  )}
+                </div>
 
-                <button
-                  onClick={() => handleSourceChange('ogrenciisleri')}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                    formSource === 'ogrenciisleri'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-emerald-500/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <GraduationCap className="w-4 h-4 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold truncate">Öğrenci İşleri D. Bşk.</div>
-                      <div className={`text-[10px] truncate ${formSource === 'ogrenciisleri' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
-                        ogrenciisleri.kilis.edu.tr
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                    formSource === 'ogrenciisleri' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
-                  }`}>
-                    18
-                  </span>
-                </button>
+                {/* Faculty Buttons Grid / Scrollable */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {FACULTIES_FILTER_LIST.map((fac) => {
+                    const isSelected = selectedFaculty === fac.id;
+                    const count = fac.id === 'all' 
+                      ? forms.length 
+                      : forms.filter((f) => f.faculty === fac.id).length;
 
-                <button
-                  onClick={() => handleSourceChange('kilis')}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                    formSource === 'kilis'
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-blue-500/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Landmark className="w-4 h-4 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold truncate">Üniversite Genel Matbu</div>
-                      <div className={`text-[10px] truncate ${formSource === 'kilis' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
-                        kilis.edu.tr (Rektörlük)
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                    formSource === 'kilis' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
-                  }`}>
-                    32
-                  </span>
-                </button>
+                    return (
+                      <button
+                        key={fac.id}
+                        type="button"
+                        onClick={() => handleFacultyChange(fac.id)}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-md ring-2 ring-amber-500/30'
+                            : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white/80 hover:border-amber-500/50 hover:bg-stone-50 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <div className="text-xs font-bold truncate">
+                            {fac.shortName}
+                          </div>
+                          <div className={`text-[10px] truncate ${isSelected ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
+                            {fac.id === 'all' ? 'Tüm Üniversite' : fac.name}
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Source Verification Banner with Direct Portal Links */}
+              {/* Active Faculty Details & Direct Portal Link */}
+              {activeFacultyConfig && activeFacultyConfig.id !== 'all' && (
+                <div className="p-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                      <School className="w-4 h-4" />
+                      <span>{activeFacultyConfig.name}</span>
+                    </div>
+                    <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                      Bu fakülte için sisteme tanımlı {filteredForms.length} resmi matbu dilekçe ve form listelenmektedir.
+                    </p>
+                  </div>
+                  {activeFacultyConfig.sourceUrl && (
+                    <a
+                      href={activeFacultyConfig.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0 self-start sm:self-auto"
+                    >
+                      <span>Fakülte Sayfasına Git</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Official Source Portals Banner (Without TDE link) */}
               <div className="bg-stone-100/70 dark:bg-white/5 rounded-xl p-3 text-[11px] text-stone-600 dark:text-white/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border border-stone-200/60 dark:border-white/5">
-                <span className="flex items-center gap-1.5 font-medium">
-                  🔗 Resmi Kaynak Bağlantıları:
+                <span className="flex items-center gap-1.5 font-medium shrink-0">
+                  🔗 Resmi Kaynak Portalları:
                 </span>
-                <div className="flex items-center flex-wrap gap-3">
+                <div className="flex items-center flex-wrap gap-2.5">
+                  {activeFacultyConfig && activeFacultyConfig.sourceUrl && (
+                    <a
+                      href={activeFacultyConfig.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-amber-700 dark:text-amber-300 font-semibold hover:underline flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"
+                    >
+                      <span>{activeFacultyConfig.shortName} Portalı</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                   <a
                     href="https://ogrenciisleri.kilis.edu.tr/tr/department-forms"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1"
+                    className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded"
                   >
-                    <span>Öğrenci İşleri Form Portalı</span>
+                    <span>Öğrenci İşleri Portalı</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
-                  <span className="text-stone-300 dark:text-white/20">•</span>
                   <a
                     href="https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-700 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+                    className="text-blue-700 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded"
                   >
-                    <span>kilis.edu.tr Matbu Formlar Portalı</span>
+                    <span>Rektörlük Matbu Portalı</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
               </div>
             </div>
 
-            {/* Search and Subcategory Filters */}
-            <div className="space-y-3">
-              {/* Search Bar */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Form adı, konu veya dosya türü ara (örn. diploma, izin, telefon, yatay geçiş, docx, pdf)..."
-                  value={formSearch}
-                  onChange={(e) => setFormSearch(e.target.value)}
-                  className="w-full pl-11 pr-10 py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 outline-none text-stone-900 dark:text-white"
-                />
-                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                {formSearch && (
-                  <button
-                    onClick={() => setFormSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Subcategories Horizontal Scroll */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {availableSubcategories.map((subcat) => (
-                  <button
-                    key={subcat}
-                    onClick={() => setFormSubcategory(subcat)}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      formSubcategory === subcat
-                        ? 'bg-amber-600 text-white shadow-sm'
-                        : 'bg-stone-200/80 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/15'
-                    }`}
-                  >
-                    {subcat}
-                  </button>
-                ))}
-              </div>
+            {/* Search Bar - Clean Faculty-Focused Form Search */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Dilekçe adı, konu veya dosya türü ara (örn. Ek Sınav, intibak, kayıt dondurma, mazeret, docx, pdf)..."
+                value={formSearch}
+                onChange={(e) => setFormSearch(e.target.value)}
+                className="w-full pl-11 pr-10 py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 outline-none text-stone-900 dark:text-white"
+              />
+              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+              {formSearch && (
+                <button
+                  onClick={() => setFormSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Forms Grid */}
@@ -929,16 +1386,15 @@ export default function CampusHub() {
                   <Search className="w-6 h-6" />
                 </div>
                 <h4 className="font-display font-bold text-lg text-stone-900 dark:text-white">
-                  Aramanızla Eşleşen Form Bulunamadı
+                  Aramanızla Eşleşen Dilekçe / Form Bulunamadı
                 </h4>
                 <p className="text-xs text-stone-500 dark:text-white/60 max-w-md mx-auto">
-                  "{formSearch}" araması için mevcut kategoride kayıt bulunamadı. Farklı bir arama terimi deneyebilir veya filtreyi sıfırlayabilirsiniz.
+                  "{formSearch || (activeFacultyConfig && activeFacultyConfig.name)}" kriterleri için kayıt bulunamadı. Filtreleri sıfırlayarak tüm belgelere göz atabilirsiniz.
                 </p>
                 <button
                   onClick={() => {
                     setFormSearch('');
-                    setFormSource('all');
-                    setFormSubcategory('Tümü');
+                    setSelectedFaculty('all');
                   }}
                   className="px-4 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors"
                 >
@@ -952,6 +1408,8 @@ export default function CampusHub() {
                   const isWord = extUpper.includes('DOC');
                   const isExcel = extUpper.includes('XLS') || extUpper.includes('XLT');
                   const isPdf = extUpper.includes('PDF');
+                  const facultyObj = FACULTIES_FILTER_LIST.find((f) => f.id === form.faculty);
+                  const facultyName = facultyObj?.shortName || form.sourceName || 'Fakülte';
 
                   return (
                     <div
@@ -962,23 +1420,18 @@ export default function CampusHub() {
                         {/* Badges Bar */}
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Source Portal Badge */}
-                            {form.source === 'ogrenciisleri.kilis.edu.tr' ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                <GraduationCap className="w-3 h-3" />
-                                Öğrenci İşleri
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
-                                <Landmark className="w-3 h-3" />
-                                Rektörlük / Genel
+                            {/* Faculty Badge */}
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                              <School className="w-3 h-3" />
+                              {facultyName}
+                            </span>
+
+                            {/* Category Badge if available */}
+                            {form.category && form.category !== 'Genel' && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70">
+                                {form.category}
                               </span>
                             )}
-
-                            {/* Subcategory */}
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70">
-                              {form.category}
-                            </span>
                           </div>
 
                           {/* File Extension Badge */}
@@ -995,7 +1448,7 @@ export default function CampusHub() {
                           </span>
                         </div>
 
-                        {/* Title */}
+                        {/* Title - Cleaned Turkish Typography */}
                         <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors leading-snug">
                           {form.title}
                         </h4>
@@ -1022,7 +1475,7 @@ export default function CampusHub() {
                         </a>
 
                         <button
-                          onClick={() => copyToClipboard(form.downloadUrl, 'Form indirme bağlantısı')}
+                          onClick={() => copyToClipboard(form.downloadUrl, 'Dilekçe indirme bağlantısı')}
                           title="İndirme bağlantısını kopyala"
                           className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-600 dark:text-white/80 transition-colors shrink-0"
                         >
@@ -1030,10 +1483,10 @@ export default function CampusHub() {
                         </button>
 
                         <a
-                          href={form.sourceUrl}
+                          href={form.sourceUrl || facultyObj?.sourceUrl || 'https://kilis.edu.tr'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title="Resmi portal sayfasında görüntüle"
+                          title="Resmi fakülte web sayfasında görüntüle"
                           className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-600 dark:text-white/80 transition-colors shrink-0"
                         >
                           <ExternalLink className="w-4 h-4" />
