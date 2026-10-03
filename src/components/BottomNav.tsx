@@ -1,20 +1,20 @@
 import { NavLink } from 'react-router-dom';
-import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function BottomNav() {
   const navItems = [
     { to: '/', label: 'Ana', icon: Compass },
     { to: '/announcements', label: 'Duyuru', icon: Megaphone },
+    { to: '/campus', label: 'Hizmetler', icon: LayoutGrid },
     { to: '/news', label: 'Haber', icon: Newspaper },
     { to: '/bologna', label: 'Bologna', icon: Landmark },
-    { to: '/calendar', label: 'Takvim', icon: CalendarClock },
     { to: '/menu', label: 'Yemek', icon: ChefHat },
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-[#fcfbf9]/80 dark:bg-[#1d3540]/80 backdrop-blur-xl border-t border-[#e6e2d6] dark:border-white/10 z-50 px-2 pb-safe pt-2">
-      <div className="flex justify-around items-center h-16">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-[#fcfbf9]/85 dark:bg-[#1d3540]/85 backdrop-blur-xl border-t border-[#e6e2d6] dark:border-white/10 z-50 px-2 pb-safe pt-1">
+      <div className="flex justify-around items-center h-14">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

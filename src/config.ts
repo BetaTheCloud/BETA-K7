@@ -132,12 +132,9 @@ export function isMobileAppEnvironment(): boolean {
   const isFileProtocol = window.location.protocol === 'file:';
   const isCapacitorOrigin = 
     window.location.origin === 'capacitor://localhost' || 
-    window.location.origin === 'ionic://localhost' ||
-    window.location.origin === 'http://localhost' ||
-    window.location.origin === 'https://localhost';
-  const isAndroidAppUserAgent = /Android.*wv|Version\/.*Chrome.*Mobile/i.test(navigator.userAgent);
+    window.location.origin === 'ionic://localhost';
 
-  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin || isAndroidAppUserAgent;
+  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin;
 }
 
 export function getEffectiveApiBase(): string {
@@ -186,10 +183,10 @@ export function getApiUrl(path: string): string {
 
 /**
  * Robust fetch wrapper for mobile / cloud cold starts
- * Retries on failure and sets a realistic timeout (45s) for backend cold start awakening.
+ * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
  */
-export async function safeFetch(url: string, options: RequestInit = {}, retries = 2): Promise<Response> {
-  const timeoutMs = 45000; // 45s per attempt for cold starts
+export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
+  const timeoutMs = 10000; // 10s per attempt
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -203,12 +200,17 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
       });
       clearTimeout(timer);
       if (response.ok) {
+        // Detect HTML responses disguised as 200 (such as SPA catch-all fallbacks)
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('text/html')) {
+          throw new Error(`Endpoint ${url} returned HTML fallback instead of JSON`);
+        }
         onFetchEnd(true);
         return response;
       }
       // If 5xx error on cold start, retry
       if (response.status >= 500 && attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         continue;
       }
       onFetchEnd(true);
@@ -221,8 +223,8 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         onFetchEnd(false);
         throw error;
       }
-      // Wait 2s before retry
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait 1.5s before retry
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   

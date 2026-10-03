@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getAnnouncements } from '../mockData';
+import { getAnnouncements, FALLBACK_ANNOUNCEMENTS } from '../mockData';
 import { Announcement } from '../types';
 import { ChevronDown, ExternalLink, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -9,16 +9,25 @@ import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 
 export default function Announcements() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_announcements');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_ANNOUNCEMENTS;
+  });
+  const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>('Ana Duyurular');
   const [selectedItem, setSelectedItem] = useState<{url: string, title: string} | null>(null);
 
   const load = async (force = false) => {
-    if (!force) setLoading(true);
     const data = await getAnnouncements(force);
-    setAnnouncements(data);
-    if (!force) setLoading(false);
+    if (data && data.length > 0) {
+      setAnnouncements(data);
+    }
   };
 
   useEffect(() => {

@@ -15,6 +15,91 @@ const DEGREE_TYPES = [
   { id: 'dok', name: 'Doktora', icon: 'Library' }
 ];
 
+const FALLBACK_BOLOGNA_FACULTIES: Record<string, BolognaFaculty[]> = {
+  lis: [
+    {
+      id: 'fac-lis-1',
+      name: 'Mühendislik - Mimarlık Fakültesi',
+      departments: [
+        { id: 'dep-101', name: 'Bilgisayar Mühendisliği', description: 'Lisans Programı', sUnitId: '101' },
+        { id: 'dep-102', name: 'Elektrik - Elektronik Mühendisliği', description: 'Lisans Programı', sUnitId: '102' },
+        { id: 'dep-103', name: 'İnşaat Mühendisliği', description: 'Lisans Programı', sUnitId: '103' },
+        { id: 'dep-104', name: 'Makine Mühendisliği', description: 'Lisans Programı', sUnitId: '104' },
+      ]
+    },
+    {
+      id: 'fac-lis-2',
+      name: 'İktisadi ve İdari Bilimler Fakültesi',
+      departments: [
+        { id: 'dep-201', name: 'İktisat', description: 'Lisans Programı', sUnitId: '201' },
+        { id: 'dep-202', name: 'İşletme', description: 'Lisans Programı', sUnitId: '202' },
+        { id: 'dep-203', name: 'Siyaset Bilimi ve Kamu Yönetimi', description: 'Lisans Programı', sUnitId: '203' }
+      ]
+    },
+    {
+      id: 'fac-lis-3',
+      name: 'Fen Fakültesi',
+      departments: [
+        { id: 'dep-301', name: 'Matematik', description: 'Lisans Programı', sUnitId: '301' },
+        { id: 'dep-302', name: 'Moleküler Biyoloji ve Genetik', description: 'Lisans Programı', sUnitId: '302' },
+        { id: 'dep-303', name: 'Kimya', description: 'Lisans Programı', sUnitId: '303' }
+      ]
+    },
+    {
+      id: 'fac-lis-4',
+      name: 'İlahiyat Fakültesi',
+      departments: [
+        { id: 'dep-401', name: 'İlahiyat', description: 'Lisans Programı', sUnitId: '401' }
+      ]
+    },
+    {
+      id: 'fac-lis-5',
+      name: 'İnsan ve Toplum Bilimleri Fakültesi',
+      departments: [
+        { id: 'dep-501', name: 'Tarih', description: 'Lisans Programı', sUnitId: '501' },
+        { id: 'dep-502', name: 'Türk Dili ve Edebiyatı', description: 'Lisans Programı', sUnitId: '502' },
+        { id: 'dep-503', name: 'Felsefe', description: 'Lisans Programı', sUnitId: '503' }
+      ]
+    },
+    {
+      id: 'fac-lis-6',
+      name: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
+      departments: [
+        { id: 'dep-601', name: 'Hemşirelik', description: 'Lisans Programı', sUnitId: '601' },
+        { id: 'dep-602', name: 'Beslenme ve Diyetetik', description: 'Lisans Programı', sUnitId: '602' }
+      ]
+    }
+  ],
+  myo: [
+    {
+      id: 'fac-myo-1',
+      name: 'Teknik Bilimler Meslek Yüksekokulu',
+      departments: [
+        { id: 'dep-701', name: 'Bilgisayar Programcılığı', description: 'Ön Lisans', sUnitId: '701' },
+        { id: 'dep-702', name: 'Elektrik', description: 'Ön Lisans', sUnitId: '702' },
+        { id: 'dep-703', name: 'İnşaat Teknolojisi', description: 'Ön Lisans', sUnitId: '703' }
+      ]
+    },
+    {
+      id: 'fac-myo-2',
+      name: 'Sağlık Hizmetleri Meslek Yüksekokulu',
+      departments: [
+        { id: 'dep-801', name: 'İlk ve Acil Yardım (Paramedik)', description: 'Ön Lisans', sUnitId: '801' },
+        { id: 'dep-802', name: 'Tıbbi Laboratuvar Teknikleri', description: 'Ön Lisans', sUnitId: '802' },
+        { id: 'dep-803', name: 'Optisyenlik', description: 'Ön Lisans', sUnitId: '803' }
+      ]
+    },
+    {
+      id: 'fac-myo-3',
+      name: 'Sosyal Bilimler Meslek Yüksekokulu',
+      departments: [
+        { id: 'dep-901', name: 'Muhasebe ve Vergi Uygulamaları', description: 'Ön Lisans', sUnitId: '901' },
+        { id: 'dep-902', name: 'Büro Yönetimi ve Yönetici Asistanlığı', description: 'Ön Lisans', sUnitId: '902' }
+      ]
+    }
+  ]
+};
+
 export default function Bologna() {
   const [faculties, setFaculties] = useState<BolognaFaculty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,20 +110,25 @@ export default function Bologna() {
   const [activeCourse, setActiveCourse] = useState<BolognaCourse | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Faculties are now loaded when a degree type is selected
+  // Faculties are loaded when a degree type is selected
   const loadFaculties = async (typeId: string) => {
     setLoading(true);
     try {
       const response = await safeFetch(getApiUrl(`/api/bologna/faculties?type=${typeId}`));
       if (response.ok) {
         const data = await response.json();
-        setFaculties(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setFaculties(data);
+          return;
+        }
       }
     } catch (err) {
-      console.error("Failed to load faculties", err);
+      console.warn("Canlı Bologna verisi alınamadı, yerleşik fakülteler kullanılıyor:", err);
     } finally {
       setLoading(false);
     }
+    // Fallback to built-in faculties
+    setFaculties(FALLBACK_BOLOGNA_FACULTIES[typeId] || []);
   };
   
   // Set initial loading to false since we start at degree selection

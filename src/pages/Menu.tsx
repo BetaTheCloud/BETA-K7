@@ -1,20 +1,30 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { getMenu } from '../mockData';
+import { getMenu, FALLBACK_MENU } from '../mockData';
 import { MenuItem } from '../types';
 import { CalendarDays, ChefHat, Utensils } from 'lucide-react';
 import { cn } from '../lib/utils';
 import LoadingState from '../components/LoadingState';
 
 export default function Menu() {
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [menu, setMenu] = useState<MenuItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_menu');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_MENU;
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
       const data = await getMenu();
-      setMenu(data);
-      setLoading(false);
+      if (data && data.length > 0) {
+        setMenu(data);
+      }
     }
     load();
   }, []);

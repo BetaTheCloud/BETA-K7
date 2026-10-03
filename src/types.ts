@@ -57,3 +57,53 @@ export interface BolognaFaculty {
   name: string;
   departments: BolognaDepartment[];
 }
+
+export interface PhonebookEntry {
+  id: string;
+  name: string;
+  title: string;
+  role: string;
+  department: string;
+  phone: string;
+  extension: string;
+  email: string;
+}
+
+export interface CampusEvent {
+  id: string;
+  title: string;
+  date: string;
+  location?: string;
+  url?: string;
+  img?: string;
+  category?: string;
+}
+
+export interface CampusForm {
+  id: string;
+  title: string;
+  category: 'Öğrenci' | 'Personel' | 'Genel';
+  fileType: 'pdf' | 'doc' | 'docx';
+  downloadUrl: string;
+  description: string;
+}
+
+export interface TransportRoute {
+  id: string;
+  name: string;
+  badge: string;
+  hours: string;
+  frequency: string;
+  route: string[];
+  notes?: string;
+}
+
+export interface CampusBuilding {
+  id: string;
+  name: string;
+  campus: 'Merkez Kampüs' | 'Karataş Kampüsü' | 'Mercidabık Kampüsü';
+  type: 'Fakülte' | 'Yüksekokul' | 'Sosyal / İdari' | 'Spor & Sağlık';
+  description: string;
+  mapsUrl: string;
+  coordinates: { lat: number; lng: number };
+}

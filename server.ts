@@ -653,6 +653,541 @@ app.get('/api/detail', async (req, res) => {
   }
 });
 
+// --- CAMPUS MODULES API ENDPOINTS ---
+
+const DEFAULT_PHONEBOOK: any[] = [
+  { id: 'pb-1', name: 'Rektörlük Santral', title: 'Santral', role: 'Genel İletişim', department: 'Rektörlük', phone: '0348 814 26 66', extension: '1000', email: 'rimer@kilis.edu.tr' },
+  { id: 'pb-2', name: 'Öğrenci İşleri Daire Başkanlığı', title: 'Daire Başkanlığı', role: 'Öğrenci Hizmetleri', department: 'Öğrenci İşleri', phone: '0348 814 26 66', extension: '6461', email: 'ogrenciisleri@kilis.edu.tr' },
+  { id: 'pb-3', name: 'Sağlık Kültür ve Spor Daire Bşk (SKS)', title: 'Daire Başkanlığı', role: 'Yemekhane & Kulüpler & Spor', department: 'SKS Daire Bşk.', phone: '0348 814 26 66', extension: '5050', email: 'sks@kilis.edu.tr' },
+  { id: 'pb-4', name: 'Merkez Kütüphane Danışma', title: 'Kütüphane Şube Md.', role: 'Kitap & Veritabanı Danışma', department: 'Kütüphane Daire Bşk.', phone: '0348 814 26 66', extension: '4160', email: 'kutuphane@kilis.edu.tr' },
+  { id: 'pb-5', name: 'Bilgi İşlem Daire Başkanlığı', title: 'Teknik Destek', role: 'Eduroam Wi-Fi & E-Posta Destek', department: 'Bilgi İşlem', phone: '0348 814 26 66', extension: '1313', email: 'bilgiislem@kilis.edu.tr' },
+  { id: 'pb-6', name: 'Kampüs Güvenlik Amirliği', title: 'Güvenlik', role: 'Kampüs Güvenlik & Nizamiye', department: 'İdari ve Mali İşler', phone: '0348 814 26 66', extension: '1111', email: 'guvenlik@kilis.edu.tr' },
+  { id: 'pb-7', name: 'K7AÜ Uygulama Oteli (Konukevi)', title: 'Resepsiyon', role: 'Oda Rezervasyon & Konaklama', department: 'Sosyal Tesisler', phone: '0348 814 26 66', extension: '7000', email: 'kiyuotel@kilis.edu.tr' },
+  { id: 'pb-8', name: 'Mediko-Sosyal Sağlık Merkezi', title: 'Sağlık Merkezi', role: 'Öğrenci & Personel Sağlık', department: 'SKS Sağlık Şb.', phone: '0348 814 26 66', extension: '5064', email: 'mediko@kilis.edu.tr' },
+  { id: 'pb-9', name: 'Erasmus & Dış İlişkiler Ofisi', title: 'Koordinatörlük', role: 'Öğrenci Değişim Programları', department: 'Uluslararası İlişkiler', phone: '0348 814 26 66', extension: '1450', email: 'erasmus@kilis.edu.tr' },
+  { id: 'pb-10', name: 'Kariyer Planlama Uygulama Merkezi', title: 'KARMER', role: 'Staj ve Kariyer Danışmanlığı', department: 'Kariyer Merkezi', phone: '0348 814 26 66', extension: '1520', email: 'karmer@kilis.edu.tr' }
+];
+
+app.get('/api/phonebook', async (req, res) => {
+  try {
+    const query = ((req.query.q || req.query.search || '') as string).trim();
+    if (!query) {
+      return res.json(DEFAULT_PHONEBOOK);
+    }
+
+    const response = await axiosInstance.get(`https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi?search=${encodeURIComponent(query)}`, {
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'text/html'
+      }
+    });
+
+    const $ = cheerio.load(response.data);
+    const results: any[] = [];
+
+    // Parse phonebook items from HTML
+    $('table tr, .phone-book-row, div[class*="phone-item"]').each((idx, el) => {
+      const text = $(el).text().replace(/\s+/g, ' ').trim();
+      if (!text || text.length < 5) return;
+
+      // Check if it looks like a person row
+      if (text.includes('Dahili') || text.includes('Telefon') || text.includes('Ünvan') || text.includes('E-posta')) {
+        let name = $(el).find('strong, h4, h5, .name, [class*="title"]').first().text().trim();
+        if (!name) {
+          const parts = text.split(/(Ünvan:|Görev:|Telefon:|Dahili:|E-posta:)/);
+          name = parts[0]?.trim() || `Personel ${idx + 1}`;
+        }
+
+        const unvanMatch = text.match(/Ünvan:\s*([^G|T|D|E]+?)(?=Görev|Telefon|Dahili|E-posta|$)/i);
+        const gorevMatch = text.match(/Görev:\s*([^T|D|E]+?)(?=Telefon|Dahili|E-posta|$)/i);
+        const telefonMatch = text.match(/Telefon:\s*([+0-9\s]{8,20})/i);
+        const dahiliMatch = text.match(/Dahili:\s*([0-9]{3,6})/i);
+        const epostaMatch = text.match(/E-posta:\s*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)/i);
+
+        results.push({
+          id: `pb-search-${idx}`,
+          name: name.replace(/\s+/g, ' ').trim(),
+          title: unvanMatch ? unvanMatch[1].trim() : 'Personel / Akademisyen',
+          role: gorevMatch ? gorevMatch[1].trim() : '',
+          department: 'Kilis 7 Aralık Üniversitesi',
+          phone: telefonMatch ? telefonMatch[1].trim() : '0348 814 26 66',
+          extension: dahiliMatch ? dahiliMatch[1].trim() : '',
+          email: epostaMatch ? epostaMatch[1].trim() : ''
+        });
+      }
+    });
+
+    if (results.length > 0) {
+      return res.json(results);
+    }
+
+    // Filter default directory if search didn't return web rows
+    const qLower = query.toLowerCase();
+    const filteredDefaults = DEFAULT_PHONEBOOK.filter(p => 
+      p.name.toLowerCase().includes(qLower) || 
+      p.role.toLowerCase().includes(qLower) || 
+      p.department.toLowerCase().includes(qLower) ||
+      p.extension.includes(qLower)
+    );
+
+    res.json(filteredDefaults.length > 0 ? filteredDefaults : results);
+  } catch (error) {
+    console.error('Phonebook fetch error:', error);
+    const query = ((req.query.q || req.query.search || '') as string).toLowerCase();
+    const filtered = DEFAULT_PHONEBOOK.filter(p => p.name.toLowerCase().includes(query) || p.department.toLowerCase().includes(query));
+    res.json(filtered.length > 0 ? filtered : DEFAULT_PHONEBOOK);
+  }
+});
+
+let cachedEvents: any[] = [];
+let cachedEventsTime = 0;
+
+app.get('/api/events', async (req, res) => {
+  try {
+    if (req.query.force !== 'true' && Date.now() - cachedEventsTime < CACHE_TTL && cachedEvents.length > 0) {
+      return res.json(cachedEvents);
+    }
+
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/etkinlikler');
+    const $ = cheerio.load(response.data);
+    const events: any[] = [];
+
+    $('a[href*="/etkinlik/"], a.full-link-item').each((i, el) => {
+      let title = $(el).find('.title-wrapper .text, .title, h3, h4').text().replace(/\s+/g, ' ').trim();
+      let dateStr = $(el).find('.link-footer .date .text, .date, time').text().replace(/\s+/g, ' ').trim();
+      if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
+      let href = $(el).attr('href') || '';
+      let img = $(el).find('img').attr('src') || '';
+
+      if (title && !title.toLowerCase().includes('tüm etkinlikler')) {
+        if (href && !href.startsWith('http')) {
+          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+        }
+        if (img && !img.startsWith('http')) {
+          img = `https://www.kilis.edu.tr${img.startsWith('/') ? '' : '/'}${img}`;
+        }
+
+        events.push({
+          id: `event-${i}`,
+          title: title,
+          date: dateStr || 'Yaklaşan Etkinlik',
+          location: 'K7AÜ Konferans Salonu / Kampüs',
+          url: href,
+          img: img,
+          category: 'Kültür & Sanat'
+        });
+      }
+    });
+
+    if (events.length > 0) {
+      cachedEvents = events;
+      cachedEventsTime = Date.now();
+      return res.json(events);
+    }
+
+    // Fallback events
+    res.json([
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: 'Devam Ediyor', location: 'Merkez Kütüphane Sergi Salonu', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: 'Ekim 2026', location: 'Kapalı Spor Salonu Yanı Etkinlik Alanı', category: 'Fuar & Söyleşi' },
+      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: 'Güz Dönemi', location: 'Rektörlük Konferans Salonu', category: 'Sempozyum' },
+      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: 'Kasım 2026', location: 'İlahiyat Fakültesi Konferans Salonu', category: 'Konferans' }
+    ]);
+  } catch (error) {
+    console.error('Events fetch error:', error);
+    res.json([
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: 'Devam Ediyor', location: 'Merkez Kütüphane Sergi Salonu', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: 'Ekim 2026', location: 'Kapalı Spor Salonu Yanı Etkinlik Alanı', category: 'Fuar & Söyleşi' }
+    ]);
+  }
+});
+
+app.get('/api/forms', (req, res) => {
+  const forms = [
+    {
+      id: 'f-1',
+      title: 'Mazeret Sınavı Başvuru Dilekçesi',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/mazeret_sinavi_dilekcesi.docx',
+      description: 'Hastalık, kaza veya haklı mazeret sebebiyle vize sınavına giremeyen öğrencilerin rapor ekleyerek bölüme sunduğu form.'
+    },
+    {
+      id: 'f-2',
+      title: 'Tek Ders / Üç Ders Sınav Başvuru Formu',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/tek_ders_sinav_dilekcesi.docx',
+      description: 'Mezuniyet için tek bir dersi kalan ve tüm staj yükümlülüklerini tamamlamış öğrencilerin sınav talebi için.'
+    },
+    {
+      id: 'f-3',
+      title: 'Kayıt Dondurma Talep Dilekçesi',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/kayit_dondurma_dilekcesi.docx',
+      description: 'Sağlık, askerlik veya maddi imkansızlıklar sebebiyle eğitime 1 veya 2 yarıyıl ara vermek isteyen öğrenciler için.'
+    },
+    {
+      id: 'f-4',
+      title: 'Maddi Hata / Not İtiraz Dilekçesi',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/not_itiraz_dilekcesi.docx',
+      description: 'Sınav notunun OBS sisteminde hatalı girildiğini düşünen öğrencilerin sınav ilanından itibaren 5 gün içinde verdiği form.'
+    },
+    {
+      id: 'f-5',
+      title: 'Yatay Geçiş Başvuru Formu',
+      category: 'Öğrenci',
+      fileType: 'pdf',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/yatay_gecis_basvuru.pdf',
+      description: 'Merkezi yerleştirme puanı (Ek Madde-1) veya genel not ortalaması (AGNO) ile üniversitemize geçiş formu.'
+    },
+    {
+      id: 'f-6',
+      title: 'İlişik Kesme Belgesi',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/ilisik_kesme_formu.docx',
+      description: 'Mezun olan veya kendi isteğiyle kaydını sildiren öğrencilerin kütüphane, SKS ve dekanlık onayı için kullandığı belge.'
+    },
+    {
+      id: 'f-7',
+      title: 'Çift Anadal (ÇAP) & Yandal Başvuru Formu',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/cap_yandal_basvuru.docx',
+      description: 'Kendi bölümünde başarılı olup ikinci bir anadal veya yandal diploması almak isteyen öğrenciler için.'
+    },
+    {
+      id: 'f-8',
+      title: 'Ders Muafiyet ve İntibak Talep Formu',
+      category: 'Öğrenci',
+      fileType: 'docx',
+      downloadUrl: 'https://ogrenciisleri.kilis.edu.tr/documents/documents/ders_muafiyet_formu.docx',
+      description: 'Daha önce başka bir üniversitede alınıp başarılmış derslerin K7AÜ müfredatından düşülmesi için.'
+    },
+    {
+      id: 'f-9',
+      title: 'Akademik Kimlik Kartı Başvuru Formu',
+      category: 'Personel',
+      fileType: 'doc',
+      downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5cef18.doc',
+      description: 'Akademik personelin kurumsal kimlik kartı basımı için Personel Daire Başkanlığına iletilen form.'
+    },
+    {
+      id: 'f-10',
+      title: 'Personel Görevlendirme ve İzin Formu',
+      category: 'Personel',
+      fileType: 'docx',
+      downloadUrl: 'https://www.kilis.edu.tr/documents/documents/695540c5d5fb3.docx',
+      description: 'Akademik ve idari personelin kongre, sempozyum, saha çalışması ve yıllık izin talepleri için form.'
+    }
+  ];
+
+  res.json(forms);
+});
+
+app.get('/api/transport', (req, res) => {
+  res.json({
+    cityRoutes: [
+      {
+        id: 'tr-1',
+        name: '1 Nolu Hat: Cumhuriyet Meydanı ⇄ Merkez Kampüs',
+        badge: 'En Sık Hat',
+        hours: '07:00 – 23:00',
+        frequency: 'Her 5–7 dakikada bir',
+        route: ['Cumhuriyet Meydanı', 'Eski Valilik', 'Vali Güner Özmen Cad.', 'KYK Yurtları', 'Merkez Kampüs Ana Nizamiye'],
+        notes: 'Öğrenci kimliği veya Kilis KentKart ile indirimli biniş geçerlidir.'
+      },
+      {
+        id: 'tr-2',
+        name: '2 Nolu Hat: Otogar ⇄ Karataş Kampüsü',
+        badge: 'Sağlık & MYO',
+        hours: '07:15 – 22:30',
+        frequency: 'Her 10–12 dakikada bir',
+        route: ['Şehirlerarası Otogar', 'Çevre Yolu', 'Beşevler', 'Sağlık Bilimleri Fakültesi', 'Karataş Kampüsü'],
+        notes: 'Sağlık Hizmetleri MYO ve Sosyal Bilimler MYO öğrencileri için doğrudan servis.'
+      },
+      {
+        id: 'tr-3',
+        name: '3 Nolu Hat: Devlet Hastanesi ⇄ Kampüs',
+        badge: 'Hastane Bağlantısı',
+        hours: '07:30 – 21:00',
+        frequency: 'Her 15 dakikada bir',
+        route: ['Kilis Prof. Dr. Alaeddin Yavaşca Devlet Hastanesi', 'Sanayi', 'Cumhuriyet Meydanı', 'Merkez Kampüs'],
+        notes: 'Stajyer ve tıp/sağlık öğrencileri için en hızlı bağlantı.'
+      }
+    ],
+    intercityRoutes: [
+      {
+        id: 'ic-1',
+        title: 'Gaziantep ⇄ Kilis Minibüs Seferleri',
+        distance: '~55–65 km (Ortalama 45–50 dk)',
+        departure: 'Gaziantep Şehirlerarası Otobüs Terminali (Kilis Peronu)',
+        frequency: '06:00 – 22:00 saatleri arasında her 15–20 dakikada bir',
+        arrival: 'Kilis Otogarı ve Cumhuriyet Meydanı yolcuları için ara duraklar'
+      },
+      {
+        id: 'ic-2',
+        title: 'Gaziantep Havalimanı (GZT) Ulaşımı',
+        distance: '~45–50 km',
+        options: 'Havalimanından Gaziantep Otogara HAVAŞ veya belediye otobüsü, ardından Kilis minibüsleri. Kampüse toplam yolculuk ~1 saat 15 dk.'
+      }
+    ],
+    taxis: [
+      { name: 'Üniversite Kampüs Taksi', phone: '0348 814 26 00', location: 'Merkez Kampüs Girişi' },
+      { name: 'Cumhuriyet Meydan Taksi', phone: '0348 813 15 50', location: 'Kilis Meydan' },
+      { name: 'Kilis Otogar Taksi', phone: '0348 813 88 99', location: 'Şehirlerarası Otogar' }
+    ]
+  });
+});
+
+app.get('/api/library', (req, res) => {
+  res.json({
+    name: 'Kilis 7 Aralık Üniversitesi Merkez Kütüphanesi',
+    status: 'Açık',
+    hours: {
+      weekday: '08:00 – 22:00',
+      weekend: '09:00 – 18:00',
+      exams: '7/24 Kesintisiz Açık (Vize ve Final Dönemlerinde Gece İkramları İle)'
+    },
+    borrowingRules: [
+      { user: 'Ön Lisans & Lisans Öğrencileri', bookCount: '3 Kitap', duration: '15 Gün', renewCount: '1 Kez Uzatma' },
+      { user: 'Yüksek Lisans & Doktora', bookCount: '5 Kitap', duration: '30 Gün', renewCount: '2 Kez Uzatma' },
+      { user: 'Akademik Personel', bookCount: '10 Kitap', duration: '60 Gün', renewCount: '2 Kez Uzatma' },
+      { user: 'İdari Personel', bookCount: '3 Kitap', duration: '15 Gün', renewCount: '1 Kez Uzatma' }
+    ],
+    catalogUrl: 'https://yordam.kilis.edu.tr/',
+    vetisUrl: 'https://yordam.kilis.edu.tr/vetisbt/',
+    databases: [
+      'TÜBİTAK ULAKBİM EKUAL',
+      'IEEE Xplore Digital Library',
+      'ScienceDirect / Elsevier',
+      'Web of Science Core Collection',
+      'EBSCOhost Academic Search Ultimate',
+      'SpringerLink Journals'
+    ],
+    phone: '0348 814 26 66 (Dahili: 4160)'
+  });
+});
+
+app.get('/api/sports', (req, res) => {
+  res.json({
+    facilities: [
+      {
+        id: 'sp-1',
+        name: 'Sentetik Çim Halı Saha',
+        specs: 'Standart ölçülerde, gece aydınlatmalı, tribünlü',
+        hours: '10:00 – 23:00 (Haftanın 7 günü)',
+        bookingUrl: 'https://rezervasyon.kilis.edu.tr/SporRezervasyon/Rezervasyon',
+        info: 'Öğrenci ve personele uygun seans ücreti ile randevulu hizmet verir.'
+      },
+      {
+        id: 'sp-2',
+        name: 'Kapalı Spor Salonu',
+        specs: 'FİBA standartlarında parke zemin, 1.000 seyirci kapasitesi',
+        hours: '08:30 – 21:00',
+        branches: ['Basketbol', 'Voleybol', 'Futsal', 'Hentbol', 'Badminton'],
+        info: 'Öğrenci toplulukları ve fakülte turnuvaları için tahsis edilebilir.'
+      },
+      {
+        id: 'sp-3',
+        name: 'Fitness & Ağırlık Merkezi',
+        specs: 'Profesyonel kardiyo ve ağırlık istasyonları, soyunma odaları',
+        hours: 'Hafta içi: 09:00 – 20:00 (Kadın/Erkek seans saatleri mevcuttur)',
+        info: 'Dönemlik veya aylık öğrenci aboneliği SKS üzerinden yapılır.'
+      }
+    ],
+    reservationSteps: [
+      '1. rezervasyon.kilis.edu.tr adresine gidin.',
+      '2. Spor Alanı seçeneğinden Sentetik Halı Saha veya Salonu belirleyin.',
+      '3. Uygun seans saatini ve müşteri grubunuzu (Öğrenci/Personel) seçin.',
+      '4. İletişim bilgilerinizi girip SMS/E-posta onayını tamamlayın.'
+    ],
+    contactPhone: '0348 814 26 66 (Dahili: 5053)'
+  });
+});
+
+app.get('/api/hotel', (req, res) => {
+  res.json({
+    name: 'K7AÜ Uygulama Oteli (Sosyal Tesisler)',
+    location: 'Merkez Kampüs Girişi, Kilis',
+    phone: '0348 814 26 66',
+    extension: '7000',
+    website: 'https://kiyuotel.kilis.edu.tr',
+    roomTypes: [
+      { type: 'Standart Tek Kişilik Oda', features: 'Ortopedik yatak, 24 saat sıcak su, TV, Wi-Fi, klima, minibar, çalışma masası' },
+      { type: 'Standart Çift Kişilik Oda (Twin/Double)', features: '2 ayrı tek kişilik veya 1 çift kişilik yatak, lüks banyo, gardırop' },
+      { type: 'Süit Oda', features: 'Oturma grubu, geniş ferah salon, manzaralı balkon, özel çalışma köşesi' }
+    ],
+    services: [
+      { name: 'Kahvaltı Servisi', hours: '07:30 – 10:00 (Açık büfe & zengin yöresel lezzetler)' },
+      { name: 'Restoran & Kafeterya', hours: '12:00 – 21:30 (Öğle ve akşam alakart menü)' },
+      { name: 'Toplantı ve Seminer Salonu', hours: 'Özel akademik ve kurumsal toplantılar için ses sistemli salon' }
+    ],
+    pricingNotes: 'Öğrenci velilerine ve kamu personeline indirimli tarife uygulanmaktadır.'
+  });
+});
+
+app.get('/api/it-help', (req, res) => {
+  res.json({
+    eduroam: {
+      title: 'Eduroam Wi-Fi Kurulum Kılavuzu',
+      description: 'Dünya çapında binlerce üniversitede geçerli olan yüksek hızlı ücretsiz akademik internet ağı.',
+      androidSteps: [
+        '1. Ayarlar > Wi-Fi bölümünden "eduroam" ağını seçin.',
+        '2. EAP Yöntemi: PEAP seçin.',
+        '3. Aşama 2 Kimlik Doğrulaması: MSCHAPV2 seçin.',
+        '4. CA Sertifikası: "Doğrulama Yapma" veya "Sistem Sertifikalarını Kullan" seçin.',
+        '5. Çevrimiçi Sertifika Durumu: "Doğrulama Yapma".',
+        '6. Alan Adı: "kilis.edu.tr" yazın.',
+        '7. Kimlik (Kullanıcı Adı): "ogrencino@kilis.edu.tr" (Örn: 230101001@kilis.edu.tr).',
+        '8. Şifre: Öğrenci e-posta / OBS parolanız.',
+        '9. "Bağlan" butonuna dokunun.'
+      ],
+      iosSteps: [
+        '1. Ayarlar > Wi-Fi menüsünden "eduroam" ağına dokunun.',
+        '2. Kullanıcı Adı kısmına: "ogrencino@kilis.edu.tr" yazın.',
+        '3. Parola kısmına: Öğrenci şifrenizi yazın.',
+        '4. Sağ üstteki "Katıl"a basın.',
+        '5. Ekrana gelen üniversite güvenlik sertifikası penceresinde sağ üstteki "Güven" butonuna dokunun.'
+      ],
+      windowsSteps: [
+        'eduroam CAT (cat.eduroam.org) aracını indirip Kilis 7 Aralık Üniversitesi profilini kurarak otomatik bağlanabilirsiniz.'
+      ]
+    },
+    emailPassword: {
+      title: 'Öğrenci E-Posta & Parola İşlemleri',
+      url: 'https://bilgiislem.kilis.edu.tr/tr/page/6470',
+      steps: [
+        'Üniversiteye yeni kayıt yaptıran her öğrenci için otomatik "@kilis.edu.tr" uzantılı e-posta adresi açılır.',
+        'İlk parola genellikle T.C. Kimlik numaranızın ilk 6 hanesi veya OBS şifrenizle eşleşir.',
+        'Parolanızı unuttuysanız bilgiislem.kilis.edu.tr üzerindeki "Parola Sıfırlama" portalından SMS doğrulaması ile yenileyebilirsiniz.'
+      ]
+    },
+    softwareLicenses: [
+      { name: 'Microsoft Office 365', info: 'Öğrenci e-postanızla Word, Excel, PowerPoint ve 1 TB OneDrive ücretsiz.' },
+      { name: 'MATLAB & Simulink', info: 'Mühendislik ve fen öğrencileri için tam paket kampüs lisansı.' },
+      { name: 'Autodesk Education', info: 'AutoCAD, Revit, 3ds Max öğrenci lisansları.' }
+    ],
+    supportPhone: '0348 814 26 66 (Dahili: 1313 - Bilgi İşlem Destek)'
+  });
+});
+
+app.get('/api/campus-map', (req, res) => {
+  res.json([
+    {
+      id: 'cmp-1',
+      name: 'Rektörlük & İdari Bina',
+      campus: 'Merkez Kampüs',
+      type: 'Sosyal / İdari',
+      description: 'Senato, Yönetim Kurulu, Genel Sekreterlik ve Daire Başkanlıkları.',
+      mapsUrl: 'https://maps.google.com/?q=36.7121,37.1082',
+      coordinates: { lat: 36.7121, lng: 37.1082 }
+    },
+    {
+      id: 'cmp-2',
+      name: 'Mühendislik - Mimarlık Fakültesi',
+      campus: 'Merkez Kampüs',
+      type: 'Fakülte',
+      description: 'Bilgisayar, İnşaat, Elektrik-Elektronik, Makine mühendislikleri ve laboratuvarlar.',
+      mapsUrl: 'https://maps.google.com/?q=36.7115,37.1075',
+      coordinates: { lat: 36.7115, lng: 37.1075 }
+    },
+    {
+      id: 'cmp-3',
+      name: 'İlahiyat Fakültesi',
+      campus: 'Merkez Kampüs',
+      type: 'Fakülte',
+      description: 'Derslikler, amfiler ve İlahiyat Konferans Salonu.',
+      mapsUrl: 'https://maps.google.com/?q=36.7130,37.1090',
+      coordinates: { lat: 36.7130, lng: 37.1090 }
+    },
+    {
+      id: 'cmp-4',
+      name: 'İktisadi ve İdari Bilimler Fakültesi (İİBF)',
+      campus: 'Merkez Kampüs',
+      type: 'Fakülte',
+      description: 'İktisat, İşletme, Siyaset Bilimi ve Uluslararası İlişkiler.',
+      mapsUrl: 'https://maps.google.com/?q=36.7125,37.1070',
+      coordinates: { lat: 36.7125, lng: 37.1070 }
+    },
+    {
+      id: 'cmp-5',
+      name: 'İnsan ve Toplum Bilimleri Fakültesi',
+      campus: 'Merkez Kampüs',
+      type: 'Fakülte',
+      description: 'Tarih, Türk Dili ve Edebiyatı, Felsefe, Coğrafya ve Sosyoloji bölümleri.',
+      mapsUrl: 'https://maps.google.com/?q=36.7110,37.1085',
+      coordinates: { lat: 36.7110, lng: 37.1085 }
+    },
+    {
+      id: 'cmp-6',
+      name: 'Fen Fakültesi & Ziraat Fakültesi',
+      campus: 'Merkez Kampüs',
+      type: 'Fakülte',
+      description: 'Biyoloji, Kimya, Matematik laboratuvarları ve tarımsal araştırma birimleri.',
+      mapsUrl: 'https://maps.google.com/?q=36.7105,37.1092',
+      coordinates: { lat: 36.7105, lng: 37.1092 }
+    },
+    {
+      id: 'cmp-7',
+      name: 'Merkez Kütüphane & 7/24 Çalışma Salonu',
+      campus: 'Merkez Kampüs',
+      type: 'Sosyal / İdari',
+      description: 'Zengin basılı koleksiyon, sessiz çalışma alanları ve kafeterya.',
+      mapsUrl: 'https://maps.google.com/?q=36.7118,37.1084',
+      coordinates: { lat: 36.7118, lng: 37.1084 }
+    },
+    {
+      id: 'cmp-8',
+      name: 'Öğrenci Yemekhanesi & Mediko Sosyal',
+      campus: 'Merkez Kampüs',
+      type: 'Sosyal / İdari',
+      description: 'Ana tabldot yemekhane salonu, sağlık odası ve öğrenci kulüp ofisleri.',
+      mapsUrl: 'https://maps.google.com/?q=36.7123,37.1078',
+      coordinates: { lat: 36.7123, lng: 37.1078 }
+    },
+    {
+      id: 'cmp-9',
+      name: 'Kapalı Spor Salonu & Halı Saha',
+      campus: 'Merkez Kampüs',
+      type: 'Spor & Sağlık',
+      description: 'Sentetik çim saha, basketbol/voleybol salonu ve fitness merkezi.',
+      mapsUrl: 'https://maps.google.com/?q=36.7135,37.1065',
+      coordinates: { lat: 36.7135, lng: 37.1065 }
+    },
+    {
+      id: 'cmp-10',
+      name: 'K7AÜ Uygulama Oteli (Konukevi)',
+      campus: 'Merkez Kampüs',
+      type: 'Sosyal / İdari',
+      description: 'Merkez kampüs ana giriş nizamiye yanı, otel odaları ve restoran.',
+      mapsUrl: 'https://maps.google.com/?q=36.7140,37.1095',
+      coordinates: { lat: 36.7140, lng: 37.1095 }
+    },
+    {
+      id: 'cmp-11',
+      name: 'Karataş Kampüsü (Sağlık & MYO)',
+      campus: 'Karataş Kampüsü',
+      type: 'Fakülte',
+      description: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi, Sağlık Hizmetleri MYO, Sosyal Bilimler MYO.',
+      mapsUrl: 'https://maps.google.com/?q=36.7235,37.1265',
+      coordinates: { lat: 36.7235, lng: 37.1265 }
+    },
+    {
+      id: 'cmp-12',
+      name: 'Mercidabık Kampüsü',
+      campus: 'Mercidabık Kampüsü',
+      type: 'Yüksekokul',
+      description: 'Uygulamalı Bilimler Fakültesi, Turizm ve Otelcilik MYO derslikleri.',
+      mapsUrl: 'https://maps.google.com/?q=36.7050,37.1190',
+      coordinates: { lat: 36.7050, lng: 37.1190 }
+    }
+  ]);
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getNews } from '../mockData';
+import { getNews, FALLBACK_NEWS } from '../mockData';
 import { Announcement } from '../types';
 import { ChevronDown, ExternalLink, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -9,16 +9,25 @@ import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 
 export default function News() {
-  const [news, setNews] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [news, setNews] = useState<Announcement[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_news');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_NEWS;
+  });
+  const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>('Üniversite Haberleri');
   const [selectedItem, setSelectedItem] = useState<{url: string, title: string} | null>(null);
 
   const load = async (force = false) => {
-    if (!force) setLoading(true);
     const data = await getNews(force);
-    setNews(data);
-    if (!force) setLoading(false);
+    if (data && data.length > 0) {
+      setNews(data);
+    }
   };
 
   useEffect(() => {

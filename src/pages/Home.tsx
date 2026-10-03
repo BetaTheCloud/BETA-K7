@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { getAnnouncements, getNews, getMenu } from '../mockData';
+import {
+  getAnnouncements,
+  getNews,
+  getMenu,
+  FALLBACK_ANNOUNCEMENTS,
+  FALLBACK_NEWS,
+  FALLBACK_MENU
+} from '../mockData';
 import { Announcement, MenuItem } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, PhoneCall, Calendar, Bus, FileText, BookOpen, Trophy, Hotel, Wifi, MapPin, LayoutGrid } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
@@ -11,11 +18,40 @@ import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 
 export default function Home() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [news, setNews] = useState<Announcement[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_announcements');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_ANNOUNCEMENTS;
+  });
+
+  const [news, setNews] = useState<Announcement[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_news');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_NEWS;
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [todayMenu, setTodayMenu] = useState<MenuItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [todayMenu, setTodayMenu] = useState<MenuItem | null>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_menu');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+      }
+    } catch {}
+    return FALLBACK_MENU[0] || null;
+  });
+
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
 
   // Modal State
@@ -28,16 +64,17 @@ export default function Home() {
         getNews(true),
         getMenu()
       ]);
-      setAnnouncements(announcementsData);
-      setNews(newsData);
+      if (announcementsData?.length) setAnnouncements(announcementsData);
+      if (newsData?.length) setNews(newsData);
       const menu = menuData.length > 0 ? menuData[0] : null;
-      setTodayMenu(menu);
+      if (menu) setTodayMenu(menu);
     } catch (error) {
       console.error("Yenileme hatası", error);
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
     async function loadDashboardData() {
       try {
         const [announcementsData, newsData, menuData] = await Promise.all([
@@ -46,27 +83,20 @@ export default function Home() {
           getMenu()
         ]);
         
-        setAnnouncements(announcementsData);
-        setNews(newsData);
+        if (!isMounted) return;
+        if (announcementsData?.length) setAnnouncements(announcementsData);
+        if (newsData?.length) setNews(newsData);
         
-        // Find today's menu, or fallback to first
-        const today = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
-        // Our scraper sets date as e.g. "9 Ağustos 2026 Pazar". We'll just pick the first one if we can't match perfectly.
         const menu = menuData.length > 0 ? menuData[0] : null;
-        setTodayMenu(menu);
+        if (menu) setTodayMenu(menu);
       } catch (error) {
-        console.error("Veri yüklenirken hata oluştu", error);
-      } finally {
-        setLoading(false);
+        console.warn("Veri güncellenirken bildirim:", error);
       }
     }
     
     loadDashboardData();
+    return () => { isMounted = false; };
   }, []);
-
-  if (loading) {
-    return <LoadingState message="Ana Sayfa Yükleniyor..." subtitle="Duyurular, haberler ve yemek menüsü alınıyor" />;
-  }
 
   const filteredAnnouncements = searchQuery 
     ? announcements.filter(a => a.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -120,6 +150,90 @@ export default function Home() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
+
+      {/* Hızlı Kampüs Hizmetleri */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-stone-500 dark:text-white/60 flex items-center gap-1.5">
+            <LayoutGrid className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+            Hızlı Kampüs Servisleri
+          </h3>
+          <Link
+            to="/campus"
+            className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium flex items-center gap-0.5"
+          >
+            Tüm Servisler <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+          <Link
+            to="/campus?tab=directory"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-emerald-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <PhoneCall className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Rehber</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Dahili & Tel</span>
+          </Link>
+
+          <Link
+            to="/campus?tab=events"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-rose-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Etkinlikler</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Kültür & Sanat</span>
+          </Link>
+
+          <Link
+            to="/campus?tab=transport"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-blue-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <Bus className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Ulaşım</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Dolmuş & Hat</span>
+          </Link>
+
+          <Link
+            to="/campus?tab=forms"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <FileText className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Dilekçeler</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Matbu Form</span>
+          </Link>
+
+          <Link
+            to="/campus?tab=library"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-indigo-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Kütüphane</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Kitap & Saatler</span>
+          </Link>
+
+          <Link
+            to="/campus?tab=map"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-red-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Harita</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Yerleşkeler</span>
+          </Link>
+        </div>
+      </section>
 
       {/* Main Announcements */}
       <section className="space-y-4">

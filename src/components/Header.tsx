@@ -9,8 +9,8 @@ export default function Header() {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#fcfbf9]/80 dark:bg-[#264653]/80 backdrop-blur-xl border-b border-[#e6e2d6]/80 dark:border-white/10 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-[#fcfbf9]/90 dark:bg-[#264653]/90 backdrop-blur-xl border-b border-[#e6e2d6]/80 dark:border-white/10 transition-colors pt-safe">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between">
         
         {/* Logo Section */}
         <div className="flex items-center gap-3">

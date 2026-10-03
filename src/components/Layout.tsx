@@ -1,7 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
-import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toaster, toast } from 'react-hot-toast';
 import { useEffect } from 'react';
@@ -13,10 +13,11 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
     { to: '/announcements', label: 'Duyurular', icon: Megaphone },
+    { to: '/campus', label: 'Kampüs Hizmetleri', icon: LayoutGrid },
     { to: '/news', label: 'Haberler', icon: Newspaper },
     { to: '/bologna', label: 'Bologna', icon: Landmark },
     { to: '/calendar', label: 'Takvim', icon: CalendarClock },
-    { to: '/menu', label: 'Yemek', icon: ChefHat },
+    { to: '/menu', label: 'Yemek Menüsü', icon: ChefHat },
   ];
 
   useEffect(() => {
@@ -68,7 +69,12 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#f4f1ea] dark:bg-[#1d3540] text-stone-800 dark:text-white/90 font-sans flex flex-col md:flex-row">
-      <Toaster position="top-center" />
+      <Toaster 
+        position="top-center" 
+        containerStyle={{ 
+          top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)' 
+        }} 
+      />
       <OfflineIndicator />
       <ServerColdStartAlert />
       
@@ -101,7 +107,7 @@ export default function Layout() {
       <div className="flex-1 flex flex-col md:ml-64 relative min-h-screen">
         <Header />
         
-        <main className="flex-1 px-4 py-6 pb-24 md:pb-8 max-w-4xl mx-auto w-full">
+        <main className="flex-1 px-4 py-5 pb-20 md:pb-8 max-w-4xl mx-auto w-full">
           <Outlet />
         </main>
         

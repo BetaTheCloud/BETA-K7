@@ -27,8 +27,8 @@ export const OfflineIndicator: React.FC = () => {
   if (isOnline) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-bold tracking-wide text-white shadow-lg">
-      <span className="h-2.5 w-2.5 rounded-full bg-[#fcfbf9] animate-pulse" />
+    <div className="fixed top-[calc(env(safe-area-inset-top,0px)+5.5rem)] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl bg-amber-500/95 backdrop-blur-md border border-amber-400 px-4 py-2 text-xs font-bold tracking-wide text-white shadow-xl">
+      <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
       Çevrimdışı Mod (Önbellekten Yükleniyor)
     </div>
   );
