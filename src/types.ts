@@ -82,8 +82,11 @@ export interface CampusEvent {
 export interface CampusForm {
   id: string;
   title: string;
-  category: 'Öğrenci' | 'Personel' | 'Genel';
-  fileType: 'pdf' | 'doc' | 'docx';
+  source: 'kilis.edu.tr' | 'ogrenciisleri.kilis.edu.tr';
+  sourceName: string;
+  sourceUrl: string;
+  category: string;
+  fileType: string;
   downloadUrl: string;
   description: string;
 }

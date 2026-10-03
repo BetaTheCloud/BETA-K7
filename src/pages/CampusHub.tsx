@@ -20,7 +20,12 @@ import {
   Compass,
   Check,
   Download,
-  AlertCircle
+  AlertCircle,
+  GraduationCap,
+  Landmark,
+  Share2,
+  X,
+  FileCheck
 } from 'lucide-react';
 import {
   getPhonebook,
@@ -85,8 +90,10 @@ export default function CampusHub() {
   const [directorySearch, setDirectorySearch] = useState('');
   const [searchingDirectory, setSearchingDirectory] = useState(false);
 
-  // Forms category filter
-  const [formCategory, setFormCategory] = useState<'Tümü' | 'Öğrenci' | 'Personel'>('Tümü');
+  // Forms filter state: Multi-Source & Categorization
+  const [formSource, setFormSource] = useState<'all' | 'ogrenciisleri' | 'kilis'>('all');
+  const [formSubcategory, setFormSubcategory] = useState<string>('Tümü');
+  const [formSearch, setFormSearch] = useState<string>('');
 
   // Map campus filter
   const [selectedCampus, setSelectedCampus] = useState<'Tümü' | 'Merkez Kampüs' | 'Karataş Kampüsü' | 'Mercidabık Kampüsü'>('Tümü');
@@ -175,10 +182,43 @@ export default function CampusHub() {
     { key: 'map', label: 'Yerleşkeler', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
   ];
 
+  // Available subcategories depending on selected source portal
+  const availableSubcategories = React.useMemo(() => {
+    let sourceForms = forms;
+    if (formSource === 'ogrenciisleri') {
+      sourceForms = forms.filter((f) => f.source === 'ogrenciisleri.kilis.edu.tr');
+    } else if (formSource === 'kilis') {
+      sourceForms = forms.filter((f) => f.source === 'kilis.edu.tr');
+    }
+    const cats = Array.from(new Set(sourceForms.map((f) => f.category))).filter(Boolean);
+    return ['Tümü', ...cats];
+  }, [forms, formSource]);
+
   const filteredForms = forms.filter((f) => {
-    if (formCategory === 'Tümü') return true;
-    return f.category === formCategory;
+    // 1. Source filter
+    if (formSource === 'ogrenciisleri' && f.source !== 'ogrenciisleri.kilis.edu.tr') return false;
+    if (formSource === 'kilis' && f.source !== 'kilis.edu.tr') return false;
+
+    // 2. Subcategory filter
+    if (formSubcategory !== 'Tümü' && f.category !== formSubcategory) return false;
+
+    // 3. Search filter
+    if (formSearch.trim()) {
+      const q = formSearch.toLowerCase().trim();
+      const matchTitle = f.title.toLowerCase().includes(q);
+      const matchDesc = (f.description || '').toLowerCase().includes(q);
+      const matchCat = (f.category || '').toLowerCase().includes(q);
+      const matchExt = (f.fileType || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCat && !matchExt) return false;
+    }
+
+    return true;
   });
+
+  const handleSourceChange = (src: 'all' | 'ogrenciisleri' | 'kilis') => {
+    setFormSource(src);
+    setFormSubcategory('Tümü');
+  };
 
   const filteredLocations = mapLocations.filter((l) => {
     if (selectedCampus === 'Tümü') return true;
@@ -710,69 +750,300 @@ export default function CampusHub() {
           </motion.div>
         )}
 
-        {/* ================= 4. MATBU FORMLAR ================= */}
+        {/* ================= 4. MATBU FORMLAR (REKTÖRLÜK & ÖĞRENCİ İŞLERİ) ================= */}
         {activeTab === 'forms' && (
           <motion.div
             key="forms"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="space-y-4"
+            className="space-y-5"
           >
-            {/* Filter Chips */}
-            <div className="flex items-center gap-2">
-              {(['Tümü', 'Öğrenci', 'Personel'] as const).map((cat) => (
+            {/* Official Source Selection Segmented Tabs */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3 sm:p-4 space-y-3.5 shadow-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    Resmi Matbu ve Başvuru Formları
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                    Kilis 7 Aralık Üniversitesi resmi web sitelerinden derlenmiş doğrudan indirilebilir güncel belgeler.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-stone-400">
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">{filteredForms.length}</span>
+                  <span>/ {forms.length} form listeleniyor</span>
+                </div>
+              </div>
+
+              {/* Source Switcher Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                 <button
-                  key={cat}
-                  onClick={() => setFormCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    formCategory === cat
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300'
+                  onClick={() => handleSourceChange('all')}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                    formSource === 'all'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-amber-500/50'
                   }`}
                 >
-                  {cat} Formları
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {filteredForms.map((form) => (
-                <div
-                  key={form.id}
-                  className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 flex flex-col justify-between gap-3 hover:shadow-md transition-shadow"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/80">
-                        {form.category}
-                      </span>
-                      <span className="text-[10px] font-mono uppercase font-bold text-amber-600 dark:text-amber-400">
-                        .{form.fileType}
-                      </span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <FileCheck className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Tüm Belgeler</div>
+                      <div className={`text-[10px] truncate ${formSource === 'all' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
+                        2 Resmi Portal
+                      </div>
                     </div>
-
-                    <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                      {form.title}
-                    </h4>
-
-                    <p className="text-xs text-stone-500 dark:text-white/60 leading-relaxed">
-                      {form.description}
-                    </p>
                   </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    formSource === 'all' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
+                  }`}>
+                    50
+                  </span>
+                </button>
 
+                <button
+                  onClick={() => handleSourceChange('ogrenciisleri')}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                    formSource === 'ogrenciisleri'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-emerald-500/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <GraduationCap className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Öğrenci İşleri D. Bşk.</div>
+                      <div className={`text-[10px] truncate ${formSource === 'ogrenciisleri' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
+                        ogrenciisleri.kilis.edu.tr
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    formSource === 'ogrenciisleri' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
+                  }`}>
+                    18
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleSourceChange('kilis')}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                    formSource === 'kilis'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-stone-100/80 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white hover:border-blue-500/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Landmark className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Üniversite Genel Matbu</div>
+                      <div className={`text-[10px] truncate ${formSource === 'kilis' ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
+                        kilis.edu.tr (Rektörlük)
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    formSource === 'kilis' ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-white/10 text-stone-600 dark:text-white/70'
+                  }`}>
+                    32
+                  </span>
+                </button>
+              </div>
+
+              {/* Source Verification Banner with Direct Portal Links */}
+              <div className="bg-stone-100/70 dark:bg-white/5 rounded-xl p-3 text-[11px] text-stone-600 dark:text-white/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border border-stone-200/60 dark:border-white/5">
+                <span className="flex items-center gap-1.5 font-medium">
+                  🔗 Resmi Kaynak Bağlantıları:
+                </span>
+                <div className="flex items-center flex-wrap gap-3">
                   <a
-                    href={form.downloadUrl}
+                    href="https://ogrenciisleri.kilis.edu.tr/tr/department-forms"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 w-full py-2 bg-stone-100 dark:bg-white/10 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 text-stone-800 dark:text-white rounded-lg text-xs font-semibold tracking-wide transition-colors"
+                    className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1"
                   >
-                    <Download className="w-4 h-4" />
-                    <span>Dilekçeyi İndir ({form.fileType.toUpperCase()})</span>
+                    <span>Öğrenci İşleri Form Portalı</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span className="text-stone-300 dark:text-white/20">•</span>
+                  <a
+                    href="https://www.kilis.edu.tr/tr/sayfa/matbu-formlar-7sT5d"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1"
+                  >
+                    <span>kilis.edu.tr Matbu Formlar Portalı</span>
+                    <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-              ))}
+              </div>
             </div>
+
+            {/* Search and Subcategory Filters */}
+            <div className="space-y-3">
+              {/* Search Bar */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Form adı, konu veya dosya türü ara (örn. diploma, izin, telefon, yatay geçiş, docx, pdf)..."
+                  value={formSearch}
+                  onChange={(e) => setFormSearch(e.target.value)}
+                  className="w-full pl-11 pr-10 py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 outline-none text-stone-900 dark:text-white"
+                />
+                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                {formSearch && (
+                  <button
+                    onClick={() => setFormSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Subcategories Horizontal Scroll */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                {availableSubcategories.map((subcat) => (
+                  <button
+                    key={subcat}
+                    onClick={() => setFormSubcategory(subcat)}
+                    className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      formSubcategory === subcat
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-stone-200/80 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/15'
+                    }`}
+                  >
+                    {subcat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Forms Grid */}
+            {filteredForms.length === 0 ? (
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                  <Search className="w-6 h-6" />
+                </div>
+                <h4 className="font-display font-bold text-lg text-stone-900 dark:text-white">
+                  Aramanızla Eşleşen Form Bulunamadı
+                </h4>
+                <p className="text-xs text-stone-500 dark:text-white/60 max-w-md mx-auto">
+                  "{formSearch}" araması için mevcut kategoride kayıt bulunamadı. Farklı bir arama terimi deneyebilir veya filtreyi sıfırlayabilirsiniz.
+                </p>
+                <button
+                  onClick={() => {
+                    setFormSearch('');
+                    setFormSource('all');
+                    setFormSubcategory('Tümü');
+                  }}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors"
+                >
+                  Filtreleri Sıfırla
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {filteredForms.map((form) => {
+                  const extUpper = (form.fileType || 'DOC').toUpperCase();
+                  const isWord = extUpper.includes('DOC');
+                  const isExcel = extUpper.includes('XLS') || extUpper.includes('XLT');
+                  const isPdf = extUpper.includes('PDF');
+
+                  return (
+                    <div
+                      key={form.id}
+                      className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-4 flex flex-col justify-between gap-3 hover:border-amber-500/40 hover:shadow-md transition-all group"
+                    >
+                      <div className="space-y-2">
+                        {/* Badges Bar */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Source Portal Badge */}
+                            {form.source === 'ogrenciisleri.kilis.edu.tr' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                <GraduationCap className="w-3 h-3" />
+                                Öğrenci İşleri
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
+                                <Landmark className="w-3 h-3" />
+                                Rektörlük / Genel
+                              </span>
+                            )}
+
+                            {/* Subcategory */}
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70">
+                              {form.category}
+                            </span>
+                          </div>
+
+                          {/* File Extension Badge */}
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider ${
+                            isWord
+                              ? 'bg-blue-600 text-white'
+                              : isExcel
+                              ? 'bg-emerald-600 text-white'
+                              : isPdf
+                              ? 'bg-rose-600 text-white'
+                              : 'bg-stone-600 text-white'
+                          }`}>
+                            .{extUpper}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors leading-snug">
+                          {form.title}
+                        </h4>
+
+                        {/* Description */}
+                        {form.description && (
+                          <p className="text-xs text-stone-500 dark:text-white/60 leading-relaxed line-clamp-2">
+                            {form.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-2.5 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-2">
+                        <a
+                          href={form.downloadUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-xl text-xs font-semibold tracking-wide transition-all shadow-sm"
+                        >
+                          <Download className="w-4 h-4 shrink-0" />
+                          <span>Belgeyi İndir ({extUpper})</span>
+                        </a>
+
+                        <button
+                          onClick={() => copyToClipboard(form.downloadUrl, 'Form indirme bağlantısı')}
+                          title="İndirme bağlantısını kopyala"
+                          className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-600 dark:text-white/80 transition-colors shrink-0"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+
+                        <a
+                          href={form.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Resmi portal sayfasında görüntüle"
+                          className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-600 dark:text-white/80 transition-colors shrink-0"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 
