@@ -16,6 +16,7 @@ import {
   Mail,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Clock,
   Compass,
   Check,
@@ -242,6 +243,18 @@ export default function CampusHub() {
     }
     return STAFF_FACULTIES_LIST.filter(fac => fac.id === 'all' || fac.category === selectedStaffCategory);
   }, [selectedStaffCategory]);
+
+  // Grouped units for clean dropdown selection by category
+  const groupedUnits = React.useMemo(() => {
+    return [
+      { label: 'Fakülteler', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'fakulte') },
+      { label: 'Enstitü', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'enstitu') },
+      { label: 'Yüksekokul', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'yuksekokul') },
+      { label: 'Meslek Yüksekokulları (MYO)', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'myo') },
+      { label: 'Konservatuvar', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'konservatuvar') },
+      { label: 'Koordinatörlükler', items: STAFF_FACULTIES_LIST.filter(f => f.category === 'koordinatorluk') },
+    ];
+  }, []);
 
   // Available departments for the selected staff faculty/unit
   const availableStaffDepartments = React.useMemo(() => {
@@ -576,40 +589,76 @@ export default function CampusHub() {
             exit={{ opacity: 0, y: -8 }}
             className="space-y-5"
           >
-            {/* Faculty & Department Filter Card */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+            {/* Top Bar: Search Input & Quick Status */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                  <h3 className="font-display font-bold text-lg sm:text-xl text-stone-900 dark:text-white flex items-center gap-2">
                     <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     Üniversite Personel Rehberi
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
-                    Fakülteler, Enstitü, Yüksekokul, Meslek Yüksekokulları, Konservatuvar ve Koordinatörlüklerin güncel kadrosu ve iletişim bilgileri.
+                    Fakülteler, Enstitü, Yüksekokul, Meslek Yüksekokulları, Konservatuvar ve Koordinatörlük personeli
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">
                     {filteredStaff.length} / {staffList.length} Personel
                   </span>
-                  <span className="text-stone-400 hidden sm:inline">Santral: 0348 814 26 66</span>
+                  {(selectedStaffCategory !== 'all' || selectedStaffFaculty !== 'all' || selectedStaffDepartment !== 'Tümü' || staffSearch.trim()) && (
+                    <button
+                      onClick={() => {
+                        setStaffSearch('');
+                        setSelectedStaffCategory('all');
+                        setSelectedStaffFaculty('all');
+                        setSelectedStaffDepartment('Tümü');
+                      }}
+                      className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Filtreleri Temizle
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* 1. Level: Unit Category Selector */}
-              <div className="space-y-1.5 pt-1">
+              {/* Primary Search Bar positioned at the very top */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Personel adı, akademik unvan (Prof, Doç, Dr), uzmanlık, bölüm veya e-posta ile ara..."
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                  className="w-full pl-11 pr-10 py-3.5 bg-white dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-stone-900 dark:text-white placeholder:text-stone-400 transition-all shadow-sm"
+                />
+                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400" />
+                {staffSearch && (
+                  <button
+                    onClick={() => setStaffSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Sleek Filter Controls: Category Segmented Bar & Dual Dropdowns */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+              {/* Category Segmented Tabs */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-stone-600 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
                     <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Birim Türü Kategorisi
+                    Birim Türü
                   </span>
                   {selectedStaffCategory !== 'all' && (
                     <button
                       onClick={() => handleStaffCategoryChange('all')}
                       className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
                     >
-                      Tüm Kategorileri Göster
+                      Tüm Birimleri Göster
                     </button>
                   )}
                 </div>
@@ -630,9 +679,9 @@ export default function CampusHub() {
                         key={cat.key}
                         type="button"
                         onClick={() => handleStaffCategoryChange(cat.key)}
-                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                           isCatActive
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-1 ring-emerald-500/20'
                             : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-50 dark:hover:bg-white/10'
                         }`}
                       >
@@ -648,91 +697,85 @@ export default function CampusHub() {
                 </div>
               </div>
 
-              {/* 2. Level: Unit Selector Grid */}
-              <div className="space-y-2 pt-1 border-t border-stone-200/60 dark:border-white/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 uppercase tracking-wide">
-                    <School className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    {selectedStaffCategory === 'all'
-                      ? 'Fakülte, Enstitü, Yüksekokul & Birim Seçimi'
-                      : `${getUnitCategoryMeta(selectedStaffCategory).label} Seçimi`}
-                  </span>
-                  {selectedStaffFaculty !== 'all' && (
-                    <button
-                      onClick={() => handleStaffFacultyChange('all')}
-                      className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+              {/* Dual Clean Selectors: 1) Fakülte / Birim  2) Bölüm / Anabilim Dalı */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* 1. Selector: Fakülte / Birim Seçimi */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                    <School className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Fakülte / Birim Seçimi
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedStaffFaculty}
+                      onChange={(e) => handleStaffFacultyChange(e.target.value)}
+                      className="w-full appearance-none px-3.5 py-2.5 bg-white dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-xs font-semibold text-stone-800 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all pr-9 cursor-pointer"
                     >
-                      Tüm {selectedStaffCategory === 'all' ? 'Birimleri' : getUnitCategoryMeta(selectedStaffCategory).label + 'leri'} Göster
-                    </button>
-                  )}
+                      <option value="all">Tüm Fakülte ve Birimler ({staffList.length} Personel)</option>
+                      {groupedUnits.map((group) => {
+                        const filteredItems = selectedStaffCategory === 'all'
+                          ? group.items
+                          : group.items.filter(i => i.category === selectedStaffCategory);
+                        if (filteredItems.length === 0) return null;
+
+                        return (
+                          <optgroup key={group.label} label={group.label}>
+                            {filteredItems.map((u) => {
+                              const uCount = staffList.filter(s => s.facultyId === u.id).length;
+                              return (
+                                <option key={u.id} value={u.id}>
+                                  {u.name} ({uCount})
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Units Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {visibleStaffUnits.map((fac) => {
-                    const isSelected = selectedStaffFaculty === fac.id;
-                    const count = fac.id === 'all'
-                      ? (selectedStaffCategory === 'all' ? staffList.length : staffList.filter(s => s.unitCategory === selectedStaffCategory).length)
-                      : staffList.filter((s) => s.facultyId === fac.id).length;
-                    const catMeta = getUnitCategoryMeta(fac.category);
-
-                    return (
-                      <button
-                        key={fac.id}
-                        type="button"
-                        onClick={() => handleStaffFacultyChange(fac.id)}
-                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-500/30'
-                            : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-800 dark:text-white/80 hover:border-emerald-500/50 hover:bg-stone-50 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="min-w-0 pr-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-bold truncate">
-                              {fac.shortName}
-                            </span>
-                            {fac.id !== 'all' && (
-                              <span className={`text-[9px] px-1 py-0.2 rounded font-semibold shrink-0 border ${
-                                isSelected ? 'bg-white/20 text-white border-white/30' : catMeta.badgeClass
-                              }`}>
-                                {catMeta.shortLabel}
-                              </span>
-                            )}
-                          </div>
-                          <div className={`text-[10px] truncate mt-0.5 ${isSelected ? 'text-white/80' : 'text-stone-400 dark:text-white/40'}`}>
-                            {fac.id === 'all' ? (selectedStaffCategory === 'all' ? 'Tüm Üniversite' : `Tüm ${catMeta.label}`) : fac.name}
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70'
-                        }`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
+                {/* 2. Selector: Bölüm / Program / Anabilim Dalı Seçimi */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Bölüm / Anabilim Dalı
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedStaffDepartment}
+                      onChange={(e) => setSelectedStaffDepartment(e.target.value)}
+                      disabled={selectedStaffFaculty === 'all' && availableStaffDepartments.length <= 1}
+                      className="w-full appearance-none px-3.5 py-2.5 bg-white dark:bg-white/5 border border-stone-200 dark:border-white/10 rounded-xl text-xs font-semibold text-stone-800 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all pr-9 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <option value="Tümü">
+                        {selectedStaffFaculty === 'all' ? 'Tüm Bölümler' : `Tüm Bölümler (${activeStaffFacultyConfig?.shortName})`}
+                      </option>
+                      {availableStaffDepartments.filter(d => d !== 'Tümü').map((dept) => {
+                        const count = staffList.filter(s => s.facultyId === selectedStaffFaculty && s.department === dept).length;
+                        return (
+                          <option key={dept} value={dept}>
+                            {dept} ({count})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* 3. Level: Department / Anabilim Dalı Selector */}
+              {/* Department Quick Chips (When a unit is chosen and has departments) */}
               {selectedStaffFaculty !== 'all' && availableStaffDepartments.length > 1 && (
-                <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-                      <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      Bölüm / Program / Anabilim Dalı Seçimi ({activeStaffFacultyConfig?.shortName})
-                    </span>
-                    {selectedStaffDepartment !== 'Tümü' && (
-                      <button
-                        onClick={() => setSelectedStaffDepartment('Tümü')}
-                        className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
-                      >
-                        Tüm Bölümler ({activeStaffFacultyConfig?.shortName})
-                      </button>
-                    )}
-                  </div>
-
+                <div className="space-y-1.5 pt-2 border-t border-stone-200/60 dark:border-white/10">
+                  <span className="text-[11px] font-semibold text-stone-500 dark:text-white/60">
+                    Hızlı Bölüm Seçimi ({activeStaffFacultyConfig?.shortName}):
+                  </span>
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
                     {availableStaffDepartments.map((dept) => {
                       const isDeptActive = selectedStaffDepartment === dept;
@@ -745,7 +788,7 @@ export default function CampusHub() {
                           key={dept}
                           type="button"
                           onClick={() => setSelectedStaffDepartment(dept)}
-                          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                             isDeptActive
                               ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/30'
                               : 'bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
@@ -764,15 +807,15 @@ export default function CampusHub() {
                 </div>
               )}
 
-              {/* Active Unit Direct Portal Link */}
+              {/* Active Unit Bar with Direct Link */}
               {activeStaffFacultyConfig && activeStaffFacultyConfig.sourceUrl && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                   <div className="flex items-center gap-2">
                     <School className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                    <div className="text-xs">
-                      <span className="font-bold text-emerald-900 dark:text-emerald-300">{activeStaffFacultyConfig.name}</span>
+                    <div>
+                      <span className="font-bold text-emerald-950 dark:text-emerald-200">{activeStaffFacultyConfig.name}</span>
                       {selectedStaffDepartment !== 'Tümü' && (
-                        <span className="text-emerald-700 dark:text-emerald-400 ml-1.5">• {selectedStaffDepartment}</span>
+                        <span className="text-emerald-800 dark:text-emerald-400 ml-1.5">/ {selectedStaffDepartment}</span>
                       )}
                       <span className="text-stone-500 dark:text-white/60 ml-1.5">({filteredStaff.length} personel)</span>
                     </div>
@@ -781,32 +824,12 @@ export default function CampusHub() {
                     href={activeStaffFacultyConfig.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 self-start sm:self-auto shadow-sm"
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm self-start sm:self-auto"
                   >
-                    <span>{activeStaffFacultyConfig.shortName} Resmi Sayfasını Aç</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Resmi Sayfa (academic-staffs)</span>
+                    <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
-              )}
-            </div>
-
-            {/* Search Bar */}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Personel adı, unvan (Prof, Doç, Dr), bölüm veya e-posta ara..."
-                value={staffSearch}
-                onChange={(e) => setStaffSearch(e.target.value)}
-                className="w-full pl-11 pr-10 py-3.5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-emerald-500 outline-none text-stone-900 dark:text-white"
-              />
-              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-              {staffSearch && (
-                <button
-                  onClick={() => setStaffSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 dark:hover:text-white rounded"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               )}
             </div>
 
