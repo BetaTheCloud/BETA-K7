@@ -34,7 +34,6 @@ export default function Layout() {
         if (lastSeenTitle) {
           if (newest.title !== lastSeenTitle) {
             toast.success(`Yeni Duyuru: ${newest.title}`, {
-              icon: '🔔',
               duration: 6000,
               style: {
                 borderRadius: '8px',

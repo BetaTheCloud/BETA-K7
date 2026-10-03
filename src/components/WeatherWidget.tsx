@@ -13,7 +13,7 @@ import {
   Droplets, 
   Wind, 
   Umbrella,
-  Sparkles,
+  Clock,
   ChevronRight
 } from 'lucide-react';
 import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
@@ -308,7 +308,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               {theme.text}
             </span>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
-              <Sparkles className="w-2.5 h-2.5" />
+              <Clock className="w-2.5 h-2.5" />
               1, 2, 4, 6, 8s Tahmin
             </span>
           </div>
