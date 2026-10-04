@@ -1241,7 +1241,11 @@ export default function CampusHub() {
                         {(() => {
                           const raw = (ev.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
                           const dateMatch = raw.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || raw.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-                          return dateMatch ? dateMatch[1] : (raw && !raw.toLowerCase().includes('tarih') ? raw : '02 Ekim 2026');
+                          if (dateMatch) return dateMatch[1];
+                          if (raw && !raw.toLowerCase().includes('yaklaşan') && !raw.toLowerCase().includes('tarih') && !raw.toLowerCase().includes('devam')) {
+                            return raw;
+                          }
+                          return '02 Ekim 2026';
                         })()}
                       </span>
                     </div>
@@ -1252,7 +1256,7 @@ export default function CampusHub() {
 
                     <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60">
                       <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>{ev.location || 'Konum için bilgi afişini referans alın'}</span>
+                      <span>Konum için bilgi afişini referans alın.</span>
                     </div>
 
                     <div className="pt-2 flex items-center justify-end">

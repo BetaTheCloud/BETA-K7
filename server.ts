@@ -983,7 +983,7 @@ app.get('/api/events', async (req, res) => {
           id: `event-${events.length + 1}`,
           title: title,
           date: cleanDate || '02 Ekim 2026',
-          location: 'Konum için bilgi afişini referans alın',
+          location: 'Konum için bilgi afişini referans alın.',
           url: href,
           img: img,
           category: 'Etkinlik'
@@ -999,16 +999,16 @@ app.get('/api/events', async (req, res) => {
 
     // Fallback events
     res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Fuar & Söyleşi' },
-      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sempozyum' },
-      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Konferans' }
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi' },
+      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sempozyum' },
+      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Konferans' }
     ]);
   } catch (error) {
     console.error('Events fetch error:', error);
     res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Fuar & Söyleşi' }
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi' }
     ]);
   }
 });

@@ -221,10 +221,10 @@ export const FALLBACK_PHONEBOOK: PhonebookEntry[] = [
 ];
 
 export const FALLBACK_EVENTS: CampusEvent[] = [
-  { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sergi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: '29 Eylül 2026', location: 'Konum için bilgi afişini referans alın', category: 'Fuar & Söyleşi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '25 Eylül 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sempozyum', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '20 Eylül 2026', location: 'Konum için bilgi afişini referans alın', category: 'Konferans', url: 'https://www.kilis.edu.tr/tr/etkinlikler' }
+  { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
+  { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: '29 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
+  { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '25 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sempozyum', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
+  { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '20 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Konferans', url: 'https://www.kilis.edu.tr/tr/etkinlikler' }
 ];
 
 export const FALLBACK_FORMS: CampusForm[] = AUTHENTIC_FORMS_DATA;
@@ -936,32 +936,37 @@ export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> 
     return items.map((e) => {
       let rawDate = (e.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
       const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-      const cleanDate = dateMatch ? dateMatch[1] : (rawDate && !rawDate.toLowerCase().includes('tarih') ? rawDate : '02 Ekim 2026');
+      let cleanDate = dateMatch ? dateMatch[1] : '';
+      if (!cleanDate || rawDate.toLowerCase().includes('yaklaşan') || rawDate.toLowerCase().includes('devam') || rawDate.toLowerCase().includes('tarih')) {
+        cleanDate = '02 Ekim 2026';
+      }
       return {
         ...e,
         date: cleanDate,
-        location: (e.location && e.location.trim() && e.location !== 'Detaylı konum için bilgi alın') ? e.location : 'Konum için bilgi afişini referans alın'
+        location: 'Konum için bilgi afişini referans alın.'
       };
     });
   };
 
   try {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('k7_cached_events');
+      ['k7_cached_events', 'k7_cached_events_v1', 'k7_cached_events_v2', 'k7_cached_events_v3', 'k7_cached_events_v4'].forEach((k) => {
+        try { localStorage.removeItem(k); } catch {}
+      });
     }
     const response = await safeFetch(getApiUrl(`/api/events${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const normalized = normalize(data);
-        setStored('k7_cached_events_v2', normalized);
+        setStored('k7_cached_events_v5', normalized);
         return normalized;
       }
     }
   } catch (err) {
     console.warn("Etkinlikler canlı alınamadı, önbellek kullanılıyor:", err);
   }
-  return normalize(getStored('k7_cached_events_v2', FALLBACK_EVENTS));
+  return normalize(getStored('k7_cached_events_v5', FALLBACK_EVENTS));
 };
 
 export const getForms = async (
