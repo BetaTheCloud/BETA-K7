@@ -252,16 +252,19 @@ export default function Home() {
             <button 
               key={announcement.id} 
               onClick={() => setSelectedItem({ url: announcement.url || '', title: announcement.title })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-lg p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
             >
-              {announcement.date && !announcement.date.includes('T') && (
-                <div className="w-full text-right mb-1.5">
-                  <span className="inline-block text-[10px] font-semibold tracking-widest uppercase text-stone-400 dark:text-white/40">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                  {announcement.category || 'Duyuru'}
+                </span>
+                {announcement.date && !announcement.date.includes('T') && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
                     {announcement.date}
                   </span>
-                </div>
-              )}
-              <h4 className="font-display font-bold text-lg text-stone-900 dark:text-white leading-snug">
+                )}
+              </div>
+              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
                 {announcement.title}
               </h4>
             </button>
@@ -289,16 +292,19 @@ export default function Home() {
             <button 
               key={n.id} 
               onClick={() => setSelectedItem({ url: n.url || '', title: n.title })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-lg p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
             >
-              {n.date && !n.date.includes('T') && (
-                <div className="w-full text-right mb-1.5">
-                  <span className="inline-block text-[10px] font-semibold tracking-widest uppercase text-stone-400 dark:text-white/40">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                  {n.category || 'Haber'}
+                </span>
+                {n.date && !n.date.includes('T') && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
                     {n.date}
                   </span>
-                </div>
-              )}
-              <h4 className="font-display font-bold text-lg text-stone-900 dark:text-white leading-snug">
+                )}
+              </div>
+              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
                 {n.title}
               </h4>
             </button>

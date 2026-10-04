@@ -38,7 +38,8 @@ import {
   Info,
   Layers,
   Smartphone,
-  TabletSmartphone
+  TabletSmartphone,
+  ArrowLeft
 } from 'lucide-react';
 import { FACULTIES_FILTER_LIST, AUTHENTIC_FORMS_DATA } from '../data/formsData';
 import { STAFF_FACULTIES_LIST, ACADEMIC_STAFF_DATA } from '../data/staffData';
@@ -69,7 +70,7 @@ import LoadingState from '../components/LoadingState';
 import DetailModal from '../components/DetailModal';
 import toast from 'react-hot-toast';
 
-type TabKey = 'all' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'it-help' | 'map';
+type TabKey = 'all' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
 
 export default function CampusHub() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,7 +86,6 @@ export default function CampusHub() {
     if (path === 'library') return 'library';
     if (path === 'sports') return 'sports';
     if (path === 'hotel') return 'hotel';
-    if (path === 'it-help') return 'it-help';
     if (path === 'campus-map') return 'map';
     return (searchParams.get('tab') as TabKey) || 'all';
   };
@@ -211,7 +211,6 @@ export default function CampusHub() {
     { key: 'library', label: 'Kütüphane', icon: BookOpen, color: 'text-indigo-600 dark:text-indigo-400' },
     { key: 'sports', label: 'Halı Saha & Spor', icon: Trophy, color: 'text-green-600 dark:text-green-400' },
     { key: 'hotel', label: 'Uygulama Oteli', icon: Hotel, color: 'text-cyan-600 dark:text-cyan-400' },
-    { key: 'it-help', label: 'Eduroam Wi-Fi', icon: Wifi, color: 'text-violet-600 dark:text-violet-400' },
     { key: 'map', label: 'Yerleşkeler', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
   ];
 
@@ -392,13 +391,40 @@ export default function CampusHub() {
       transition={{ duration: 0.25 }}
       className="space-y-6 max-w-6xl mx-auto pb-10"
     >
+      {/* Top Back Navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => {
+            if (activeTab !== 'all') {
+              handleTabChange('all');
+            } else {
+              if (window.history.length > 1) navigate(-1);
+              else navigate('/');
+            }
+          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+          <span>{activeTab !== 'all' ? 'Tüm Kampüs Menüsüne Dön' : 'Geri Ana Sayfaya Dön'}</span>
+        </button>
+
+        {activeTab !== 'all' && (
+          <button
+            onClick={() => handleTabChange('all')}
+            className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium"
+          >
+            Tüm Kategoriler
+          </button>
+        )}
+      </div>
+
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-[#1d3540] via-[#264653] to-[#2a9d8f] rounded-2xl p-5 sm:p-7 text-white shadow-lg relative overflow-hidden">
         <div className="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold uppercase tracking-wider backdrop-blur-md mb-3 text-amber-200">
             <Layers className="w-3.5 h-3.5 text-amber-300" />
-            <span>Şifresiz Dijital Kampüs Servisleri</span>
+            <span>Dijital Kampüs Servisleri</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight">
             Kampüs Hizmetleri & Rehber
@@ -577,26 +603,7 @@ export default function CampusHub() {
                 </p>
               </div>
 
-              {/* 8. Eduroam Wi-Fi */}
-              <div
-                onClick={() => handleTabChange('it-help')}
-                className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg transition-all"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-11 h-11 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Wifi className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs text-stone-400 dark:text-white/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1">
-                    Görüntüle <ChevronRight className="w-4 h-4" />
-                  </span>
-                </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Eduroam & Bilgi İşlem</h3>
-                <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Android & iPhone için Eduroam Wi-Fi kurulumu, e-posta şifre alma ve Office lisansları.
-                </p>
-              </div>
-
-              {/* 9. Yerleşkeler */}
+              {/* 8. Yerleşkeler */}
               <div
                 onClick={() => handleTabChange('map')}
                 className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg transition-all"
@@ -1940,101 +1947,7 @@ export default function CampusHub() {
           </motion.div>
         )}
 
-        {/* ================= 8. BİLGİ İŞLEM & EDUROAM ================= */}
-        {activeTab === 'it-help' && itHelp && (
-          <motion.div
-            key="it-help"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="space-y-6"
-          >
-            {/* Eduroam Guide */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 text-xs font-bold mb-2">
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span>Kampüs İnterneti</span>
-                </div>
-                <h3 className="font-display font-bold text-xl text-stone-900 dark:text-white">
-                  {itHelp.eduroam?.title}
-                </h3>
-                <p className="text-xs text-stone-500 dark:text-white/60 mt-1">
-                  {itHelp.eduroam?.description}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {/* Android Steps */}
-                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-4 space-y-2.5">
-                  <h4 className="font-display font-bold text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <Smartphone className="w-4 h-4" />
-                    <span>Android Cihazlar İçin Ayarlar</span>
-                  </h4>
-                  <ul className="space-y-1.5 text-xs text-stone-700 dark:text-white/80">
-                    {itHelp.eduroam?.androidSteps?.map((st: string, idx: number) => (
-                      <li key={idx} className="leading-relaxed">
-                        {st}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* iOS Steps */}
-                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-4 space-y-2.5">
-                  <h4 className="font-display font-bold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                    <TabletSmartphone className="w-4 h-4" />
-                    <span>iPhone & iPad (iOS) İçin Ayarlar</span>
-                  </h4>
-                  <ul className="space-y-1.5 text-xs text-stone-700 dark:text-white/80">
-                    {itHelp.eduroam?.iosSteps?.map((st: string, idx: number) => (
-                      <li key={idx} className="leading-relaxed">
-                        {st}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Email & Software */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3">
-                <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                  {itHelp.emailPassword?.title}
-                </h4>
-                <ul className="space-y-2 text-xs text-stone-600 dark:text-white/70">
-                  {itHelp.emailPassword?.steps?.map((step: string, sIdx: number) => (
-                    <li key={sIdx} className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3">
-                <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                  Ücretsiz Öğrenci Yazılım Lisansları
-                </h4>
-                <div className="space-y-2">
-                  {itHelp.softwareLicenses?.map((lic: any, lIdx: number) => (
-                    <div key={lIdx} className="p-2.5 rounded-lg bg-stone-50 dark:bg-white/5">
-                      <span className="font-bold text-xs text-stone-800 dark:text-white block">{lic.name}</span>
-                      <span className="text-[11px] text-stone-500 dark:text-white/60">{lic.info}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center text-xs text-stone-400">
-              {itHelp.supportPhone}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ================= 9. YERLEŞKELER & HARİTA ================= */}
+        {/* ================= 8. YERLEŞKELER & HARİTA ================= */}
         {activeTab === 'map' && (
           <motion.div
             key="map"

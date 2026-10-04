@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Loader2 } from 'lucide-react';
+import { X, ExternalLink, Loader2, ArrowLeft } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 
@@ -73,13 +73,23 @@ export default function DetailModal({ isOpen, onClose, url, title }: DetailModal
             className="fixed inset-x-0 bottom-0 z-50 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-2xl md:w-full bg-[#fcfbf9] dark:bg-[#264653] md:rounded-xl rounded-t-xl shadow-2xl md:shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden max-h-[90vh] md:max-h-[85vh] flex flex-col md:border border-[#e6e2d6] dark:border-white/10"
           >
             {/* Header */}
-            <div className="flex items-start justify-between p-5 md:p-6 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9]/80 dark:bg-[#264653]/80 backdrop-blur-md sticky top-0 z-10">
-              <h2 className="text-lg md:text-xl font-display font-bold pr-8 text-stone-900 dark:text-white leading-tight">
-                {title}
-              </h2>
+            <div className="flex items-center justify-between p-4 md:p-5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9]/90 dark:bg-[#264653]/90 backdrop-blur-md sticky top-0 z-10 gap-3">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-700 dark:text-white text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shrink-0 shadow-sm"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+                <span>Geri Dön</span>
+              </button>
+
+              <h2 className="text-sm md:text-base font-display font-bold text-stone-900 dark:text-white leading-tight truncate flex-1 text-center">
+                {title}
+              </h2>
+
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500 dark:text-stone-300 shrink-0"
+                aria-label="Kapat"
               >
                 <X className="w-5 h-5" strokeWidth={1.5} />
               </button>
@@ -137,14 +147,23 @@ export default function DetailModal({ isOpen, onClose, url, title }: DetailModal
 
             {/* Footer */}
             {!loading && !error && (
-              <div className="p-4 border-t border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653] flex justify-end">
+              <div className="p-4 border-t border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653] flex items-center justify-between gap-3">
+                <button
+                  onClick={onClose}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-200 dark:bg-white/10 hover:bg-stone-300 dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-semibold transition-all border border-stone-300 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+                  <span>Kapat / Geri Dön</span>
+                </button>
+
                 <a
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-2.5 bg-stone-900 dark:bg-white/10 text-white dark:text-white/90 rounded-md hover:bg-stone-800 dark:hover:bg-stone-700 transition-colors text-xs font-semibold uppercase tracking-widest border border-transparent dark:border-stone-700"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-colors text-xs font-bold uppercase tracking-wider shadow-sm"
                 >
-                  Orijinal Sayfada Aç <ExternalLink className="w-4 h-4" strokeWidth={1.5} />
+                  <span>Orijinal Sayfa</span>
+                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
                 </a>
               </div>
             )}

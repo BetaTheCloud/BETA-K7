@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { BolognaFaculty, BolognaDepartment, BolognaCourse } from '../types';
@@ -101,6 +102,7 @@ const FALLBACK_BOLOGNA_FACULTIES: Record<string, BolognaFaculty[]> = {
 };
 
 export default function Bologna() {
+  const navigate = useNavigate();
   const [faculties, setFaculties] = useState<BolognaFaculty[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -150,6 +152,9 @@ export default function Bologna() {
       setActiveFaculty(null);
     } else if (activeDegreeType) {
       setActiveDegreeType(null);
+    } else {
+      if (window.history.length > 1) navigate(-1);
+      else navigate('/');
     }
   };
 
@@ -171,6 +176,14 @@ export default function Bologna() {
     >
       {/* Header & Breadcrumbs */}
       <header className="mb-6 border-b border-[#e6e2d6] dark:border-white/10 pb-6">
+        <button
+          onClick={handleBack}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+          <span>{activeDegreeType ? 'Önceki Seviyeye Dön' : 'Geri Menüye Dön'}</span>
+        </button>
+
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-3xl font-display font-bold text-stone-900 dark:text-white flex items-center gap-3">
             <BookOpen className="w-7 h-7 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />

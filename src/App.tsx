@@ -29,7 +29,6 @@ export default function App() {
           <Route path="library" element={<CampusHub />} />
           <Route path="sports" element={<CampusHub />} />
           <Route path="hotel" element={<CampusHub />} />
-          <Route path="it-help" element={<CampusHub />} />
           <Route path="campus-map" element={<CampusHub />} />
           <Route path="menu" element={<Menu />} />
           <Route path="calendar" element={<Calendar />} />

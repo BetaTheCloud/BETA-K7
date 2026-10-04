@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
 import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
@@ -10,6 +10,12 @@ import { ServerColdStartAlert } from './ServerColdStartAlert';
 import { getAnnouncements } from '../mockData';
 
 export default function Layout() {
+  const { pathname, search } = useLocation();
+
+  // Scroll to top on every menu/page/tab navigation
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname, search]);
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
     { to: '/announcements', label: 'Duyurular', icon: Megaphone },
