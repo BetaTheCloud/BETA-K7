@@ -6,6 +6,7 @@ import { BolognaFaculty, BolognaDepartment, BolognaCourse } from '../types';
 import { BookOpen, GraduationCap, Building2, ChevronRight, ArrowLeft, Users, FileText, CheckCircle2, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
+import { getStoredWithTTL, setStoredWithTTL, CACHE_TTL } from '../mockData';
 import LoadingState from '../components/LoadingState';
 
 
@@ -114,13 +115,22 @@ export default function Bologna() {
 
   // Faculties are loaded when a degree type is selected
   const loadFaculties = async (typeId: string) => {
+    const cacheKey = `k7_bologna_faculties_${typeId}`;
+    const cached = getStoredWithTTL<BolognaFaculty[]>(cacheKey, CACHE_TTL.BOLOGNA, FALLBACK_BOLOGNA_FACULTIES[typeId] || []);
+    if (cached.isFresh && cached.data.length > 0) {
+      setFaculties(cached.data);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await safeFetch(getApiUrl(`/api/bologna/faculties?type=${typeId}`));
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {
+          setStoredWithTTL(cacheKey, data);
           setFaculties(data);
+          setLoading(false);
           return;
         }
       }
@@ -129,8 +139,8 @@ export default function Bologna() {
     } finally {
       setLoading(false);
     }
-    // Fallback to built-in faculties
-    setFaculties(FALLBACK_BOLOGNA_FACULTIES[typeId] || []);
+    // Fallback to built-in faculties or cached data
+    setFaculties(cached.data || FALLBACK_BOLOGNA_FACULTIES[typeId] || []);
   };
   
   // Set initial loading to false since we start at degree selection
@@ -384,17 +394,27 @@ export default function Bologna() {
                   key={dep.id}
                   onClick={async () => {
     if (!dep.courses && dep.sUnitId) {
+      const courseCacheKey = `k7_bologna_courses_${dep.sUnitId}`;
+      const cachedCourses = getStoredWithTTL<BolognaCourse[]>(courseCacheKey, CACHE_TTL.BOLOGNA, []);
+      if (cachedCourses.isFresh && cachedCourses.data.length > 0) {
+        setActiveDepartment({ ...dep, courses: cachedCourses.data });
+        return;
+      }
+
       setLoading(true);
       try {
         const res = await safeFetch(getApiUrl(`/api/bologna/courses?sunit=${dep.sUnitId}`));
         if (res.ok) {
           const courseData = await res.json();
-            const newDep = { ...dep, courses: courseData };
+          if (Array.isArray(courseData) && courseData.length > 0) {
+            setStoredWithTTL(courseCacheKey, courseData);
+          }
+          const newDep = { ...dep, courses: courseData };
           setActiveDepartment(newDep);
         }
       } catch(err) {
         console.error(err);
-        setActiveDepartment({ ...dep, courses: [] });
+        setActiveDepartment({ ...dep, courses: cachedCourses.data || [] });
       }
       setLoading(false);
     } else if (!dep.courses) {

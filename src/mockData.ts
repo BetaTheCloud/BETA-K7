@@ -39,7 +39,7 @@ export const FALLBACK_ANNOUNCEMENTS: Announcement[] = [
     title: 'Erasmus+ Öğrenim ve Staj Hareketliliği Başvuru Takvimi',
     date: '25.09.2026',
     content: 'Avrupa üniversitelerinde öğrenim görmek isteyen öğrencilerimiz için yabancı dil sınavı ve başvuru süreci açılmıştır.',
-    category: 'Dış İlişkiler',
+    category: 'Dış İlişkiler (Erasmus)',
     url: 'https://erasmus.kilis.edu.tr'
   },
   {
@@ -55,8 +55,48 @@ export const FALLBACK_ANNOUNCEMENTS: Announcement[] = [
     title: 'Yemekhane Bursu ve Kısmi Zamanlı Öğrenci Başvuruları',
     date: '18.09.2026',
     content: 'Sağlık Kültür ve Spor Daire Başkanlığı burs başvuruları online form üzerinden alınmaya başlamıştır.',
-    category: 'SKS',
+    category: 'Sağlık Kültür Spor (SKS)',
     url: 'https://sks.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-6',
+    title: 'Mühendislik-Mimarlık Fakültesi Staj Defteri Teslim Tarihleri',
+    date: '01.10.2026',
+    content: 'Yaz stajını tamamlayan Bilgisayar, Elektrik-Elektronik, Makine ve İnşaat Mühendisliği öğrencilerimizin dikkatine.',
+    category: 'Mühendislik-Mimarlık Fakültesi',
+    url: 'https://mmf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-7',
+    title: 'İktisadi ve İdari Bilimler Fakültesi Çift Anadal / Yandal Başvuruları',
+    date: '29.09.2026',
+    content: 'İşletme, İktisat ve Siyaset Bilimi bölümleri arası ÇAP başvuru takvimi yayınlanmıştır.',
+    category: 'İktisadi ve İdari Bilimler Fakültesi',
+    url: 'https://iibf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-8',
+    title: 'İlahiyat Fakültesi Hazırlık Sınıfı Muafiyet Sınav Sonuçları',
+    date: '27.09.2026',
+    content: 'Zorunlu Arapça Hazırlık Sınıfı Yeterlilik ve Muafiyet Sınavı sonuç listesi ilan edilmiştir.',
+    category: 'İlahiyat Fakültesi',
+    url: 'https://ilahiyat.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-9',
+    title: 'Sağlık Bilimleri Fakültesi Klinik Uygulama ve Hastane Oryantasyonu',
+    date: '24.09.2026',
+    content: 'Hemşirelik ve Beslenme-Diyetetik 3. ve 4. sınıf öğrencilerimizin hastane staj kuralları.',
+    category: 'Sağlık Bilimleri Fakültesi',
+    url: 'https://sbf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-10',
+    title: 'Fen Edebiyat Fakültesi Laboratuvar Güvenliği Semineri',
+    date: '22.09.2026',
+    content: 'Kimya, Biyoloji ve Fizik laboratuvarlarını kullanacak tüm lisans öğrencileri için zorunlu seminer.',
+    category: 'Fen Fakültesi',
+    url: 'https://fen.kilis.edu.tr'
   }
 ];
 
@@ -82,7 +122,7 @@ export const FALLBACK_NEWS: Announcement[] = [
     title: 'Mühendislik Fakültesi Öğrencilerimizden TEKNOFEST Başarısı',
     date: '24.09.2026',
     content: 'Elektrik ve Bilgisayar Mühendisliği öğrencilerimizin geliştirdiği insansız hava aracı projesi finallere kaldı.',
-    category: 'Başarılar',
+    category: 'Mühendislik-Mimarlık Fakültesi',
     url: 'https://mmf.kilis.edu.tr'
   },
   {
@@ -92,6 +132,30 @@ export const FALLBACK_NEWS: Announcement[] = [
     content: 'Öğrencilerimize staj, istihdam ve AR-GE projelerinde geniş imkanlar sağlayacak protokol imzalandı.',
     category: 'İş Birlikleri',
     url: 'https://www.kilis.edu.tr/tr/haberler'
+  },
+  {
+    id: 'news-fb-5',
+    title: 'İİBF Öğrencileri Türkiye Finans Zirvesinde Üniversitemizi Temsil Etti',
+    date: '17.09.2026',
+    content: 'İktisat Kulübü öğrencileri hazırladıkları bölgesel kalkınma raporuyla bildiri sundu.',
+    category: 'İktisadi ve İdari Bilimler Fakültesi',
+    url: 'https://iibf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-6',
+    title: 'Sağlık Bilimleri Fakültesinden Toplum Sağlığı ve Farkındalık Projesi',
+    date: '15.09.2026',
+    content: 'Kilis merkez ve kırsal bölgelerde ücretsiz tansiyon, şeker ölçümü ve beslenme danışmanlığı standları kuruldu.',
+    category: 'Sağlık Bilimleri Fakültesi',
+    url: 'https://sbf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-7',
+    title: 'TÜBİTAK 2209 Üniversite Öğrencileri Araştırma Projeleri Çağrısı Başladı',
+    date: '12.09.2026',
+    content: 'Lisans ve ön lisans öğrencilerimizin bilimsel araştırma projelerine doğrudan hibe desteği.',
+    category: 'Akademik & AR-GE',
+    url: 'https://www.kilis.edu.tr'
   }
 ];
 
@@ -453,98 +517,157 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
   }
 ];
 
-// Helper: safe local storage read
-function getStored<T>(key: string, fallback: T): T {
+// ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
+export const CACHE_TTL = {
+  ANNOUNCEMENTS: 15 * 60 * 1000,     // 15 dakika
+  NEWS: 15 * 60 * 1000,              // 15 dakika
+  MENU: 24 * 60 * 60 * 1000,         // 24 saat (1 gün - günlük menü önbelleği)
+  CALENDAR: 14 * 24 * 60 * 60 * 1000,// 14 gün (Akademik takvim nadir değişir)
+  BOLOGNA: 30 * 24 * 60 * 60 * 1000, // 30 gün (Müfredat ve dersler dönemliktir)
+  PHONEBOOK: 7 * 24 * 60 * 60 * 1000,// 7 gün
+  TRANSPORT: 14 * 24 * 60 * 60 * 1000,// 14 gün
+  LIBRARY: 14 * 24 * 60 * 60 * 1000, // 14 gün
+  SPORTS: 14 * 24 * 60 * 60 * 1000,  // 14 gün
+  HOTEL: 14 * 24 * 60 * 60 * 1000,   // 14 gün
+  MAP: 30 * 24 * 60 * 60 * 1000,     // 30 gün
+  STAFF: 7 * 24 * 60 * 60 * 1000,    // 7 gün
+  FORMS: 14 * 24 * 60 * 60 * 1000    // 14 gün
+};
+
+interface CacheEnvelope<T> {
+  data: T;
+  timestamp: number;
+}
+
+// Helper: safe local storage read with TTL validation
+export function getStoredWithTTL<T>(key: string, ttlMs: number, fallback: T): { data: T; isFresh: boolean } {
   try {
     if (typeof window !== 'undefined') {
       const item = localStorage.getItem(key);
       if (item) {
         const parsed = JSON.parse(item);
-        if (parsed && (Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0)) {
-          return parsed;
+        if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
+          const isFresh = (Date.now() - parsed.timestamp) < ttlMs;
+          if (parsed.data && (Array.isArray(parsed.data) ? parsed.data.length > 0 : Object.keys(parsed.data).length > 0)) {
+            return { data: parsed.data, isFresh };
+          }
+        } else if (parsed && (Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0)) {
+          return { data: parsed, isFresh: false };
         }
       }
     }
   } catch (e) {
     // Ignore parse error
   }
-  return fallback;
+  return { data: fallback, isFresh: false };
 }
 
-// Helper: safe local storage save
-function setStored(key: string, value: any): void {
+// Helper: safe local storage save with timestamp
+export function setStoredWithTTL<T>(key: string, value: T): void {
   try {
     if (typeof window !== 'undefined' && value) {
-      localStorage.setItem(key, JSON.stringify(value));
+      const envelope: CacheEnvelope<T> = {
+        data: value,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(key, JSON.stringify(envelope));
     }
   } catch (e) {
     // Ignore storage quota
   }
 }
 
+// Helper: safe local storage read (legacy fallback)
+function getStored<T>(key: string, fallback: T): T {
+  return getStoredWithTTL(key, Infinity, fallback).data;
+}
+
+// Helper: safe local storage save (legacy fallback)
+function setStored(key: string, value: any): void {
+  setStoredWithTTL(key, value);
+}
+
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
 export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
+  if (!force && cached.isFresh) {
+    return cached.data;
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_announcements', data);
+        setStoredWithTTL('k7_cached_announcements', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Duyurular canlı alınamadı, önbellek kullanılıyor:", err);
   }
-  return getStored('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
+  return cached.data || FALLBACK_ANNOUNCEMENTS;
 };
 
 export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_news', CACHE_TTL.NEWS, FALLBACK_NEWS);
+  if (!force && cached.isFresh) {
+    return cached.data;
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_news', data);
+        setStoredWithTTL('k7_cached_news', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Haberler canlı alınamadı, önbellek kullanılıyor:", err);
   }
-  return getStored('k7_cached_news', FALLBACK_NEWS);
+  return cached.data || FALLBACK_NEWS;
 };
 
-export const getMenu = async (): Promise<MenuItem[]> => {
+export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {
+  const cached = getStoredWithTTL<MenuItem[]>('k7_cached_menu', CACHE_TTL.MENU, FALLBACK_MENU);
+  if (!force && cached.isFresh) {
+    return cached.data;
+  }
   try {
-    const response = await safeFetch(getApiUrl('/api/menu'));
+    const response = await safeFetch(getApiUrl(`/api/menu${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_menu', data);
+        setStoredWithTTL('k7_cached_menu', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Yemek menüsü canlı alınamadı, önbellek kullanılıyor:", err);
   }
-  return getStored('k7_cached_menu', FALLBACK_MENU);
+  return cached.data || FALLBACK_MENU;
 };
 
 export const getCalendarEvents = async (force: boolean = false): Promise<CalendarEvent[]> => {
+  const cached = getStoredWithTTL<CalendarEvent[]>('k7_cached_calendar', CACHE_TTL.CALENDAR, []);
+  if (!force && cached.isFresh && cached.data.length > 0) {
+    return cached.data;
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/calendar${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_calendar', data);
+        setStoredWithTTL('k7_cached_calendar', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Canlı takvim çekilemedi, yerleşik veriler kullanılıyor:", err);
   }
+
+  if (cached.data && cached.data.length > 0) return cached.data;
 
   // Güvenli Yedek (Fallback)
   return [

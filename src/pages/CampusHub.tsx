@@ -68,6 +68,7 @@ import {
 import { PhonebookEntry, AcademicStaffMember, StaffUnitCategory, CampusEvent, CampusForm, CampusBuilding } from '../types';
 import LoadingState from '../components/LoadingState';
 import DetailModal from '../components/DetailModal';
+import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
 import toast from 'react-hot-toast';
 
 type TabKey = 'all' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
@@ -436,7 +437,7 @@ export default function CampusHub() {
       </div>
 
       {/* Horizontal Scrollable Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+      <HorizontalScrollWrapper>
         {tabs.map((t) => {
           const Icon = t.icon;
           const isActive = activeTab === t.key;
@@ -444,7 +445,7 @@ export default function CampusHub() {
             <button
               key={t.key}
               onClick={() => handleTabChange(t.key)}
-              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 ${
+              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer ${
                 isActive
                   ? 'bg-amber-600 text-white shadow-md shadow-amber-600/25 font-semibold'
                   : 'bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border border-[#e6e2d6] dark:border-white/10'
@@ -455,7 +456,7 @@ export default function CampusHub() {
             </button>
           );
         })}
-      </div>
+      </HorizontalScrollWrapper>
 
       {/* TAB CONTENT */}
       <AnimatePresence mode="wait">
@@ -714,7 +715,7 @@ export default function CampusHub() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                <HorizontalScrollWrapper>
                   {[
                     { key: 'all' as StaffUnitCategory, label: 'Tüm Birimler', count: STAFF_FACULTIES_LIST.filter(f => f.id !== 'all').length },
                     { key: 'fakulte' as StaffUnitCategory, label: 'Fakülteler', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'fakulte').length },
@@ -730,7 +731,7 @@ export default function CampusHub() {
                         key={cat.key}
                         type="button"
                         onClick={() => handleStaffCategoryChange(cat.key)}
-                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border cursor-pointer ${
                           isCatActive
                             ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-1 ring-emerald-500/20'
                             : 'bg-white dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-50 dark:hover:bg-white/10'
@@ -745,7 +746,7 @@ export default function CampusHub() {
                       </button>
                     );
                   })}
-                </div>
+                </HorizontalScrollWrapper>
               </div>
 
               {/* Dual Clean Selectors: 1) Fakülte / Birim  2) Bölüm / Anabilim Dalı */}
@@ -837,7 +838,7 @@ export default function CampusHub() {
                   <span className="text-[11px] font-semibold text-stone-500 dark:text-white/60">
                     Hızlı Bölüm Seçimi ({activeStaffFacultyConfig?.shortName}):
                   </span>
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  <HorizontalScrollWrapper>
                     {availableStaffDepartments.map((dept) => {
                       const isDeptActive = selectedStaffDepartment === dept;
                       const deptCount = dept === 'Tümü'
@@ -849,7 +850,7 @@ export default function CampusHub() {
                           key={dept}
                           type="button"
                           onClick={() => setSelectedStaffDepartment(dept)}
-                          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                             isDeptActive
                               ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/30'
                               : 'bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
@@ -864,7 +865,7 @@ export default function CampusHub() {
                         </button>
                       );
                     })}
-                  </div>
+                  </HorizontalScrollWrapper>
                 </div>
               )}
 
@@ -1957,12 +1958,12 @@ export default function CampusHub() {
             className="space-y-4"
           >
             {/* Campus Selector */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <HorizontalScrollWrapper>
               {(['Tümü', 'Merkez Kampüs', 'Karataş Kampüsü', 'Mercidabık Kampüsü'] as const).map((cmp) => (
                 <button
                   key={cmp}
                   onClick={() => setSelectedCampus(cmp)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                     selectedCampus === cmp
                       ? 'bg-amber-600 text-white'
                       : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300'
@@ -1971,7 +1972,7 @@ export default function CampusHub() {
                   {cmp}
                 </button>
               ))}
-            </div>
+            </HorizontalScrollWrapper>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {filteredLocations.map((loc) => (
