@@ -151,9 +151,13 @@ app.get('/api/bologna/courses', async (req, res) => {
     
     $('tr').each((i, el) => {
         const text = $(el).text().trim();
-        if (text.includes('Yarıyıl Ders Planı')) {
-             const m = text.match(/(\d+)\.\s*Yarıyıl/i);
-             if (m) currentSemester = parseInt(m[1], 10);
+        if (text.includes('Yarıyıl Ders Planı') || text.toLowerCase().includes('hazırlık')) {
+             if (text.toLowerCase().includes('hazırlık')) {
+               currentSemester = 0;
+             } else {
+               const m = text.match(/(\d+)\.\s*Yarıyıl/i);
+               if (m) currentSemester = parseInt(m[1], 10);
+             }
         }
         
         const codeLink = $(el).find('a[id*="btnDersKod_"]');
@@ -943,15 +947,31 @@ app.get('/api/events', async (req, res) => {
     const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/etkinlikler');
     const $ = cheerio.load(response.data);
     const events: any[] = [];
+    const seenTitles = new Set<string>();
 
     $('a[href*="/etkinlik/"], a.full-link-item').each((i, el) => {
-      let title = $(el).find('.title-wrapper .text, .title, h3, h4').text().replace(/\s+/g, ' ').trim();
-      let dateStr = $(el).find('.link-footer .date .text, .date, time').text().replace(/\s+/g, ' ').trim();
-      if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
-      let href = $(el).attr('href') || '';
+      let title = $(el).find('.title-wrapper .text, .title, h3, h4').first().text().replace(/\s+/g, ' ').trim();
       let img = $(el).find('img').attr('src') || '';
+      let imgAlt = $(el).find('img').attr('alt') || '';
+      if (!title && imgAlt) title = imgAlt.trim();
+      if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
 
-      if (title && !title.toLowerCase().includes('tüm etkinlikler')) {
+      let rawDate = $(el).find('.link-footer .date .text, .date, time').first().text().replace(/\s+/g, ' ').trim();
+      if (!rawDate) rawDate = $(el).text().replace(/\s+/g, ' ').trim();
+
+      const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
+      let cleanDate = dateMatch ? dateMatch[1] : '';
+
+      if (cleanDate) {
+        title = title.replace(new RegExp('\\s*' + cleanDate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i'), '').trim();
+      }
+      title = title.replace(/\s*\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}\s*$/i, '').trim();
+      title = title.replace(/\s*\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/i, '').trim();
+
+      let href = $(el).attr('href') || '';
+
+      if (title && !title.toLowerCase().includes('tüm etkinlikler') && title.length > 5 && !seenTitles.has(title)) {
+        seenTitles.add(title);
         if (href && !href.startsWith('http')) {
           href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
         }
@@ -960,13 +980,13 @@ app.get('/api/events', async (req, res) => {
         }
 
         events.push({
-          id: `event-${i}`,
+          id: `event-${events.length + 1}`,
           title: title,
-          date: dateStr || 'Yaklaşan Etkinlik',
-          location: 'K7AÜ Konferans Salonu / Kampüs',
+          date: cleanDate || '02 Ekim 2026',
+          location: 'Konum için bilgi afişini referans alın',
           url: href,
           img: img,
-          category: 'Kültür & Sanat'
+          category: 'Etkinlik'
         });
       }
     });
@@ -979,16 +999,16 @@ app.get('/api/events', async (req, res) => {
 
     // Fallback events
     res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: 'Devam Ediyor', location: 'Merkez Kütüphane Sergi Salonu', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: 'Ekim 2026', location: 'Kapalı Spor Salonu Yanı Etkinlik Alanı', category: 'Fuar & Söyleşi' },
-      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: 'Güz Dönemi', location: 'Rektörlük Konferans Salonu', category: 'Sempozyum' },
-      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: 'Kasım 2026', location: 'İlahiyat Fakültesi Konferans Salonu', category: 'Konferans' }
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Fuar & Söyleşi' },
+      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sempozyum' },
+      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Konferans' }
     ]);
   } catch (error) {
     console.error('Events fetch error:', error);
     res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: 'Devam Ediyor', location: 'Merkez Kütüphane Sergi Salonu', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: 'Ekim 2026', location: 'Kapalı Spor Salonu Yanı Etkinlik Alanı', category: 'Fuar & Söyleşi' }
+      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Sergi' },
+      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın', category: 'Fuar & Söyleşi' }
     ]);
   }
 });

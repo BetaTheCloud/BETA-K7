@@ -11,7 +11,6 @@ import {
   Building2,
   Filter,
   X,
-  Sparkles,
   Calendar
 } from 'lucide-react';
 import { cn, parseDateToTimestamp } from '../lib/utils';
@@ -184,10 +183,6 @@ export default function Announcements() {
                 Rektörlük, fakülteler, enstitüler ve idari birimlerden resmi duyurular.
               </p>
             </div>
-            <span className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-              <Sparkles className="w-3.5 h-3.5" />
-              {filteredAnnouncements.length} Duyuru
-            </span>
           </div>
         </header>
 

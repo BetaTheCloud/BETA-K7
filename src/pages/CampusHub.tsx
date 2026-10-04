@@ -1236,17 +1236,23 @@ export default function CampusHub() {
 
                   <div className="p-4 sm:p-5 space-y-2.5">
                     <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{ev.date && ev.date.trim() ? ev.date : 'Duyuru Tarihi'}</span>
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {(() => {
+                          const raw = (ev.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
+                          const dateMatch = raw.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || raw.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
+                          return dateMatch ? dateMatch[1] : (raw && !raw.toLowerCase().includes('tarih') ? raw : '02 Ekim 2026');
+                        })()}
+                      </span>
                     </div>
 
-                    <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
                       {ev.title}
                     </h3>
 
                     <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60">
-                      <MapPin className="w-3.5 h-3.5 text-stone-400" />
-                      <span>{ev.location && ev.location.trim() ? ev.location : 'Detaylı konum için bilgi alın'}</span>
+                      <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                      <span>{ev.location || 'Konum için bilgi afişini referans alın'}</span>
                     </div>
 
                     <div className="pt-2 flex items-center justify-end">
