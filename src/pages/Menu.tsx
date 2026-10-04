@@ -44,7 +44,7 @@ export default function Menu() {
   const navigate = useNavigate();
   const [menu, setMenu] = useState<MenuItem[]>(() => {
     try {
-      const cached = localStorage.getItem('k7_cached_menu');
+      const cached = localStorage.getItem('k7_cached_menu_v6');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;

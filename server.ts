@@ -374,11 +374,27 @@ const DEFAULT_NEWS = [
 ];
 
 const DEFAULT_MENU = [
-  { id: 'menu-1', date: 'Pazartesi Menüsü', mainDish: 'Orman Kebabı', sideDish: 'Şehriyeli Pirinç Pilavı', soup: 'Mercimek Çorbası', dessertOrFruit: 'Mevsim Salata / Ayran', calories: 850 },
-  { id: 'menu-2', date: 'Salı Menüsü', mainDish: 'Tavuk Sote', sideDish: 'Bulgur Pilavı', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Sütlaç', calories: 780 },
-  { id: 'menu-3', date: 'Çarşamba Menüsü', mainDish: 'Kuru Fasulye', sideDish: 'Pirinç Pilavı', soup: 'Yayla Çorbası', dessertOrFruit: 'Cacık / Turşu', calories: 820 },
-  { id: 'menu-4', date: 'Perşembe Menüsü', mainDish: 'İzmir Köfte', sideDish: 'Soslu Makarna', soup: 'Tarhana Çorbası', dessertOrFruit: 'Mevsim Meyvesi', calories: 800 },
-  { id: 'menu-5', date: 'Cuma Menüsü', mainDish: 'Fırın Tavuk But', sideDish: 'Garnitürlü Pilav', soup: 'Domates Çorbası', dessertOrFruit: 'Kemalpaşa Tatlısı', calories: 860 }
+  { id: 'menu-oct-1', date: '1 Ekim 2026 Perşembe', mainDish: 'Mantarlı Tavuk Sote', sideDish: 'Domatesli Bulgur Pilavı', soup: 'Yayla Çorbası', dessertOrFruit: 'Armut', calories: 840 },
+  { id: 'menu-oct-2', date: '2 Ekim 2026 Cuma', mainDish: 'Ali Paşa Köfte', sideDish: 'Patatesli Börek', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Kazandibi', calories: 890 },
+  { id: 'menu-oct-3', date: '5 Ekim 2026 Pazartesi', mainDish: 'Tavuk Pirzola', sideDish: 'Mısırlı Pirinç Pilavı', soup: 'Mercimek Çorbası', dessertOrFruit: 'Cacık', calories: 820 },
+  { id: 'menu-oct-4', date: '6 Ekim 2026 Salı', mainDish: 'Belen Tava', sideDish: 'Şehriyeli Bulgur Pilavı', soup: 'Kaşarlı Domates Çorbası', dessertOrFruit: 'Şekerpare', calories: 870 },
+  { id: 'menu-oct-5', date: '7 Ekim 2026 Çarşamba', mainDish: 'Püreli Hasan Paşa Köfte', sideDish: 'Peynirli Börek', soup: 'Düğün Çorbası', dessertOrFruit: 'Sütlaç', calories: 860 },
+  { id: 'menu-oct-6', date: '8 Ekim 2026 Perşembe', mainDish: 'Orman Kebabı', sideDish: 'Soslu Makarna', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Muz', calories: 830 },
+  { id: 'menu-oct-7', date: '9 Ekim 2026 Cuma', mainDish: 'Patates Oturtma', sideDish: 'Şehriyeli Pirinç Pilavı', soup: 'Dövme Çorbası', dessertOrFruit: 'Revani', calories: 850 },
+  { id: 'menu-oct-8', date: '12 Ekim 2026 Pazartesi', mainDish: 'Pilav Üstü Piliç Tandır', sideDish: 'Karışık Kızartma', soup: 'Mercimek Çorbası', dessertOrFruit: 'Ayran', calories: 860 },
+  { id: 'menu-oct-9', date: '13 Ekim 2026 Salı', mainDish: 'Et Tantuni + Lavaş', sideDish: 'Mısırlı Pirinç Pilavı', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Elma', calories: 890 },
+  { id: 'menu-oct-10', date: '14 Ekim 2026 Çarşamba', mainDish: 'Tavuk Baget Haşlama', sideDish: 'Bulgur Pilavı', soup: 'Sultan Çorbası', dessertOrFruit: 'Cevizli Kadayıf', calories: 840 },
+  { id: 'menu-oct-11', date: '15 Ekim 2026 Perşembe', mainDish: 'İzmir Köfte', sideDish: 'Karışık Börek', soup: 'Yayla Çorbası', dessertOrFruit: 'Keşkül', calories: 850 },
+  { id: 'menu-oct-12', date: '16 Ekim 2026 Cuma', mainDish: 'Çiftlik Kebabı', sideDish: 'Yoğurtlu Mantı', soup: 'Kaşarlı Domates Çorbası', dessertOrFruit: 'Şam Tatlısı', calories: 880 },
+  { id: 'menu-oct-13', date: '19 Ekim 2026 Pazartesi', mainDish: 'Beşamel Soslu Tavuk', sideDish: 'Mısırlı Pirinç Pilavı', soup: 'Mercimek Çorbası', dessertOrFruit: 'Mandalina', calories: 830 },
+  { id: 'menu-oct-14', date: '20 Ekim 2026 Salı', mainDish: 'Et Haşlama', sideDish: 'Bulgur Pilavı', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Tulumba Tatlısı', calories: 860 },
+  { id: 'menu-oct-15', date: '21 Ekim 2026 Çarşamba', mainDish: 'Etli Dolma', sideDish: 'Tepsi Börek', soup: 'Tutmaç Çorbası', dessertOrFruit: 'Yoğurt', calories: 820 },
+  { id: 'menu-oct-16', date: '22 Ekim 2026 Perşembe', mainDish: 'Izgara Köfte + Patates Cips', sideDish: 'Bolonez Soslu Makarna', soup: 'Dövme Çorbası', dessertOrFruit: 'Fıstıklı Şöbiyet', calories: 910 },
+  { id: 'menu-oct-17', date: '23 Ekim 2026 Cuma', mainDish: 'Çökertme Kebabı', sideDish: 'Zeytinyağlı Dolma', soup: 'Şehriye Çorbası', dessertOrFruit: 'Islak Kek', calories: 890 },
+  { id: 'menu-oct-18', date: '26 Ekim 2026 Pazartesi', mainDish: 'Tavuk Fajita', sideDish: 'Soslu Makarna', soup: 'Süzme Mercimek Çorbası', dessertOrFruit: 'Lokma Tatlısı', calories: 840 },
+  { id: 'menu-oct-19', date: '27 Ekim 2026 Salı', mainDish: 'Elbasan Tava', sideDish: 'Şehriyeli Pirinç Pilavı', soup: 'Ezogelin Çorbası', dessertOrFruit: 'Supangle', calories: 870 },
+  { id: 'menu-oct-20', date: '28 Ekim 2026 Çarşamba', mainDish: 'Etli Kuru Fasulye', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 860 },
+  { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
 app.get('/api/announcements', async (req, res) => {
@@ -533,18 +549,30 @@ app.get('/api/menu', async (req, res) => {
     const $ = cheerio.load(response.data);
     const menuItems: any[] = [];
     
+    const cleanDish = (str: string) => {
+      let s = (str || '').replace(/\s+/g, ' ').trim();
+      s = s.replace(/MANTARLI TAVUK SOYE/i, 'MANTARLI TAVUK SOTE');
+      s = s.replace(/ALİ AŞA KÖFTE/i, 'ALİ PAŞA KÖFTE');
+      s = s.replace(/ŞEKERPARRE/i, 'ŞEKERPARE');
+      s = s.replace(/TEPSİ BÖRREK/i, 'TEPSİ BÖREK');
+      s = s.replace(/IZGARA KÖFTE\+CİPS/i, 'IZGARA KÖFTE + PATATES CİPS');
+      s = s.replace(/BOL\.\s*SOS\.\s*MAKARNA/i, 'BOLONEZ SOSLU MAKARNA');
+      s = s.replace(/ŞEH\.\s*PİRİNÇ\s*PİLAVI/i, 'ŞEHRİYELİ PİRİNÇ PİLAVI');
+      return s;
+    };
+
     $('table tr').each((i, el) => {
       const tds = $(el).find('td');
       if (tds.length >= 5) {
-        const dateStr = $(tds[0]).text().trim();
-        const mainDish = $(tds[1]).text().trim();
-        const sideDish = $(tds[2]).text().trim();
-        const soup = $(tds[3]).text().trim();
-        const dessert = $(tds[4]).text().trim();
+        const dateStr = $(tds[0]).text().replace(/\s+/g, ' ').trim();
+        const mainDish = cleanDish($(tds[1]).text());
+        const sideDish = cleanDish($(tds[2]).text());
+        const soup = cleanDish($(tds[3]).text());
+        const dessert = cleanDish($(tds[4]).text());
         
         if (mainDish && !mainDish.includes('1.YEMEK') && !dateStr.toLowerCase().includes('menüsü')) {
           menuItems.push({
-            id: `menu-${i}`,
+            id: `menu-live-${i}`,
             date: dateStr,
             mainDish: mainDish,
             sideDish: sideDish,

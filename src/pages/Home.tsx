@@ -9,14 +9,13 @@ import {
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, PhoneCall, Calendar, Bus, FileText, BookOpen, Trophy, Hotel, Wifi, MapPin, LayoutGrid, Users } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
-import LoadingState from '../components/LoadingState';
-import { parseDateToTimestamp, findTodayMenu } from '../lib/utils';
+import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/utils';
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -42,18 +41,17 @@ export default function Home() {
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [todayMenu, setTodayMenu] = useState<MenuItem | null>(() => {
+  const [todayMenuInfo, setTodayMenuInfo] = useState<TodayMenuInfo<MenuItem>>(() => {
     try {
-      const cached = localStorage.getItem('k7_cached_menu');
+      const cached = localStorage.getItem('k7_cached_menu_v6');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const matched = findTodayMenu(parsed);
-          if (matched) return matched;
+          return getTodayMenuInfo(parsed);
         }
       }
     } catch {}
-    return findTodayMenu(FALLBACK_MENU);
+    return getTodayMenuInfo(FALLBACK_MENU);
   });
 
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
@@ -66,12 +64,11 @@ export default function Home() {
       const [announcementsData, newsData, menuData] = await Promise.all([
         getAnnouncements(true),
         getNews(true),
-        getMenu()
+        getMenu(true)
       ]);
       if (announcementsData?.length) setAnnouncements(announcementsData);
       if (newsData?.length) setNews(newsData);
-      const menu = findTodayMenu(menuData);
-      if (menu) setTodayMenu(menu);
+      if (menuData?.length) setTodayMenuInfo(getTodayMenuInfo(menuData));
     } catch (error) {
       console.error("Yenileme hatası", error);
     }
@@ -90,9 +87,7 @@ export default function Home() {
         if (!isMounted) return;
         if (announcementsData?.length) setAnnouncements(announcementsData);
         if (newsData?.length) setNews(newsData);
-        
-        const menu = findTodayMenu(menuData);
-        if (menu) setTodayMenu(menu);
+        if (menuData?.length) setTodayMenuInfo(getTodayMenuInfo(menuData));
       } catch (error) {
         console.warn("Veri güncellenirken bildirim:", error);
       }
@@ -227,14 +222,25 @@ export default function Home() {
               <Trophy className="w-5 h-5" />
             </div>
             <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Spor & Saha</span>
-            <span className="text-[10px] text-stone-400 dark:text-white/40">Halı Saha & Fitness</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Rezervasyonlar</span>
+          </Link>
+
+          <Link
+            to="/menu"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/50 hover:shadow-md transition-all active:scale-95"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <ChefHat className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Yemekhane</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Günün Menüsü</span>
           </Link>
 
           <Link
             to="/campus?tab=forms"
-            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/50 hover:shadow-md transition-all active:scale-95"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-orange-500/50 hover:shadow-md transition-all active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
               <FileText className="w-5 h-5" />
             </div>
             <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Dilekçeler</span>
@@ -250,17 +256,6 @@ export default function Home() {
             </div>
             <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Kütüphane</span>
             <span className="text-[10px] text-stone-400 dark:text-white/40">Kitap & Saatler</span>
-          </Link>
-
-          <Link
-            to="/campus?tab=map"
-            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-red-500/50 hover:shadow-md transition-all active:scale-95"
-          >
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Harita</span>
-            <span className="text-[10px] text-stone-400 dark:text-white/40">Yerleşkeler</span>
           </Link>
         </div>
       </section>
@@ -353,34 +348,84 @@ export default function Home() {
             Yemek Menüsü
           </h3>
           <Link to="/menu" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
-            Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
+            Aylık Menüyü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
           </Link>
         </div>
         
-        {todayMenu ? (
-          <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-lg p-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-amber-600 dark:text-amber-500 mb-4">{todayMenu.date}</div>
-            <ul className="space-y-3 text-stone-700 dark:text-white/80">
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-[#fcfbf9]"></div>
-                <span className="font-display font-bold text-lg text-stone-900 dark:text-white">{todayMenu.mainDish}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600"></div>
-                <span>{todayMenu.sideDish}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600"></div>
-                <span>{todayMenu.soup}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-stone-600"></div>
-                <span>{todayMenu.dessertOrFruit}</span>
-              </li>
-            </ul>
+        {todayMenuInfo?.menu ? (
+          <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm relative overflow-hidden">
+            {/* Header with date and status badge */}
+            <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-[#e6e2d6] dark:border-white/10 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Utensils className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
+                  {todayMenuInfo.menu.date}
+                </span>
+              </div>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                todayMenuInfo.isToday 
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              }`}>
+                {todayMenuInfo.badgeLabel}
+              </span>
+            </div>
+
+            {/* Meal Items Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-white/5 border border-amber-500/20">
+                <div className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 tracking-wider mb-1">
+                  1. Ana Yemek
+                </div>
+                <div className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white">
+                  {todayMenuInfo.menu.mainDish}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
+                <div className="text-[10px] uppercase font-bold text-stone-500 dark:text-white/50 tracking-wider mb-1">
+                  2. Yardımcı Yemek
+                </div>
+                <div className="font-semibold text-sm sm:text-base text-stone-800 dark:text-white/90">
+                  {todayMenuInfo.menu.sideDish}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
+                <div className="text-[10px] uppercase font-bold text-stone-500 dark:text-white/50 tracking-wider mb-1">
+                  3. Çorba
+                </div>
+                <div className="font-semibold text-sm sm:text-base text-stone-800 dark:text-white/90">
+                  {todayMenuInfo.menu.soup}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
+                <div className="text-[10px] uppercase font-bold text-stone-500 dark:text-white/50 tracking-wider mb-1">
+                  4. Tatlı / Meyve / İçecek
+                </div>
+                <div className="font-semibold text-sm sm:text-base text-stone-800 dark:text-white/90">
+                  {todayMenuInfo.menu.dessertOrFruit}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom link to full menu */}
+            <div className="mt-4 pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-[11px] text-stone-400 dark:text-white/40">
+                SKS Yemekhane Öğle Yemeği Servisi (11:30 - 13:30)
+              </span>
+              <Link
+                to="/menu"
+                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1"
+              >
+                <span>Tarihe Göre Menü Seç</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-lg p-6 text-center text-stone-500 text-sm">
+          <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6 text-center text-stone-500 text-sm">
             Bugün için menü bulunamadı veya tablo okunamadı.
           </div>
         )}

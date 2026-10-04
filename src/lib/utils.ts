@@ -90,15 +90,31 @@ export interface GenericMenuItem {
   calories?: number;
 }
 
+export interface TodayMenuInfo<T extends GenericMenuItem> {
+  menu: T | null;
+  isToday: boolean;
+  isWeekend: boolean;
+  badgeLabel: string;
+}
+
 /**
  * Finds the exact menu item corresponding to today's date, or the closest upcoming serving day.
  */
 export function findTodayMenu<T extends GenericMenuItem>(menuList: T[]): T | null {
-  if (!menuList || menuList.length === 0) return null;
+  const info = getTodayMenuInfo(menuList);
+  return info.menu;
+}
+
+export function getTodayMenuInfo<T extends GenericMenuItem>(menuList: T[]): TodayMenuInfo<T> {
+  if (!menuList || menuList.length === 0) {
+    return { menu: null, isToday: false, isWeekend: false, badgeLabel: 'Menü Bulunamadı' };
+  }
   const today = new Date();
   const dayNum = today.getDate();
   const monthIdx = today.getMonth();
   const year = today.getFullYear();
+  const dayOfWeek = today.getDay(); // 0 = Pazar, 6 = Cumartesi
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   const weekdayName = today.toLocaleDateString('tr-TR', { weekday: 'long' }).toLowerCase();
   const fullTr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).toLowerCase();
   const monthNameKey = Object.keys(TURKISH_MONTHS).find(k => TURKISH_MONTHS[k] === monthIdx) || '';
@@ -109,40 +125,43 @@ export function findTodayMenu<T extends GenericMenuItem>(menuList: T[]): T | nul
   const dotDate2 = `${dayNum}.${monthIdx + 1}.${year}`;
   const dotShort = `${padDay}.${padMonth}`;
 
-  // 1. Direct exact date match in date string
-  let match = menuList.find(item => {
+  // 1. Direct exact date match in date string (today)
+  let exactMatch = menuList.find(item => {
     const d = (item.date || '').toLowerCase();
     return d.includes(fullTr) || d.includes(dotDate1) || d.includes(dotDate2) || d.includes(dotShort) || (monthNameKey && d.includes(dayMonthTr));
   });
-  if (match) return match;
 
   // 2. Match by Day number + Month name / number
-  match = menuList.find(item => {
-    const parts = (item.date || '').toLowerCase().split(/[\s./-]+/);
-    if (parts.length >= 2) {
-      const itemDay = parseInt(parts[0], 10);
-      const itemMonth = parts[1];
-      if (!isNaN(itemDay) && itemDay === dayNum) {
-        if (TURKISH_MONTHS[itemMonth] === monthIdx || parseInt(itemMonth, 10) === (monthIdx + 1)) {
-          return true;
+  if (!exactMatch) {
+    exactMatch = menuList.find(item => {
+      const parts = (item.date || '').toLowerCase().split(/[\s./-]+/);
+      if (parts.length >= 2) {
+        const itemDay = parseInt(parts[0], 10);
+        const itemMonth = parts[1];
+        if (!isNaN(itemDay) && itemDay === dayNum) {
+          if (TURKISH_MONTHS[itemMonth] === monthIdx || parseInt(itemMonth, 10) === (monthIdx + 1)) {
+            return true;
+          }
         }
       }
-    }
-    return false;
-  });
-  if (match) return match;
+      return false;
+    });
+  }
 
-  // 3. Match by Weekday name (if menu has weekday titles like "Pazartesi Menüsü")
-  match = menuList.find(item => {
-    const d = (item.date || '').toLowerCase();
-    return d.includes(weekdayName) && (d.includes('menü') || d.includes('günü'));
-  });
-  if (match) return match;
+  if (exactMatch) {
+    return {
+      menu: exactMatch,
+      isToday: true,
+      isWeekend: false,
+      badgeLabel: 'Günün Menüsü'
+    };
+  }
 
-  // 4. Find the closest upcoming serving day (e.g. on Sunday, return Monday's menu)
+  // 3. If no exact match (e.g. weekend or holiday), find the closest upcoming serving day
   const todayTime = new Date(year, monthIdx, dayNum).getTime();
   let upcomingMatch: T | null = null;
   let minDiff = Infinity;
+
   for (const item of menuList) {
     const parts = (item.date || '').toLowerCase().split(/[\s./-]+/);
     if (parts.length >= 2) {
@@ -159,13 +178,30 @@ export function findTodayMenu<T extends GenericMenuItem>(menuList: T[]): T | nul
       }
     }
   }
-  if (upcomingMatch) return upcomingMatch;
 
-  // 5. Weekday index fallback (1=Mon..5=Fri)
-  const dayOfWeek = today.getDay(); // 0..6
-  if (dayOfWeek >= 1 && dayOfWeek <= 5 && menuList[dayOfWeek - 1]) {
-    return menuList[dayOfWeek - 1];
+  if (upcomingMatch) {
+    return {
+      menu: upcomingMatch,
+      isToday: false,
+      isWeekend,
+      badgeLabel: isWeekend ? 'Hafta Sonu (Sıradaki Menü)' : 'Sıradaki Menü'
+    };
   }
 
-  return menuList[0] || null;
+  // 4. Weekday index fallback (1=Mon..5=Fri)
+  if (dayOfWeek >= 1 && dayOfWeek <= 5 && menuList[dayOfWeek - 1]) {
+    return {
+      menu: menuList[dayOfWeek - 1],
+      isToday: false,
+      isWeekend: false,
+      badgeLabel: 'Menü'
+    };
+  }
+
+  return {
+    menu: menuList[0] || null,
+    isToday: false,
+    isWeekend,
+    badgeLabel: 'Menü'
+  };
 }

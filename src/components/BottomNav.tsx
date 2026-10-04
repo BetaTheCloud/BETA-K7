@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, Landmark, LayoutGrid } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function BottomNav() {
@@ -9,7 +9,6 @@ export default function BottomNav() {
     { to: '/campus', label: 'Hizmetler', icon: LayoutGrid },
     { to: '/news', label: 'Haber', icon: Newspaper },
     { to: '/bologna', label: 'Bologna', icon: Landmark },
-    { to: '/menu', label: 'Yemek', icon: ChefHat },
   ];
 
   return (
