@@ -409,111 +409,174 @@ export const FALLBACK_IT_HELP = {
 export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
   {
     id: 'cmp-1',
-    name: 'Rektörlük & İdari Bina',
-    campus: 'Merkez Kampüs',
-    type: 'Sosyal / İdari',
-    description: 'Senato, Yönetim Kurulu, Genel Sekreterlik ve Daire Başkanlıkları.',
-    mapsUrl: 'https://maps.google.com/?q=36.7121,37.1082',
-    coordinates: { lat: 36.7121, lng: 37.1082 }
-  },
-  {
-    id: 'cmp-2',
     name: 'Mühendislik - Mimarlık Fakültesi',
     campus: 'Merkez Kampüs',
     type: 'Fakülte',
-    description: 'Bilgisayar, İnşaat, Elektrik-Elektronik, Makine mühendislikleri ve laboratuvarlar.',
-    mapsUrl: 'https://maps.google.com/?q=36.7115,37.1075',
-    coordinates: { lat: 36.7115, lng: 37.1075 }
+    description: 'Bilgisayar, Elektrik-Elektronik, Makine ve İnşaat Mühendisliği bölümleri ve AR-GE laboratuvarları.',
+    mapsUrl: 'https://maps.google.com/?q=36.73222216370497,37.10261165932252',
+    coordinates: { lat: 36.73222216370497, lng: 37.10261165932252 }
   },
   {
-    id: 'cmp-3',
-    name: 'İlahiyat Fakültesi',
-    campus: 'Merkez Kampüs',
-    type: 'Fakülte',
-    description: 'Derslikler, amfiler ve İlahiyat Konferans Salonu.',
-    mapsUrl: 'https://maps.google.com/?q=36.7130,37.1090',
-    coordinates: { lat: 36.7130, lng: 37.1090 }
-  },
-  {
-    id: 'cmp-4',
+    id: 'cmp-2',
     name: 'İktisadi ve İdari Bilimler Fakültesi (İİBF)',
     campus: 'Merkez Kampüs',
     type: 'Fakülte',
-    description: 'İktisat, İşletme, Siyaset Bilimi ve Uluslararası İlişkiler.',
-    mapsUrl: 'https://maps.google.com/?q=36.7125,37.1070',
-    coordinates: { lat: 36.7125, lng: 37.1070 }
+    description: 'İktisat, İşletme, Siyaset Bilimi ve Kamu Yönetimi, Uluslararası Ticaret ve Lojistik.',
+    mapsUrl: 'https://maps.google.com/?q=36.73096822565002,37.102567044723585',
+    coordinates: { lat: 36.73096822565002, lng: 37.102567044723585 }
   },
   {
-    id: 'cmp-5',
+    id: 'cmp-3',
     name: 'İnsan ve Toplum Bilimleri Fakültesi',
     campus: 'Merkez Kampüs',
     type: 'Fakülte',
     description: 'Tarih, Türk Dili ve Edebiyatı, Felsefe, Coğrafya ve Sosyoloji bölümleri.',
-    mapsUrl: 'https://maps.google.com/?q=36.7110,37.1085',
-    coordinates: { lat: 36.7110, lng: 37.1085 }
+    mapsUrl: 'https://maps.google.com/?q=36.73004215012088,37.10122552321277',
+    coordinates: { lat: 36.73004215012088, lng: 37.10122552321277 }
+  },
+  {
+    id: 'cmp-4',
+    name: 'İlahiyat Fakültesi',
+    campus: 'Merkez Kampüs',
+    type: 'Fakülte',
+    description: 'Temel İslam Bilimleri, İslam Tarihi ve Sanatları, Konferans Salonu.',
+    mapsUrl: 'https://maps.google.com/?q=36.731592874279485,37.10415929157923',
+    coordinates: { lat: 36.731592874279485, lng: 37.10415929157923 }
+  },
+  {
+    id: 'cmp-5',
+    name: 'Fen Fakültesi',
+    campus: 'Merkez Kampüs',
+    type: 'Fakülte',
+    description: 'Moleküler Biyoloji ve Genetik, Matematik, Kimya ve Fizik laboratuvarları.',
+    mapsUrl: 'https://maps.google.com/?q=36.73196984054033,37.10232337488254',
+    coordinates: { lat: 36.73196984054033, lng: 37.10232337488254 }
   },
   {
     id: 'cmp-6',
-    name: 'Fen Fakültesi & Ziraat Fakültesi',
+    name: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
     campus: 'Merkez Kampüs',
     type: 'Fakülte',
-    description: 'Biyoloji, Kimya, Matematik laboratuvarları ve tarımsal araştırma birimleri.',
-    mapsUrl: 'https://maps.google.com/?q=36.7105,37.1092',
-    coordinates: { lat: 36.7105, lng: 37.1092 }
+    description: 'Sınıf Öğretmenliği, Türkçe Öğretmenliği, Okul Öncesi ve Rehberlik ve Psikolojik Danışmanlık (PDR).',
+    mapsUrl: 'https://maps.google.com/?q=36.73006164302395,37.10032589696749',
+    coordinates: { lat: 36.73006164302395, lng: 37.10032589696749 }
   },
   {
     id: 'cmp-7',
-    name: 'Merkez Kütüphane & 7/24 Çalışma Salonu',
+    name: 'Kilis Meslek Yüksekokulu (Merkez)',
     campus: 'Merkez Kampüs',
-    type: 'Sosyal / İdari',
-    description: 'Zengin basılı koleksiyon, sessiz çalışma alanları ve kafeterya.',
-    mapsUrl: 'https://maps.google.com/?q=36.7118,37.1084',
-    coordinates: { lat: 36.7118, lng: 37.1084 }
+    type: 'Yüksekokul',
+    description: 'Teknik ve sosyal ön lisans programları, uygulama atölyeleri ve teknik derslikler.',
+    mapsUrl: 'https://maps.google.com/?q=36.729307689899805,37.099859331362495',
+    coordinates: { lat: 36.729307689899805, lng: 37.099859331362495 }
   },
   {
     id: 'cmp-8',
-    name: 'Öğrenci Yemekhanesi & Mediko Sosyal',
+    name: 'Kilis 7 Aralık Üniversitesi, Rektörlük Konferans Salonu',
     campus: 'Merkez Kampüs',
     type: 'Sosyal / İdari',
-    description: 'Ana tabldot yemekhane salonu, sağlık odası ve öğrenci kulüp ofisleri.',
-    mapsUrl: 'https://maps.google.com/?q=36.7123,37.1078',
-    coordinates: { lat: 36.7123, lng: 37.1078 }
+    description: 'Akademik törenler, sempozyumlar, paneller ve kültürel etkinlikler ana salonu.',
+    mapsUrl: 'https://maps.google.com/?q=36.73056534712289,37.10319110732779',
+    coordinates: { lat: 36.73056534712289, lng: 37.10319110732779 }
   },
   {
     id: 'cmp-9',
+    name: 'Beden Eğitimi ve Spor Yüksekokulu',
+    campus: 'Merkez Kampüs',
+    type: 'Yüksekokul',
+    description: 'Beden eğitimi öğretmenliği, antrenörlük ve spor yöneticiliği derslik ve spor alanları.',
+    mapsUrl: 'https://maps.google.com/?q=36.732558443372646,37.1029427743028',
+    coordinates: { lat: 36.732558443372646, lng: 37.1029427743028 }
+  },
+  {
+    id: 'cmp-10',
+    name: 'K7AÜ Alaeddin Yavaşca Devlet Konservatuvarı',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'Türk Müziği, Müzikoloji, ses stüdyoları ve enstrüman çalışma odaları.',
+    mapsUrl: 'https://maps.google.com/?q=36.73228479066196,37.10388348153342',
+    coordinates: { lat: 36.73228479066196, lng: 37.10388348153342 }
+  },
+  {
+    id: 'cmp-11',
+    name: 'Rektörlük & İdari Bina',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'Rektörlük Makamı, Genel Sekreterlik, Senato Salonu ve İdari Daire Başkanlıkları.',
+    mapsUrl: 'https://maps.google.com/?q=36.731019907039,37.10391742972362',
+    coordinates: { lat: 36.731019907039, lng: 37.10391742972362 }
+  },
+  {
+    id: 'cmp-12',
+    name: 'Öğrenci İşleri Daire Başkanlığı',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'Kayıt kabul, transkript, öğrenci belgesi, mezuniyet ve harç işlemleri danışma merkezi.',
+    mapsUrl: 'https://maps.google.com/?q=36.73086737455341,37.104275514022376',
+    coordinates: { lat: 36.73086737455341, lng: 37.104275514022376 }
+  },
+  {
+    id: 'cmp-13',
+    name: 'Merkez Kütüphane & 7/24 Çalışma Salonu',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'Zengin basılı koleksiyon, sessiz çalışma alanları, grup etüt salonları ve kafeterya.',
+    mapsUrl: 'https://maps.google.com/?q=36.73253528647811,37.10339306188092',
+    coordinates: { lat: 36.73253528647811, lng: 37.10339306188092 }
+  },
+  {
+    id: 'cmp-14',
+    name: 'Merkezi Araştırma Laboratuvarı',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'İleri teknoloji test, analiz, spektroskopi ve bilimsel araştırma cihazları merkezi.',
+    mapsUrl: 'https://maps.google.com/?q=36.732935006649534,37.10342397752681',
+    coordinates: { lat: 36.732935006649534, lng: 37.10342397752681 }
+  },
+  {
+    id: 'cmp-15',
+    name: 'Öğrenci Yemekhanesi & Mediko Sosyal',
+    campus: 'Merkez Kampüs',
+    type: 'Sosyal / İdari',
+    description: 'Ana tabldot yemekhane salonu, sağlık merkezi, doktor/hemşire odaları ve kulüp ofisleri.',
+    mapsUrl: 'https://maps.google.com/?q=36.73137259795592,37.10212241396509',
+    coordinates: { lat: 36.73137259795592, lng: 37.10212241396509 }
+  },
+  {
+    id: 'cmp-16',
     name: 'Kapalı Spor Salonu & Halı Saha',
     campus: 'Merkez Kampüs',
     type: 'Spor & Sağlık',
     description: 'Sentetik çim saha, basketbol/voleybol salonu ve fitness merkezi.',
-    mapsUrl: 'https://maps.google.com/?q=36.7135,37.1065',
-    coordinates: { lat: 36.7135, lng: 37.1065 }
+    mapsUrl: 'https://maps.google.com/?q=36.73203652368015,37.100982142549675',
+    coordinates: { lat: 36.73203652368015, lng: 37.100982142549675 }
   },
   {
-    id: 'cmp-10',
+    id: 'cmp-17',
     name: 'K7AÜ Uygulama Oteli (Konukevi)',
     campus: 'Merkez Kampüs',
     type: 'Sosyal / İdari',
-    description: 'Merkez kampüs ana giriş nizamiye yanı, otel odaları ve restoran.',
-    mapsUrl: 'https://maps.google.com/?q=36.7140,37.1095',
-    coordinates: { lat: 36.7140, lng: 37.1095 }
+    description: 'Merkez kampüs ana giriş nizamiye yanı, konaklama odaları, restoran ve toplantı salonu.',
+    mapsUrl: 'https://maps.google.com/?q=36.73131518920905,37.101994105767226',
+    coordinates: { lat: 36.73131518920905, lng: 37.101994105767226 }
   },
   {
-    id: 'cmp-11',
+    id: 'cmp-18',
     name: 'Karataş Kampüsü (Sağlık & MYO)',
     campus: 'Karataş Kampüsü',
     type: 'Fakülte',
     description: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi, Sağlık Hizmetleri MYO, Sosyal Bilimler MYO.',
-    mapsUrl: 'https://maps.google.com/?q=36.7235,37.1265',
-    coordinates: { lat: 36.7235, lng: 37.1265 }
+    mapsUrl: 'https://maps.google.com/?q=36.717616660986074,37.12284671473918',
+    coordinates: { lat: 36.717616660986074, lng: 37.12284671473918 }
   },
   {
-    id: 'cmp-12',
+    id: 'cmp-19',
     name: 'Mercidabık Kampüsü',
     campus: 'Mercidabık Kampüsü',
     type: 'Yüksekokul',
-    description: 'Uygulamalı Bilimler Fakültesi, Turizm ve Otelcilik MYO derslikleri.',
-    mapsUrl: 'https://maps.google.com/?q=36.7050,37.1190',
-    coordinates: { lat: 36.7050, lng: 37.1190 }
+    description: 'Uygulamalı Bilimler Fakültesi, Turizm ve Otelcilik MYO derslikleri ve uygulama alanları.',
+    mapsUrl: 'https://maps.google.com/?q=36.70652881295623,37.11826924623696',
+    coordinates: { lat: 36.70652881295623, lng: 37.11826924623696 }
   }
 ];
 
@@ -947,16 +1010,21 @@ export const getItHelpInfo = async (): Promise<any> => {
 
 export const getCampusMapLocations = async (): Promise<CampusBuilding[]> => {
   try {
+    // Clean old outdated map cache
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('k7_cached_campusmap');
+    }
     const response = await safeFetch(getApiUrl('/api/campus-map'));
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_campusmap', data);
+      if (Array.isArray(data) && data.length >= 15) {
+        setStoredWithTTL('k7_cached_campusmap_v2', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Kampüs haritası canlı alınamadı, yerleşik veriler kullanılıyor:", err);
   }
-  return getStored('k7_cached_campusmap', FALLBACK_CAMPUS_MAP);
+  const cached = getStoredWithTTL<CampusBuilding[]>('k7_cached_campusmap_v2', CACHE_TTL.MAP, FALLBACK_CAMPUS_MAP);
+  return (cached.data && cached.data.length >= 15) ? cached.data : FALLBACK_CAMPUS_MAP;
 };

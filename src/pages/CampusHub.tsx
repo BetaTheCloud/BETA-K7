@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -121,6 +121,7 @@ export default function CampusHub() {
 
   // Map campus filter
   const [selectedCampus, setSelectedCampus] = useState<'Tümü' | 'Merkez Kampüs' | 'Karataş Kampüsü' | 'Mercidabık Kampüsü'>('Tümü');
+  const [mapSearch, setMapSearch] = useState<string>('');
 
   // Detail Modal for events
   const [selectedDetail, setSelectedDetail] = useState<{ url: string; title: string } | null>(null);
@@ -379,10 +380,20 @@ export default function CampusHub() {
     setSelectedFaculty(facId);
   };
 
-  const filteredLocations = mapLocations.filter((l) => {
-    if (selectedCampus === 'Tümü') return true;
-    return l.campus === selectedCampus;
-  });
+  const filteredLocations = useMemo(() => {
+    return mapLocations.filter((l) => {
+      if (selectedCampus !== 'Tümü' && l.campus !== selectedCampus) return false;
+      if (mapSearch.trim()) {
+        const q = mapSearch.toLowerCase().trim();
+        const matchName = (l.name || '').toLowerCase().includes(q);
+        const matchDesc = (l.description || '').toLowerCase().includes(q);
+        const matchType = (l.type || '').toLowerCase().includes(q);
+        const matchCampus = (l.campus || '').toLowerCase().includes(q);
+        if (!matchName && !matchDesc && !matchType && !matchCampus) return false;
+      }
+      return true;
+    });
+  }, [mapLocations, selectedCampus, mapSearch]);
 
   return (
     <motion.div
@@ -1957,22 +1968,58 @@ export default function CampusHub() {
             exit={{ opacity: 0, y: -8 }}
             className="space-y-4"
           >
-            {/* Campus Selector */}
-            <HorizontalScrollWrapper>
-              {(['Tümü', 'Merkez Kampüs', 'Karataş Kampüsü', 'Mercidabık Kampüsü'] as const).map((cmp) => (
+            {/* Search and Campus Selector */}
+            <div className="space-y-3">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-stone-400" strokeWidth={2} />
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-10 py-2.5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
+                  placeholder="Bina, fakülte veya birim adı ile yerleşkede ara..."
+                  value={mapSearch}
+                  onChange={(e) => setMapSearch(e.target.value)}
+                />
+                {mapSearch && (
+                  <button
+                    onClick={() => setMapSearch('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Campus Selector */}
+              <HorizontalScrollWrapper>
+                {(['Tümü', 'Merkez Kampüs', 'Karataş Kampüsü', 'Mercidabık Kampüsü'] as const).map((cmp) => (
+                  <button
+                    key={cmp}
+                    onClick={() => setSelectedCampus(cmp)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      selectedCampus === cmp
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300'
+                    }`}
+                  >
+                    {cmp}
+                  </button>
+                ))}
+              </HorizontalScrollWrapper>
+            </div>
+
+            <div className="flex items-center justify-between px-1 text-xs text-stone-500 dark:text-white/60 font-medium">
+              <span>Toplam <strong>{filteredLocations.length}</strong> yerleşke konumu listeleniyor</span>
+              {mapSearch && (
                 <button
-                  key={cmp}
-                  onClick={() => setSelectedCampus(cmp)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    selectedCampus === cmp
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-white/70 hover:bg-stone-300'
-                  }`}
+                  onClick={() => setMapSearch('')}
+                  className="text-amber-600 dark:text-amber-400 hover:underline"
                 >
-                  {cmp}
+                  Aramayı Temizle
                 </button>
-              ))}
-            </HorizontalScrollWrapper>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {filteredLocations.map((loc) => (
