@@ -274,11 +274,6 @@ export const FALLBACK_TRANSPORT = {
       distance: '~45–50 km',
       options: 'Havalimanından Gaziantep Otogara HAVAŞ veya belediye otobüsü, ardından Kilis minibüsleri. Kampüse toplam yolculuk ~1 saat 15 dk.'
     }
-  ],
-  taxis: [
-    { name: 'Üniversite Kampüs Taksi', phone: '0348 814 26 00', location: 'Merkez Kampüs Girişi' },
-    { name: 'Cumhuriyet Meydan Taksi', phone: '0348 813 15 50', location: 'Kilis Meydan' },
-    { name: 'Kilis Otogar Taksi', phone: '0348 813 88 99', location: 'Şehirlerarası Otogar' }
   ]
 };
 
@@ -288,16 +283,112 @@ export const FALLBACK_LIBRARY = {
   hours: {
     weekday: '08:00 – 22:00',
     weekend: '09:00 – 18:00',
-    exams: '7/24 Kesintisiz Açık (Vize ve Final Dönemlerinde Gece İkramları İle)'
+    exams: '7/24 Kesintisiz Açık (Vize ve Final Dönemlerinde Gece Çorba & İkramlar İle)'
   },
-  borrowingRules: [
-    { user: 'Ön Lisans & Lisans Öğrencileri', bookCount: '3 Kitap', duration: '15 Gün', renewCount: '1 Kez Uzatma' },
-    { user: 'Yüksek Lisans & Doktora', bookCount: '5 Kitap', duration: '30 Gün', renewCount: '2 Kez Uzatma' },
-    { user: 'Akademik Personel', bookCount: '10 Kitap', duration: '60 Gün', renewCount: '2 Kez Uzatma' },
-    { user: 'İdari Personel', bookCount: '3 Kitap', duration: '15 Gün', renewCount: '1 Kez Uzatma' }
-  ],
+  phone: '0348 814 26 66 (Dahili: 4160 / 1338)',
+  deskPhone: '0348 814 26 66 (Dahili: 1338 - Ödünç-İade Bankosu)',
   catalogUrl: 'https://yordam.kilis.edu.tr/',
+  accountUrl: 'https://yordam.kilis.edu.tr/',
   vetisUrl: 'https://yordam.kilis.edu.tr/vetisbt/',
+  officialGuideUrl: 'https://kutuphane.kilis.edu.tr/tr/page/4172',
+  
+  // Official Borrowing Quotas and Rules (Sayfa 4172)
+  borrowingRules: [
+    { user: 'Ön Lisans ve Lisans Öğrencileri', bookCount: '5 Kitap', duration: '15 Gün', renewCount: '2 Kez Uzatma' },
+    { user: 'Lisansüstü Öğrencileri (Y. Lisans & Doktora)', bookCount: '7 Kitap', duration: '30 Gün', renewCount: '2 Kez Uzatma' },
+    { user: 'Akademik Personel', bookCount: '10 Kitap', duration: '30 Gün', renewCount: '2 Kez Uzatma' },
+    { user: 'İdari Personel', bookCount: '5 Kitap', duration: '30 Gün', renewCount: '2 Kez Uzatma' }
+  ],
+
+  // Step-by-step procedures (Ödünç Alma, İade, Uzatma, Ayırtma)
+  procedures: {
+    borrow: {
+      title: 'Kitap Ödünç Alma İşlemi',
+      steps: [
+        'Kütüphane binasının giriş katında yer alan Ödünç-İade Bankosu\'ndan veya',
+        'Giriş katında yer alan K-Matik (Self-Check Otomasyon Cihazı)\'ndan öğrenci/personel kimlik kartınızla tek dokunuşla gerçekleştirilir.'
+      ]
+    },
+    returnBook: {
+      title: 'Kitap İade Etme İşlemi (Nerede ve Nasıl?)',
+      steps: [
+        'Kütüphane binasının giriş katında yer alan Ödünç-İade Bankosu\'ndan,',
+        'Giriş katındaki K-Matik cihazı üzerinden,',
+        'Bina girişinde yer alan RFID Akıllı İade Sistemi (Kitap İade Kutusu) ile 7/24 kesintisiz iade edilebilir.'
+      ]
+    },
+    extend: {
+      title: 'Ödünç Süresi Uzatma İşlemi (2 Defa)',
+      steps: [
+        'Ödünç-İade Bankosu\'ndan bizzat müracaat ederek,',
+        '0 348 814 26 66 (Dahili: 1338) no\'lu Ödünç-İade Bankosu telefonunu arayarak,',
+        'Giriş katında yer alan K-Matik cihazından,',
+        'Online Kütüphane Hesabı (yordam.kilis.edu.tr) sayfası üzerinden şifrenizle giriş yaparak.',
+        'Not: Başka bir üye tarafından ayırtma (rezerv) talep edilmemişse süre en fazla iki (2) defa uzatılabilir.'
+      ]
+    },
+    reserve: {
+      title: 'Ödünçteki Kitap İçin Ayırtma (Rezervasyon)',
+      steps: [
+        'Ödünç-İade Bankosu\'ndan veya 0348 814 26 66 (Dahili: 1338) telefonundan,',
+        'Online Kütüphane Hesabı sayfası üzerinden ayırtma yapılabilir.',
+        'Ayırtılan kitap iade edildiğinde, ayırtma talep eden okuyucu için 3 (üç) iş günü süresince ayırtma rafında bekletilir. Teslim alınmazsa genel rafa çıkarılır.'
+      ]
+    }
+  },
+
+  // Floor Placement Plan according to Library of Congress Classification
+  floorPlan: [
+    {
+      floor: '2. Kat Kitap Salonu',
+      badge: 'Referans, Felsefe, Tarih & Genel Eserler',
+      categories: [
+        { code: 'Ref.', name: 'Referans Kitaplar (Ansiklopediler, Sözlükler)' },
+        { code: 'A', name: 'Genel Eserler' },
+        { code: 'B', name: 'Felsefe, Psikoloji, Din' },
+        { code: 'C', name: 'Tarihin Yardımcı Bilimleri (Arkeoloji, Nümizmatik, Şecere, Biyografi)' },
+        { code: 'D', name: 'Dünya Tarihi ve Avrupa, Asya, Afrika, Avustralya Tarihleri' },
+        { code: 'E - F', name: 'Amerika Tarihi ve Yerel Tarih' }
+      ]
+    },
+    {
+      floor: '1. Kat Kitap Salonu',
+      badge: 'Edebiyat, Sosyal, Hukuk, Fen, Tıp & Teknoloji',
+      categories: [
+        { code: 'G', name: 'Coğrafya, Antropoloji, Rekreasyon' },
+        { code: 'H', name: 'Sosyal Bilimler (Ekonomi, Ticaret, Finans, Sosyoloji)' },
+        { code: 'J', name: 'Siyaset Bilimi' },
+        { code: 'K', name: 'Hukuk (İslam Hukuku, Türk Hukuku)' },
+        { code: 'L', name: 'Eğitim' },
+        { code: 'M - N', name: 'Müzik ve Güzel Sanatlar' },
+        { code: 'P', name: 'Dil ve Edebiyat (Romanlar, Hikâyeler, Şiirler)' },
+        { code: 'Q', name: 'Fen Bilimleri (Matematik, Fizik, Kimya, Biyoloji, Botanik, Zooloji)' },
+        { code: 'R', name: 'Tıp ve Sağlık (Cerrahi, Patoloji, Farmakoloji, Hemşirelik)' },
+        { code: 'S', name: 'Tarım, Ormancılık, Hayvancılık, Ziraat' },
+        { code: 'T', name: 'Teknoloji (Tüm Mühendislik Alanları)' },
+        { code: 'U - V', name: 'Askeri Bilim ve Deniz Bilimi' },
+        { code: 'Z', name: 'Bibliyografya, Kütüphane Bilimi & Büyük Boy Kitaplar Rafı' }
+      ]
+    }
+  ],
+
+  // Important Rules & Fines
+  rulesAndFines: {
+    finePerDay: 'Günlük 1 TL',
+    fineDescription: 'Ödünç süresi dolduğu halde iade edilmeyen her gün için günlük 1 TL gecikme cezası tahakkuk eder. Cezasını ödemeyen veya iade yapmayan üyeye yeni kitap verilmez.',
+    restrictedMaterials: [
+      'Rezerv Kitaplar (Ders için ayrılmış özel kaynaklar)',
+      'Yayınlanmamış Yüksek Lisans ve Doktora Tezleri',
+      'Yazma ve Nadir Matbu Eserler',
+      'Başvuru Eserleri (Ansiklopedi, Sözlük, Dizin, Almanak vb.)'
+    ],
+    importantNotes: [
+      'Bir başka kişi adına kitap ödünç alınamaz.',
+      'Ödünç alınan kitap bir başka kişiye devredilemez.',
+      '90 günü aşan gecikmelerde resmi uyarı yazısı gönderilir ve yasal/disiplin işlemi uygulanır.'
+    ]
+  },
+
   databases: [
     'TÜBİTAK ULAKBİM EKUAL',
     'IEEE Xplore Digital Library',
@@ -305,8 +396,7 @@ export const FALLBACK_LIBRARY = {
     'Web of Science Core Collection',
     'EBSCOhost Academic Search Ultimate',
     'SpringerLink Journals'
-  ],
-  phone: '0348 814 26 66 (Dahili: 4160)'
+  ]
 };
 
 export const FALLBACK_SPORTS = {
@@ -842,19 +932,28 @@ export const getStaff = async (
 };
 
 export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> => {
+  const normalize = (items: CampusEvent[]) => {
+    return items.map((e) => ({
+      ...e,
+      date: (e.date && e.date.trim()) ? e.date : 'Duyuru Tarihi',
+      location: (e.location && e.location.trim()) ? e.location : 'Detaylı konum için bilgi alın'
+    }));
+  };
+
   try {
     const response = await safeFetch(getApiUrl(`/api/events${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStored('k7_cached_events', data);
-        return data;
+        const normalized = normalize(data);
+        setStored('k7_cached_events', normalized);
+        return normalized;
       }
     }
   } catch (err) {
     console.warn("Etkinlikler canlı alınamadı, önbellek kullanılıyor:", err);
   }
-  return getStored('k7_cached_events', FALLBACK_EVENTS);
+  return normalize(getStored('k7_cached_events', FALLBACK_EVENTS));
 };
 
 export const getForms = async (
@@ -946,18 +1045,22 @@ export const getTransportInfo = async (): Promise<any> => {
 
 export const getLibraryInfo = async (): Promise<any> => {
   try {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('k7_cached_library');
+    }
     const response = await safeFetch(getApiUrl('/api/library'));
     if (response.ok) {
       const data = await response.json();
-      if (data && data.name) {
-        setStored('k7_cached_library', data);
+      if (data && data.name && data.procedures) {
+        setStoredWithTTL('k7_cached_library_v2', data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Kütüphane bilgisi canlı alınamadı, yerleşik bilgiler kullanılıyor:", err);
   }
-  return getStored('k7_cached_library', FALLBACK_LIBRARY);
+  const cached = getStoredWithTTL<any>('k7_cached_library_v2', CACHE_TTL.LIBRARY, FALLBACK_LIBRARY);
+  return (cached.data && cached.data.procedures) ? cached.data : FALLBACK_LIBRARY;
 };
 
 export const getSportsInfo = async (): Promise<any> => {

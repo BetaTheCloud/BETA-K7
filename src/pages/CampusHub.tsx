@@ -39,7 +39,8 @@ import {
   Layers,
   Smartphone,
   TabletSmartphone,
-  ArrowLeft
+  ArrowLeft,
+  Maximize2
 } from 'lucide-react';
 import { FACULTIES_FILTER_LIST, AUTHENTIC_FORMS_DATA } from '../data/formsData';
 import { STAFF_FACULTIES_LIST, ACADEMIC_STAFF_DATA } from '../data/staffData';
@@ -122,6 +123,9 @@ export default function CampusHub() {
   // Map campus filter
   const [selectedCampus, setSelectedCampus] = useState<'Tümü' | 'Merkez Kampüs' | 'Karataş Kampüsü' | 'Mercidabık Kampüsü'>('Tümü');
   const [mapSearch, setMapSearch] = useState<string>('');
+
+  // Selected staff photo for enlarged modal preview
+  const [selectedStaffPhoto, setSelectedStaffPhoto] = useState<AcademicStaffMember | null>(null);
 
   // Detail Modal for events
   const [selectedDetail, setSelectedDetail] = useState<{ url: string; title: string } | null>(null);
@@ -1029,13 +1033,17 @@ export default function CampusHub() {
                       <div className="space-y-3">
                         {/* Top Avatar & Name Info */}
                         <div className="flex items-start gap-3">
-                          {/* Photo / Avatar with fallback */}
-                          <div className="relative shrink-0">
+                          {/* Photo / Avatar with fallback & Click to View */}
+                          <div
+                            onClick={() => setSelectedStaffPhoto(person)}
+                            className="relative shrink-0 cursor-pointer group/avatar rounded-xl overflow-hidden"
+                            title="Fotoğrafı büyük boyutta görüntüle"
+                          >
                             {person.image ? (
                               <img
                                 src={person.image}
                                 alt={person.fullName}
-                                className="w-14 h-14 rounded-xl object-cover object-top border border-stone-200 dark:border-white/10 shadow-sm"
+                                className="w-14 h-14 rounded-xl object-cover object-top border border-stone-200 dark:border-white/10 shadow-sm group-hover/avatar:scale-105 transition-transform"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
                                   const sibling = e.currentTarget.nextElementSibling;
@@ -1049,6 +1057,11 @@ export default function CampusHub() {
                               }`}
                             >
                               {initials || 'K7'}
+                            </div>
+
+                            {/* Hover Overlay with Zoom Icon */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-xl flex items-center justify-center text-white">
+                              <Maximize2 className="w-4 h-4 drop-shadow" />
                             </div>
                           </div>
 
@@ -1224,19 +1237,17 @@ export default function CampusHub() {
                   <div className="p-4 sm:p-5 space-y-2.5">
                     <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{ev.date}</span>
+                      <span>{ev.date && ev.date.trim() ? ev.date : 'Duyuru Tarihi'}</span>
                     </div>
 
                     <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                       {ev.title}
                     </h3>
 
-                    {ev.location && (
-                      <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60">
-                        <MapPin className="w-3.5 h-3.5 text-stone-400" />
-                        <span>{ev.location}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60">
+                      <MapPin className="w-3.5 h-3.5 text-stone-400" />
+                      <span>{ev.location && ev.location.trim() ? ev.location : 'Detaylı konum için bilgi alın'}</span>
+                    </div>
 
                     <div className="pt-2 flex items-center justify-end">
                       <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
@@ -1351,37 +1362,6 @@ export default function CampusHub() {
                         {ic.options}
                       </p>
                     )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Taksi Durakları */}
-            <div className="space-y-3">
-              <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white flex items-center gap-2">
-                <PhoneCall className="w-5 h-5 text-amber-500" />
-                Taksi Durakları & İletişim
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {transport.taxis?.map((taxi: any, tIdx: number) => (
-                  <div
-                    key={tIdx}
-                    className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 flex items-center justify-between"
-                  >
-                    <div>
-                      <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white">
-                        {taxi.name}
-                      </h5>
-                      <span className="text-[11px] text-stone-400">{taxi.location}</span>
-                    </div>
-                    <a
-                      href={`tel:${taxi.phone.replace(/\s+/g, '')}`}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1 hover:bg-emerald-500/20"
-                    >
-                      <PhoneCall className="w-3.5 h-3.5" />
-                      <span>Ara</span>
-                    </a>
                   </div>
                 ))}
               </div>
@@ -1689,84 +1669,183 @@ export default function CampusHub() {
             className="space-y-6"
           >
             {/* Status & Hours */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-4">
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-display font-bold text-xl text-stone-900 dark:text-white">
-                    {library.name}
-                  </h3>
-                  <span className="text-xs text-stone-400">Danışma: {library.phone}</span>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    <h3 className="font-display font-bold text-xl text-stone-900 dark:text-white">
+                      {library.name}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-stone-500 dark:text-white/60 mt-1 flex-wrap">
+                    <span>Danışma: <strong>{library.phone || '0348 814 26 66'}</strong></span>
+                    <span>•</span>
+                    <span>Ödünç-İade Bankosu: <strong>Dahili 1338</strong></span>
+                  </div>
                 </div>
 
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold self-start">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold self-start sm:self-auto border border-emerald-500/20">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span>Şu Anda Hizmet Veriyor</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-stone-200/60 dark:border-white/10">
-                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-3.5">
+                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-3.5 border border-stone-100 dark:border-white/5">
                   <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">Hafta İçi</span>
-                  <span className="font-display font-bold text-base text-stone-800 dark:text-white">{library.hours?.weekday}</span>
+                  <span className="font-display font-bold text-base text-stone-800 dark:text-white">{library.hours?.weekday || '08:00 – 22:00'}</span>
                 </div>
-                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-3.5">
+                <div className="bg-stone-50 dark:bg-white/5 rounded-xl p-3.5 border border-stone-100 dark:border-white/5">
                   <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">Hafta Sonu</span>
-                  <span className="font-display font-bold text-base text-stone-800 dark:text-white">{library.hours?.weekend}</span>
+                  <span className="font-display font-bold text-base text-stone-800 dark:text-white">{library.hours?.weekend || '09:00 – 18:00'}</span>
                 </div>
                 <div className="bg-amber-500/10 rounded-xl p-3.5 border border-amber-500/20">
                   <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider block">Vize / Final Dönemleri</span>
-                  <span className="font-display font-bold text-sm text-amber-800 dark:text-amber-200">{library.hours?.exams}</span>
+                  <span className="font-display font-bold text-sm text-amber-800 dark:text-amber-200">{library.hours?.exams || '7/24 Kesintisiz Açık (İkramlı)'}</span>
                 </div>
               </div>
 
-              {/* Online Catalog Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              {/* Online Catalog & Resource Portals */}
+              <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <a
-                  href={library.catalogUrl}
+                  href={library.catalogUrl || 'https://yordam.kilis.edu.tr/'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold tracking-wide shadow-md transition-colors"
+                  className="inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold tracking-wide shadow-md transition-colors"
                 >
                   <Search className="w-4 h-4" />
-                  <span>Kütüphane Kataloğunda Kitap Ara (Yordam)</span>
+                  <span>Katalogda Kitap Ara (Yordam)</span>
                   <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                 </a>
 
                 <a
-                  href={library.vetisUrl}
+                  href={library.accountUrl || 'https://yordam.kilis.edu.tr/'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-800 dark:text-white rounded-xl text-sm font-semibold transition-colors"
+                  className="inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-800 dark:text-white rounded-xl text-xs font-semibold transition-colors border border-stone-200 dark:border-white/10"
                 >
-                  <span>Kampüs Dışı Veritabanı Erişimi (VETİS)</span>
+                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Kütüphane Hesabım / Uzatma</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                </a>
+
+                <a
+                  href={library.vetisUrl || 'https://yordam.kilis.edu.tr/vetisbt/'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-800 dark:text-white rounded-xl text-xs font-semibold transition-colors border border-stone-200 dark:border-white/10"
+                >
+                  <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Kampüs Dışı Erişim (VETİS)</span>
                   <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                 </a>
               </div>
             </div>
 
-            {/* Borrowing Rules */}
+            {/* Official Step-by-Step Borrowing, Return & Extension Guidelines */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                  <Info className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  Kitap Ödünç, İade & Uzatma Yönergeleri
+                </h4>
+                <a
+                  href={library.officialGuideUrl || 'https://kutuphane.kilis.edu.tr/tr/page/4172'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold flex items-center gap-1"
+                >
+                  <span>Resmi Yönerge Sayfası</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {/* 1. Ödünç Alma */}
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <BookOpen className="w-4 h-4" />
+                    <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white">
+                      1. Kitap Ödünç Alma İşlemi
+                    </h5>
+                  </div>
+                  <ul className="text-xs text-stone-600 dark:text-white/80 space-y-1.5 list-disc list-inside leading-relaxed">
+                    <li>Kütüphane binasının <strong>giriş katında yer alan Ödünç-İade Bankosu</strong>'ndan veya,</li>
+                    <li>Giriş katındaki <strong>K-Matik (Self-Check Otomasyon Cihazı)</strong> üzerinden öğrenci/personel kimliğinizle doğrudan alınabilir.</li>
+                  </ul>
+                </div>
+
+                {/* 2. İade Etme */}
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                    <Clock className="w-4 h-4" />
+                    <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white">
+                      2. Kitap İade Etme İşlemi (Nerede ve Nasıl?)
+                    </h5>
+                  </div>
+                  <ul className="text-xs text-stone-600 dark:text-white/80 space-y-1.5 list-disc list-inside leading-relaxed">
+                    <li>Giriş katındaki <strong>Ödünç-İade Bankosu</strong>'ndan,</li>
+                    <li>Giriş katındaki <strong>K-Matik</strong> cihazı üzerinden,</li>
+                    <li>Kütüphane bina girişinde bulunan <strong>RFID Akıllı İade Sistemi (7/24 Kesintisiz İade Kutusu)</strong> ile mesai saatleri dışında da iade edilebilir.</li>
+                  </ul>
+                </div>
+
+                {/* 3. Süre Uzatma */}
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <Calendar className="w-4 h-4" />
+                    <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white">
+                      3. Ödünç Süresi Uzatma (En Fazla 2 Defa)
+                    </h5>
+                  </div>
+                  <ul className="text-xs text-stone-600 dark:text-white/80 space-y-1.5 list-disc list-inside leading-relaxed">
+                    <li>Ödünç-İade Bankosu'ndan bizzat,</li>
+                    <li><strong>0 348 814 26 66 (Dahili: 1338)</strong> banko telefonunu arayarak,</li>
+                    <li>Giriş katındaki K-Matik cihazından veya,</li>
+                    <li>Online Kütüphane Hesabı (<a href="https://yordam.kilis.edu.tr/" target="_blank" rel="noreferrer" className="text-amber-600 underline">yordam.kilis.edu.tr</a>) üzerinden sürenizi 2 kez uzatabilirsiniz (Başka üye ayırtmadıysa).</li>
+                  </ul>
+                </div>
+
+                {/* 4. Kitap Ayırtma */}
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5 shadow-sm">
+                  <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                    <Users className="w-4 h-4" />
+                    <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white">
+                      4. Ödünçteki Kitap İçin Ayırtma (Rezervasyon)
+                    </h5>
+                  </div>
+                  <ul className="text-xs text-stone-600 dark:text-white/80 space-y-1.5 list-disc list-inside leading-relaxed">
+                    <li>Ödünç-İade Bankosu, Dahili 1338 telefonu veya online kütüphane hesabından ayırtma yapılabilir.</li>
+                    <li>Ayırtılan kitap iade edildiğinde okuyucu için <strong>3 iş günü</strong> boyunca ayırtma rafında bekletilir. Teslim alınmazsa genel rafa çıkar.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Official Borrowing Limits Table */}
             <div className="space-y-3">
               <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                Kitap Ödünç Alma ve Süre Limitleri
+                Üye Gruplarına Göre Kitap Sayıları ve Ödünç Süreleri
               </h4>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl overflow-hidden">
-                  <thead className="bg-stone-100 dark:bg-white/5 text-stone-500 dark:text-white/60 font-semibold border-b border-[#e6e2d6] dark:border-white/10">
+                <table className="w-full text-left text-xs bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl overflow-hidden shadow-sm">
+                  <thead className="bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 font-bold border-b border-[#e6e2d6] dark:border-white/10">
                     <tr>
-                      <th className="p-3">Kullanıcı Grubu</th>
-                      <th className="p-3">Kitap Sayısı</th>
-                      <th className="p-3">Ödünç Süresi</th>
-                      <th className="p-3">Uzatma Hakkı</th>
+                      <th className="p-3.5">Üye Grubu</th>
+                      <th className="p-3.5">Ödünç Kitap Sayısı</th>
+                      <th className="p-3.5">Ödünç Süresi</th>
+                      <th className="p-3.5">Uzatma Hakkı</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e6e2d6] dark:divide-white/10">
-                    {library.borrowingRules?.map((rule: any, rIdx: number) => (
-                      <tr key={rIdx} className="hover:bg-stone-50 dark:hover:bg-white/5">
-                        <td className="p-3 font-semibold text-stone-800 dark:text-white">{rule.user}</td>
-                        <td className="p-3 text-amber-600 dark:text-amber-400 font-bold">{rule.bookCount}</td>
-                        <td className="p-3">{rule.duration}</td>
-                        <td className="p-3 text-stone-500">{rule.renewCount}</td>
+                    {(library.borrowingRules || []).map((rule: any, rIdx: number) => (
+                      <tr key={rIdx} className="hover:bg-stone-50 dark:hover:bg-white/5 transition-colors">
+                        <td className="p-3.5 font-semibold text-stone-800 dark:text-white">{rule.user}</td>
+                        <td className="p-3.5 text-amber-600 dark:text-amber-400 font-bold">{rule.bookCount}</td>
+                        <td className="p-3.5 font-medium">{rule.duration}</td>
+                        <td className="p-3.5 text-stone-500 dark:text-white/60">{rule.renewCount || '2 Kez Uzatma'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1774,16 +1853,138 @@ export default function CampusHub() {
               </div>
             </div>
 
+            {/* Floor Placement Plan (Kongre Kütüphanesi Sınıflandırma Sistemi) */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                    <Compass className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    Kat Yerleşim Planı & Kitap Salonları (Kongre Kütüphanesi Sistemi)
+                  </h4>
+                  <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                    Kitaplar konularına göre 1. ve 2. kat salonlarında yer almaktadır. Her iki katta yer numarası fişi veren Katalog Bilgisayarları mevcuttur.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+                {/* 2. Kat */}
+                <div className="border border-stone-200 dark:border-white/10 rounded-xl p-4 bg-white/50 dark:bg-white/5 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-200/60 dark:border-white/10">
+                    <span className="font-display font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      2. Kat Kitap Salonu
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                      Referans, Felsefe, Tarih
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-amber-600 dark:text-amber-400 font-mono block">Ref.</strong>
+                      <span className="text-stone-600 dark:text-white/70">Referans Kitaplar (Ansiklopedi, Sözlük)</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-amber-600 dark:text-amber-400 font-mono block">A -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Genel Eserler</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-amber-600 dark:text-amber-400 font-mono block">B -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Felsefe, Psikoloji, Din</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-amber-600 dark:text-amber-400 font-mono block">C -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Arkeoloji, Nümizmatik, Biyografi</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5 sm:col-span-2">
+                      <strong className="text-amber-600 dark:text-amber-400 font-mono block">D, E, F -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Dünya Tarihi, Avrupa, Asya, Afrika ve Amerika Tarihleri</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1. Kat */}
+                <div className="border border-stone-200 dark:border-white/10 rounded-xl p-4 bg-white/50 dark:bg-white/5 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-200/60 dark:border-white/10">
+                    <span className="font-display font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      1. Kat Kitap Salonu
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                      Edebiyat, Sosyal, Fen, Tıp & Teknoloji
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono block">P -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Dil ve Edebiyat (Şiir, Hikâye, Roman)</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono block">H, J, K -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Sosyal Bilimler, Siyaset, Hukuk</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono block">Q, R -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Fen Bilimleri, Tıp & Sağlık</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5">
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono block">T, S -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Teknoloji (Mühendislikler), Tarım</span>
+                    </div>
+                    <div className="p-2 rounded bg-stone-50 dark:bg-white/5 sm:col-span-2">
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono block">G, L, M, N, Z -</strong>
+                      <span className="text-stone-600 dark:text-white/70">Coğrafya, Eğitim, Müzik, Sanat, Büyük Boy Kitaplar Rafı</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fines, Restrictions & Important Rules */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {/* Cezai Hususlar */}
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/25 rounded-2xl p-4 sm:p-5 space-y-2.5">
+                <h5 className="font-display font-bold text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  Gecikme Cezası & Önemli Kurallar
+                </h5>
+                <ul className="text-xs text-amber-800 dark:text-amber-200/90 space-y-1.5 list-disc list-inside leading-relaxed">
+                  <li>Ödünç süresini aşan her gün için <strong>günlük 1 TL</strong> gecikme cezası uygulanır.</li>
+                  <li>Gecikme borcu bulunan ve materyali iade etmeyen üyeye yeni kitap verilmez.</li>
+                  <li>Bir başka kişi adına kitap ödünç alınamaz ve devredilemez.</li>
+                  <li>90 günü aşan gecikmelerde resmi uyarı tebliğ edilir ve yasal/disiplin işlemi başlatılır.</li>
+                </ul>
+              </div>
+
+              {/* Ödünç Verilemeyecek Materyaller */}
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 space-y-2.5 shadow-sm">
+                <h5 className="font-display font-bold text-sm text-stone-900 dark:text-white flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-rose-500" />
+                  Ödünç Verilemeyecek Materyaller
+                </h5>
+                <p className="text-xs text-stone-500 dark:text-white/60">
+                  Aşağıdaki eserler sadece kütüphane salonları içerisinde incelenebilir:
+                </p>
+                <ul className="text-xs text-stone-700 dark:text-white/80 space-y-1.5 list-disc list-inside leading-relaxed">
+                  <li><strong>Rezerv Kitaplar:</strong> Akademisyenlerin talep ettiği ders kitapları</li>
+                  <li>Yayınlanmamış Yüksek Lisans ve Doktora Tezleri</li>
+                  <li>Yazma Eserler ve Nadir Matbu Eserler</li>
+                  <li>Başvuru Eserleri (Almanak, Dizin, Sözlük, Ansiklopedi vb.)</li>
+                </ul>
+              </div>
+            </div>
+
             {/* Databases */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3">
-              <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3 shadow-sm">
+              <h4 className="font-display font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 Abone Olunan Akademik Veritabanları
               </h4>
               <div className="flex flex-wrap gap-2">
-                {library.databases?.map((db: string, dIdx: number) => (
+                {(library.databases || []).map((db: string, dIdx: number) => (
                   <span
                     key={dIdx}
-                    className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-white/10 text-xs font-medium text-stone-700 dark:text-white/80"
+                    className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-white/10 text-xs font-medium text-stone-700 dark:text-white/80 border border-stone-200/50 dark:border-white/10"
                   >
                     {db}
                   </span>
@@ -2070,6 +2271,92 @@ export default function CampusHub() {
         url={selectedDetail?.url || ''}
         title={selectedDetail?.title || ''}
       />
+
+      {/* Staff Photo Enlarged Modal */}
+      <AnimatePresence>
+        {selectedStaffPhoto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-w-md w-full bg-[#fcfbf9] dark:bg-[#264653] rounded-3xl overflow-hidden shadow-2xl border border-stone-200 dark:border-white/15 p-5 space-y-4"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4" />
+                  Personel Fotoğrafı
+                </span>
+                <button
+                  onClick={() => setSelectedStaffPhoto(null)}
+                  className="p-1.5 rounded-full hover:bg-stone-200 dark:hover:bg-white/10 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
+                  aria-label="Kapat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Photo View */}
+              <div className="relative rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-white/10 flex items-center justify-center min-h-[260px] max-h-[50vh]">
+                {selectedStaffPhoto.image ? (
+                  <img
+                    src={selectedStaffPhoto.image}
+                    alt={selectedStaffPhoto.fullName}
+                    className="w-full h-full object-contain max-h-[50vh] rounded-2xl"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="py-16 flex flex-col items-center justify-center text-stone-400">
+                    <Users className="w-16 h-16 mb-2 opacity-50 text-emerald-600" />
+                    <span className="text-sm font-semibold">Resmi Fotoğraf Bulunamadı</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Staff Details */}
+              <div className="space-y-1 text-center">
+                <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                  {selectedStaffPhoto.title}
+                </span>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white mt-1">
+                  {selectedStaffPhoto.name}
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-white/70">
+                  {selectedStaffPhoto.department} • {selectedStaffPhoto.facultyName}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-stone-200/60 dark:border-white/10 gap-2">
+                {selectedStaffPhoto.email && (
+                  <a
+                    href={`mailto:${selectedStaffPhoto.email}`}
+                    className="text-xs font-semibold text-stone-700 dark:text-white/80 hover:text-emerald-600 flex items-center gap-1.5 truncate min-w-0"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">{selectedStaffPhoto.email}</span>
+                  </a>
+                )}
+                {selectedStaffPhoto.sourceUrl && (
+                  <a
+                    href={selectedStaffPhoto.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shrink-0 ml-auto"
+                  >
+                    <span>Resmi Profil</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
