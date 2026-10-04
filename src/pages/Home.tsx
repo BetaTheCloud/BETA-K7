@@ -16,7 +16,7 @@ import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
-import { parseDateToTimestamp } from '../lib/utils';
+import { parseDateToTimestamp, findTodayMenu } from '../lib/utils';
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -47,10 +47,13 @@ export default function Home() {
       const cached = localStorage.getItem('k7_cached_menu');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const matched = findTodayMenu(parsed);
+          if (matched) return matched;
+        }
       }
     } catch {}
-    return FALLBACK_MENU[0] || null;
+    return findTodayMenu(FALLBACK_MENU);
   });
 
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
@@ -67,7 +70,7 @@ export default function Home() {
       ]);
       if (announcementsData?.length) setAnnouncements(announcementsData);
       if (newsData?.length) setNews(newsData);
-      const menu = menuData.length > 0 ? menuData[0] : null;
+      const menu = findTodayMenu(menuData);
       if (menu) setTodayMenu(menu);
     } catch (error) {
       console.error("Yenileme hatası", error);
@@ -88,7 +91,7 @@ export default function Home() {
         if (announcementsData?.length) setAnnouncements(announcementsData);
         if (newsData?.length) setNews(newsData);
         
-        const menu = menuData.length > 0 ? menuData[0] : null;
+        const menu = findTodayMenu(menuData);
         if (menu) setTodayMenu(menu);
       } catch (error) {
         console.warn("Veri güncellenirken bildirim:", error);
@@ -99,12 +102,31 @@ export default function Home() {
     return () => { isMounted = false; };
   }, []);
 
-  const sortedAnnouncements = [...announcements].sort(
-    (a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date)
-  );
-  const sortedNews = [...news].sort(
-    (a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date)
-  );
+  const isMainAnnouncement = (item: Announcement) => {
+    const cat = (item.category || '').toLowerCase().trim();
+    return cat === 'ana duyurular' || cat === 'ana duyuru' || cat.includes('ana duyuru') || cat.includes('genel') || cat.includes('rektörlük');
+  };
+
+  const isMainNews = (item: Announcement) => {
+    const cat = (item.category || '').toLowerCase().trim();
+    return cat === 'üniversite haberleri' || cat === 'universite haberleri' || cat.includes('üniversite haber') || cat.includes('universite haber') || cat.includes('ana haber') || cat.includes('genel');
+  };
+
+  const sortedAnnouncements = [...announcements].sort((a, b) => {
+    const isMainA = isMainAnnouncement(a);
+    const isMainB = isMainAnnouncement(b);
+    if (isMainA && !isMainB) return -1;
+    if (!isMainA && isMainB) return 1;
+    return parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date);
+  });
+
+  const sortedNews = [...news].sort((a, b) => {
+    const isMainA = isMainNews(a);
+    const isMainB = isMainNews(b);
+    if (isMainA && !isMainB) return -1;
+    if (!isMainA && isMainB) return 1;
+    return parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date);
+  });
 
   const filteredAnnouncements = searchQuery 
     ? sortedAnnouncements.filter(a => a.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -198,14 +220,14 @@ export default function Home() {
           </Link>
 
           <Link
-            to="/campus?tab=transport"
-            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-blue-500/50 hover:shadow-md transition-all active:scale-95"
+            to="/campus?tab=sports"
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-green-500/50 hover:shadow-md transition-all active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
-              <Bus className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+              <Trophy className="w-5 h-5" />
             </div>
-            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Ulaşım</span>
-            <span className="text-[10px] text-stone-400 dark:text-white/40">Dolmuş & Hat</span>
+            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Spor & Saha</span>
+            <span className="text-[10px] text-stone-400 dark:text-white/40">Halı Saha & Fitness</span>
           </Link>
 
           <Link

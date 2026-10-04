@@ -55,7 +55,22 @@ export default function News() {
     await load(true);
   };
 
-  // Dynamically extract and sort all available news categories by freshest date
+  const isMainNewsCategory = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return (
+      n === 'üniversite haberleri' ||
+      n === 'universite haberleri' ||
+      n.startsWith('üniversite haber') ||
+      n.startsWith('universite haber') ||
+      n.includes('üniversite haber') ||
+      n.includes('universite haber') ||
+      n.includes('ana haber') ||
+      n.includes('genel haber') ||
+      n === 'genel'
+    );
+  };
+
+  // Dynamically extract and sort all available news categories: Üniversite Haberleri first, then by date
   const sortedFilterChips = useMemo(() => {
     const catStats: Record<string, { latestDate: number; count: number }> = {};
     
@@ -73,11 +88,16 @@ export default function News() {
     });
 
     const sortedCats = Object.keys(catStats).sort((a, b) => {
-      // 1. Sort by freshest news date
+      const isMainA = isMainNewsCategory(a);
+      const isMainB = isMainNewsCategory(b);
+      // 1. Üniversite Haberleri priority
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+      // 2. Sort by freshest news date
       if (catStats[b].latestDate !== catStats[a].latestDate) {
         return catStats[b].latestDate - catStats[a].latestDate;
       }
-      // 2. Tie breaker: count
+      // 3. Tie breaker: count
       return catStats[b].count - catStats[a].count;
     });
 
@@ -114,7 +134,7 @@ export default function News() {
     });
   }, [news, selectedFilter, searchQuery]);
 
-  // Group and sort categories strictly by the latest news date (freshest at top)
+  // Group and sort categories: Üniversite Haberleri first, then by freshest date
   const sortedGroupedCategories = useMemo(() => {
     const groups: Record<string, Announcement[]> = {};
     filteredNews.forEach((item) => {
@@ -128,9 +148,16 @@ export default function News() {
       groups[cat].sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
     });
 
-    // Sort category entries so categories with the most recent news date appear at the top
+    // Sort category entries: Üniversite Haberleri first, then by freshest date
     const entries = Object.entries(groups) as [string, Announcement[]][];
     entries.sort((a, b) => {
+      const isMainA = isMainNewsCategory(a[0]);
+      const isMainB = isMainNewsCategory(b[0]);
+      // 1. Üniversite Haberleri priority
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+
+      // 2. Recency of newest item
       const latestA = a[1].length > 0 ? parseDateToTimestamp(a[1][0].date) : 0;
       const latestB = b[1].length > 0 ? parseDateToTimestamp(b[1][0].date) : 0;
       if (latestB !== latestA) {

@@ -55,12 +55,27 @@ export default function Announcements() {
     await load(true);
   };
 
-  // Dynamically extract and sort all available categories by the date of their newest announcement
+  const isMainAnnouncementCategory = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return (
+      n === 'ana duyurular' ||
+      n === 'ana duyuru' ||
+      n.startsWith('ana duyuru') ||
+      n.includes('ana duyuru') ||
+      n.includes('genel duyuru') ||
+      n.includes('rektörlük') ||
+      n.includes('universite') ||
+      n.includes('üniversite') ||
+      n === 'genel'
+    );
+  };
+
+  // Dynamically extract and sort all available categories: Ana Duyurular first, then by date
   const sortedFilterChips = useMemo(() => {
     const catStats: Record<string, { latestDate: number; count: number }> = {};
     
     announcements.forEach((a) => {
-      const cat = a.category?.trim() || 'Genel Duyurular';
+      const cat = a.category?.trim() || 'Ana Duyurular';
       const ts = parseDateToTimestamp(a.date);
       if (!catStats[cat]) {
         catStats[cat] = { latestDate: ts, count: 1 };
@@ -73,11 +88,16 @@ export default function Announcements() {
     });
 
     const sortedCats = Object.keys(catStats).sort((a, b) => {
-      // 1. Sort by freshest announcement date
+      const isMainA = isMainAnnouncementCategory(a);
+      const isMainB = isMainAnnouncementCategory(b);
+      // 1. Ana Duyurular / Main category priority
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+      // 2. Sort by freshest announcement date
       if (catStats[b].latestDate !== catStats[a].latestDate) {
         return catStats[b].latestDate - catStats[a].latestDate;
       }
-      // 2. Tie breaker: announcement count
+      // 3. Tie breaker: announcement count
       return catStats[b].count - catStats[a].count;
     });
 
@@ -114,11 +134,11 @@ export default function Announcements() {
     });
   }, [announcements, selectedFilter, searchQuery]);
 
-  // Group and sort categories strictly by the latest announcement date (freshest at top)
+  // Group and sort categories: Ana Duyurular first, then by newest announcement date
   const sortedGroupedCategories = useMemo(() => {
     const groups: Record<string, Announcement[]> = {};
     filteredAnnouncements.forEach((item) => {
-      const cat = item.category?.trim() || 'Genel Duyurular';
+      const cat = item.category?.trim() || 'Ana Duyurular';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
@@ -128,9 +148,16 @@ export default function Announcements() {
       groups[cat].sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
     });
 
-    // Sort category entries so categories with the most recent announcement date appear at the top
+    // Sort category entries: Ana Duyurular first, then by freshest date
     const entries = Object.entries(groups) as [string, Announcement[]][];
     entries.sort((a, b) => {
+      const isMainA = isMainAnnouncementCategory(a[0]);
+      const isMainB = isMainAnnouncementCategory(b[0]);
+      // 1. Ana Duyurular priority
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+
+      // 2. Recency of newest announcement
       const latestA = a[1].length > 0 ? parseDateToTimestamp(a[1][0].date) : 0;
       const latestB = b[1].length > 0 ? parseDateToTimestamp(b[1][0].date) : 0;
       if (latestB !== latestA) {
