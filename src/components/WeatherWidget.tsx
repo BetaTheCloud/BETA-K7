@@ -65,6 +65,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           { offset: 0, label: 'Şu An' },
           { offset: 1, label: '+1 Saat' },
           { offset: 2, label: '+2 Saat' },
+          { offset: 3, label: '+3 Saat' },
           { offset: 4, label: '+4 Saat' },
           { offset: 6, label: '+6 Saat' },
           { offset: 8, label: '+8 Saat' },

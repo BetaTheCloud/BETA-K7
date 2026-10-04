@@ -9,34 +9,16 @@ import {
   ExternalLink,
   ChevronDown,
   Building2,
-  GraduationCap,
   Filter,
   X,
   Sparkles,
-  BookOpen,
-  Calendar,
-  Layers
+  Calendar
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, parseDateToTimestamp } from '../lib/utils';
 import DetailModal from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
-
-// Predefined quick filter faculties & units for university announcements
-const FACULTY_FILTERS = [
-  { id: 'all', name: 'Tümü' },
-  { id: 'Ana Duyurular', name: 'Ana Duyurular' },
-  { id: 'Öğrenci İşleri', name: 'Öğrenci İşleri' },
-  { id: 'Mühendislik-Mimarlık Fakültesi', name: 'Mühendislik-Mimarlık' },
-  { id: 'İktisadi ve İdari Bilimler Fakültesi', name: 'İİBF' },
-  { id: 'İlahiyat Fakültesi', name: 'İlahiyat' },
-  { id: 'Sağlık Bilimleri Fakültesi', name: 'Sağlık Bilimleri' },
-  { id: 'Fen Fakültesi', name: 'Fen Fakültesi' },
-  { id: 'Sağlık Kültür Spor (SKS)', name: 'SKS & Burslar' },
-  { id: 'Dış İlişkiler (Erasmus)', name: 'Erasmus & Dış İlişkiler' },
-  { id: 'Kütüphane', name: 'Kütüphane' }
-];
 
 export default function Announcements() {
   const navigate = useNavigate();
@@ -45,6 +27,7 @@ export default function Announcements() {
       const cached = localStorage.getItem('k7_cached_announcements');
       if (cached) {
         const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data;
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
@@ -53,14 +36,16 @@ export default function Announcements() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [selectedItem, setSelectedItem] = useState<{ url: string; title: string } | null>(null);
 
   const load = async (force = false) => {
+    if (force) setLoading(true);
     const data = await getAnnouncements(force);
     if (data && data.length > 0) {
       setAnnouncements(data);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -71,25 +56,50 @@ export default function Announcements() {
     await load(true);
   };
 
-  // Extract all categories dynamically from announcements
-  const dynamicCategories = useMemo(() => {
-    const set = new Set<string>();
+  // Dynamically extract and sort all available categories by the date of their newest announcement
+  const sortedFilterChips = useMemo(() => {
+    const catStats: Record<string, { latestDate: number; count: number }> = {};
+    
     announcements.forEach((a) => {
-      if (a.category) set.add(a.category);
+      const cat = a.category?.trim() || 'Genel Duyurular';
+      const ts = parseDateToTimestamp(a.date);
+      if (!catStats[cat]) {
+        catStats[cat] = { latestDate: ts, count: 1 };
+      } else {
+        if (ts > catStats[cat].latestDate) {
+          catStats[cat].latestDate = ts;
+        }
+        catStats[cat].count += 1;
+      }
     });
-    return Array.from(set);
+
+    const sortedCats = Object.keys(catStats).sort((a, b) => {
+      // 1. Sort by freshest announcement date
+      if (catStats[b].latestDate !== catStats[a].latestDate) {
+        return catStats[b].latestDate - catStats[a].latestDate;
+      }
+      // 2. Tie breaker: announcement count
+      return catStats[b].count - catStats[a].count;
+    });
+
+    const chips: { id: string; name: string }[] = [{ id: 'all', name: 'Tümü' }];
+    sortedCats.forEach((cat) => {
+      chips.push({ id: cat, name: cat });
+    });
+
+    return chips;
   }, [announcements]);
 
-  // Combined filters: Search + Faculty/Category filter
+  // Filter announcements by category chip and search query
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((item) => {
       // 1. Faculty / Category filter
       if (selectedFilter !== 'all') {
-        const itemCat = (item.category || '').toLowerCase();
-        const selFilter = selectedFilter.toLowerCase();
-        const matchCat = itemCat.includes(selFilter) || selFilter.includes(itemCat);
-        const matchTitle = (item.title || '').toLowerCase().includes(selFilter);
-        if (!matchCat && !matchTitle) return false;
+        const itemCat = (item.category || '').toLowerCase().trim();
+        const selFilter = selectedFilter.toLowerCase().trim();
+        if (itemCat !== selFilter && !itemCat.includes(selFilter) && !selFilter.includes(itemCat)) {
+          return false;
+        }
       }
 
       // 2. Search query filter
@@ -105,16 +115,40 @@ export default function Announcements() {
     });
   }, [announcements, selectedFilter, searchQuery]);
 
-  // Group filtered announcements by category
-  const groupedCategories = useMemo(() => {
+  // Group and sort categories strictly by the latest announcement date (freshest at top)
+  const sortedGroupedCategories = useMemo(() => {
     const groups: Record<string, Announcement[]> = {};
     filteredAnnouncements.forEach((item) => {
-      const cat = item.category || 'Genel Duyurular';
+      const cat = item.category?.trim() || 'Genel Duyurular';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
-    return groups;
+
+    // Sort items within each category from newest to oldest
+    Object.keys(groups).forEach((cat) => {
+      groups[cat].sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
+    });
+
+    // Sort category entries so categories with the most recent announcement date appear at the top
+    const entries = Object.entries(groups) as [string, Announcement[]][];
+    entries.sort((a, b) => {
+      const latestA = a[1].length > 0 ? parseDateToTimestamp(a[1][0].date) : 0;
+      const latestB = b[1].length > 0 ? parseDateToTimestamp(b[1][0].date) : 0;
+      if (latestB !== latestA) {
+        return latestB - latestA;
+      }
+      return b[1].length - a[1].length;
+    });
+
+    return entries;
   }, [filteredAnnouncements]);
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
 
   if (loading) {
     return <LoadingState message="Duyurular Yükleniyor..." subtitle="Üniversite duyuruları güncelleniyor" />;
@@ -167,37 +201,37 @@ export default function Announcements() {
             <input
               type="text"
               className="block w-full pl-10 pr-10 py-2.5 sm:py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
-              placeholder="Fakülte, bölüm veya anahtar kelime ile ara..."
+              placeholder="Fakülte, birim veya duyuru başlığı ara..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
-          {/* Horizontal Scrollable Faculty & Unit Filter Pills */}
+          {/* Horizontal Scrollable Faculty & Unit Filter Pills (Sorted by latest announcement date) */}
           <div className="pt-1">
             <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-stone-500 dark:text-white/60">
               <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Fakülte & Birim Özelleştirmesi:</span>
+              <span>Kategori & Birimler (En Yakın Tarihe Göre Sıralı):</span>
             </div>
             <HorizontalScrollWrapper>
-              {FACULTY_FILTERS.map((filter) => {
+              {sortedFilterChips.map((filter) => {
                 const isActive = selectedFilter === filter.id;
                 return (
                   <button
                     key={filter.id}
                     onClick={() => setSelectedFilter(filter.id)}
                     className={cn(
-                      "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer",
+                      "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer whitespace-nowrap",
                       isActive
-                        ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30"
+                        ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30 font-bold"
                         : "bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-[#e6e2d6] dark:border-white/10"
                     )}
                   >
@@ -222,71 +256,79 @@ export default function Announcements() {
                 setSelectedFilter('all');
                 setSearchQuery('');
               }}
-              className="text-amber-700 dark:text-amber-300 hover:underline font-bold"
+              className="text-amber-700 dark:text-amber-300 hover:underline font-bold cursor-pointer"
             >
               Filtreleri Temizle
             </button>
           </div>
         )}
 
-        {/* Announcements List Grouped or Flat */}
+        {/* Announcements List Grouped & Sorted by Recency */}
         {filteredAnnouncements.length === 0 ? (
           <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
-            <GraduationCap className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
+            <Building2 className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
             <h3 className="font-display font-bold text-stone-800 dark:text-white text-base">
               Aramanıza Uygun Duyuru Bulunamadı
             </h3>
             <p className="text-stone-500 dark:text-white/60 text-xs mt-1 max-w-sm mx-auto">
-              Farklı bir fakülte seçebilir veya arama teriminizi değiştirerek tekrar deneyebilirsiniz.
+              Farklı bir kategori seçebilir veya arama teriminizi değiştirerek tekrar deneyebilirsiniz.
             </p>
             <button
               onClick={() => {
                 setSelectedFilter('all');
                 setSearchQuery('');
               }}
-              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm"
+              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
             >
               Tüm Duyuruları Göster
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            {(Object.entries(groupedCategories) as [string, Announcement[]][]).map(([category, items]) => {
-              const isExpanded = activeCategory === category || activeCategory === null;
+            {sortedGroupedCategories.map(([category, items]) => {
+              const isCollapsed = collapsedCategories[category] === true;
+              const isExpanded = !isCollapsed;
+              const latestDateStr = items[0]?.date;
+
               return (
                 <div
                   key={category}
                   className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden shadow-sm"
                 >
                   <button
-                    onClick={() => setActiveCategory(activeCategory === category ? '' : category)}
-                    className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none"
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                       <span className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
                         {category}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
                         {items.length}
                       </span>
+                      {latestDateStr && (
+                        <span className="text-[10px] text-stone-400 dark:text-white/50 font-normal">
+                          (Son: {latestDateStr})
+                        </span>
+                      )}
                     </div>
                     <ChevronDown
                       strokeWidth={2}
                       className={cn(
-                        "w-4 h-4 text-stone-400 transition-transform duration-300",
+                        "w-4 h-4 text-stone-400 transition-transform duration-300 shrink-0",
                         isExpanded ? "rotate-180 text-amber-600 dark:text-amber-500" : "rotate-0"
                       )}
                     />
                   </button>
 
-                  <AnimatePresence>
+                  <AnimatePresence initial={false}>
                     {isExpanded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.2 }}
                         className="border-t border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653]"
                       >
                         <div className="p-4 sm:p-5 space-y-4 divide-y divide-stone-100 dark:divide-white/10">
@@ -326,7 +368,7 @@ export default function Announcements() {
                                       title: announcement.title
                                     })
                                   }
-                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors focus:outline-none"
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors focus:outline-none cursor-pointer"
                                 >
                                   <span>Duyuru Detayını Görüntüle</span>
                                   <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />

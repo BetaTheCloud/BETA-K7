@@ -16,6 +16,7 @@ import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
+import { parseDateToTimestamp } from '../lib/utils';
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -98,13 +99,20 @@ export default function Home() {
     return () => { isMounted = false; };
   }, []);
 
+  const sortedAnnouncements = [...announcements].sort(
+    (a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date)
+  );
+  const sortedNews = [...news].sort(
+    (a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date)
+  );
+
   const filteredAnnouncements = searchQuery 
-    ? announcements.filter(a => a.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : announcements.slice(0, 3);
+    ? sortedAnnouncements.filter(a => a.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : sortedAnnouncements.slice(0, 3);
 
   const filteredNews = searchQuery
-    ? news.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : news.slice(0, 3);
+    ? sortedNews.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : sortedNews.slice(0, 3);
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>

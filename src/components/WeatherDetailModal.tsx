@@ -152,7 +152,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center p-3.5 sm:p-5 md:p-6 bg-black/80 backdrop-blur-md overflow-hidden overscroll-none"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden overscroll-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="weather-modal-title"
@@ -169,25 +169,14 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg max-h-[82dvh] sm:max-h-[84vh] flex flex-col shadow-2xl relative z-10 overflow-hidden my-auto"
+          className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg max-h-[82dvh] sm:max-h-[85vh] flex flex-col shadow-2xl relative z-10 overflow-hidden my-auto"
         >
-          {/* Top Sticky Header with Prominent Back Button */}
-          <div className="sticky top-0 z-30 px-3.5 py-3 sm:px-4 sm:py-3.5 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 shadow-md">
+          {/* Top Compact Header (Without duplicate back button, clean title + close X) */}
+          <div className="sticky top-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 shadow-sm">
             <div className="flex items-center justify-between gap-2">
-              {/* Back Button with Arrow */}
-              <button
-                onClick={onClose}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm border border-white/10 shrink-0"
-                aria-label="Geri Dön"
-                title="Geri Dön (ESC)"
-              >
-                <ArrowLeft className="w-4 h-4 text-amber-300" />
-                <span>Geri Dön</span>
-              </button>
-
               <div className="flex items-center gap-1.5 text-xs text-amber-300 font-semibold tracking-wide truncate">
                 <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                <span id="weather-modal-title" className="truncate">Kilis 7 Aralık Kampüsü</span>
+                <span id="weather-modal-title" className="truncate">Kilis 7 Aralık Kampüsü &bull; Canlı Hava</span>
               </div>
 
               {/* Close (X) button */}
@@ -195,69 +184,69 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                 onClick={onClose}
                 className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all cursor-pointer border border-white/10 flex items-center justify-center shrink-0"
                 aria-label="Kapat"
-                title="Kapat"
+                title="Kapat (ESC)"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Weather overview banner */}
-            <div className="mt-2.5 flex items-center justify-between gap-3">
+            {/* Weather overview banner - Compact height */}
+            <div className="mt-2 flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-display font-extrabold tracking-tight text-white">
+                  <span className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-white leading-none">
                     {Math.round(weather.temperature)}°C
                   </span>
-                  <span className="text-xs text-stone-300">
+                  <span className="text-[11px] sm:text-xs text-stone-300">
                     Hissedilen {Math.round(weather.apparentTemperature)}°C
                   </span>
                 </div>
-                <div className="text-xs font-semibold text-amber-200 mt-1 flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md bg-white/15 text-amber-200 text-xs font-semibold border border-white/10">
+                <div className="text-[11px] font-semibold text-amber-200 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="px-1.5 py-0.5 rounded-md bg-white/15 text-amber-200 text-[10px] sm:text-xs font-semibold border border-white/10">
                     {currentCondition.text}
                   </span>
-                  <span className="text-[11px] text-stone-300 font-normal">
-                    En Düşük: {Math.round(weather.tempMin)}° / En Yüksek: {Math.round(weather.tempMax)}°
+                  <span className="text-[10px] sm:text-[11px] text-stone-300 font-normal">
+                    {Math.round(weather.tempMin)}° / {Math.round(weather.tempMax)}°
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 {/* Sunrise / Sunset compact badge */}
-                <div className="flex flex-col gap-1 text-[10px] text-stone-300 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl shrink-0">
-                  <div className="flex items-center gap-1.5 text-amber-300 font-medium" title="Gün Doğumu">
-                    <Sunrise className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <div className="flex flex-col gap-0.5 text-[9px] sm:text-[10px] text-stone-300 bg-white/5 border border-white/10 px-2 py-1 rounded-xl shrink-0">
+                  <div className="flex items-center gap-1 text-amber-300 font-medium" title="Gün Doğumu">
+                    <Sunrise className="w-3 h-3 text-amber-400 shrink-0" />
                     <span>{formatTime(weather.sunrise)}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-indigo-300 font-medium" title="Gün Batımı">
-                    <Sunset className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <div className="flex items-center gap-1 text-indigo-300 font-medium" title="Gün Batımı">
+                    <Sunset className="w-3 h-3 text-indigo-400 shrink-0" />
                     <span>{formatTime(weather.sunset)}</span>
                   </div>
                 </div>
 
-                <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-md">
-                  <CurrentIcon className={`w-7 h-7 sm:w-8 sm:h-8 ${currentCondition.color}`} />
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-sm">
+                  <CurrentIcon className={`w-6 h-6 sm:w-7 sm:h-7 ${currentCondition.color}`} />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Scrollable Body - Contained within viewport with visible smooth scrollbar */}
-          <div className="p-3.5 sm:p-4 space-y-3.5 overflow-y-auto overscroll-contain flex-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-            {/* ================= 1. SAATLİK TAHMİN (YATAY KAYDIRMALI) ================= */}
+          <div className="p-3 sm:p-3.5 space-y-3 overflow-y-auto overscroll-contain flex-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+            {/* ================= 1. SAATLİK TAHMİN (1, 2, 3, 4, 6, 8, 12, 24 SAAT) ================= */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs font-bold text-white uppercase tracking-wider">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  Saatlik Tahmin (1, 2, 4, 6, 8, 12, 24 Saat)
+                  Saatlik Tahmin (1, 2, 3, 4, 6, 8, 12, 24 Saat)
                 </span>
-                <span className="text-[10px] text-amber-300/80 font-medium lowercase tracking-normal">
+                <span className="text-[9px] sm:text-[10px] text-amber-300/80 font-medium lowercase tracking-normal">
                   kaydırın &rarr;
                 </span>
               </div>
 
               {/* Horizontal Scroll with tight compact cards */}
-              <div className="flex items-stretch gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              <div className="flex items-stretch gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
                 {weather.hourlyList.map((item, idx) => {
                   const cond = getWeatherConditionInfo(item.weatherCode, item.isDay);
                   const IconComponent = cond.Icon;
@@ -266,7 +255,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                   return (
                     <div
                       key={idx}
-                      className={`shrink-0 w-[80px] sm:w-[84px] flex flex-col items-center justify-between p-2.5 rounded-xl border transition-all text-center ${
+                      className={`shrink-0 w-[74px] sm:w-[80px] flex flex-col items-center justify-between p-2 rounded-xl border transition-all text-center ${
                         isCurrent
                           ? 'bg-amber-500/20 border-amber-400/50 shadow-sm ring-1 ring-amber-400/30'
                           : 'bg-white/5 border-white/10 hover:border-white/25 hover:bg-white/10'
@@ -281,8 +270,8 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                         </div>
                       </div>
 
-                      <div className="my-1.5 p-1 rounded-md bg-white/5">
-                        <IconComponent className={`w-5 h-5 ${cond.color}`} />
+                      <div className="my-1 p-1 rounded-md bg-white/5">
+                        <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 ${cond.color}`} />
                       </div>
 
                       <div className="text-xs font-extrabold text-white leading-tight">
@@ -290,7 +279,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                       </div>
 
                       {/* Micro Metrics: Rain & Wind */}
-                      <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[9px]">
+                      <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[8px] sm:text-[9px]">
                         <span className="flex items-center gap-0.5 text-blue-300" title="Yağış İhtimali">
                           <Droplets className="w-2.5 h-2.5" />
                           {item.precipitationProb}%
@@ -308,119 +297,119 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
 
             {/* ================= 2. DETAYLI ATMOSFER METRİKLERİ ================= */}
             <div className="space-y-1.5">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                 <Gauge className="w-3.5 h-3.5 text-emerald-400" />
                 Atmosferik Değerler
               </h4>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                 {/* Hissedilen Sıcaklık */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Thermometer className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Thermometer className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-400 shrink-0" />
                     <span className="truncate">Hissedilen</span>
                   </div>
-                  <div className="text-base font-bold text-white mt-1">
+                  <div className="text-sm sm:text-base font-bold text-white mt-0.5">
                     {Math.round(weather.apparentTemperature)}°C
                   </div>
-                  <div className="text-[10px] text-stone-400 truncate">Vücut algısı</div>
+                  <div className="text-[9px] text-stone-400 truncate">Vücut algısı</div>
                 </div>
 
                 {/* Bağıl Nem */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Droplets className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Droplets className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400 shrink-0" />
                     <span className="truncate">Bağıl Nem</span>
                   </div>
-                  <div className="text-base font-bold text-white mt-1">
+                  <div className="text-sm sm:text-base font-bold text-white mt-0.5">
                     %{weather.humidity}
                   </div>
-                  <div className="text-[10px] text-stone-400 truncate">Havadaki nem oranı</div>
+                  <div className="text-[9px] text-stone-400 truncate">Havadaki nem</div>
                 </div>
 
                 {/* Rüzgar Hızı ve Yönü */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Wind className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Wind className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-teal-400 shrink-0" />
                     <span className="truncate">Rüzgar Hızı</span>
                   </div>
-                  <div className="text-base font-bold text-white mt-1">
+                  <div className="text-sm sm:text-base font-bold text-white mt-0.5">
                     {Math.round(weather.windSpeed)} km/s
                   </div>
-                  <div className="text-[10px] text-stone-400 flex items-center gap-1 truncate">
-                    <Compass className="w-3 h-3 text-teal-300 shrink-0" />
+                  <div className="text-[9px] text-stone-400 flex items-center gap-1 truncate">
+                    <Compass className="w-2.5 h-2.5 text-teal-300 shrink-0" />
                     <span>Yön {weather.windDirection}°</span>
                   </div>
                 </div>
 
                 {/* Yağış İhtimali */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Umbrella className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Umbrella className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
                     <span className="truncate">Yağış İhtimali</span>
                   </div>
-                  <div className="text-base font-bold text-white mt-1">
+                  <div className="text-sm sm:text-base font-bold text-white mt-0.5">
                     %{weather.rainChance}
                   </div>
-                  <div className="text-[10px] text-stone-400 truncate">En yüksek olasılık</div>
+                  <div className="text-[9px] text-stone-400 truncate">En yüksek olasılık</div>
                 </div>
 
                 {/* UV İndeksi */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Sun className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
                     <span className="truncate">UV İndeksi</span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-base font-bold text-white">
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-sm sm:text-base font-bold text-white">
                       {weather.uvIndexMax.toFixed(1)}
                     </span>
-                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${uvLevel.bg} ${uvLevel.color}`}>
+                    <span className={`px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${uvLevel.bg} ${uvLevel.color}`}>
                       {uvLevel.text}
                     </span>
                   </div>
-                  <div className="text-[10px] text-stone-400 truncate">Güneş ışınımı</div>
+                  <div className="text-[9px] text-stone-400 truncate">Güneş ışınımı</div>
                 </div>
 
                 {/* Yüzey Hava Basıncı */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-stone-300">
-                    <Gauge className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                    <Gauge className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 shrink-0" />
                     <span className="truncate">Hava Basıncı</span>
                   </div>
-                  <div className="text-base font-bold text-white mt-1">
+                  <div className="text-sm sm:text-base font-bold text-white mt-0.5">
                     {Math.round(weather.surfacePressure)} hPa
                   </div>
-                  <div className="text-[10px] text-stone-400 truncate">Barometrik basınç</div>
+                  <div className="text-[9px] text-stone-400 truncate">Barometrik basınç</div>
                 </div>
               </div>
             </div>
 
             {/* ================= 3. KAMPÜS TAVSİYESİ ================= */}
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 sm:p-3.5 flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3 flex items-start gap-2">
+              <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <h5 className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                <h5 className="text-[10px] sm:text-[11px] font-bold text-amber-300 uppercase tracking-wide">
                   Kampüs Rehberi Tavsiyesi
                 </h5>
-                <p className="text-xs text-stone-300 mt-1 leading-relaxed">
+                <p className="text-[11px] sm:text-xs text-stone-300 mt-0.5 leading-relaxed">
                   {getCampusTip()}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Bottom Sticky Footer with Big "Geri Menüye Dön" Button */}
-          <div className="sticky bottom-0 z-30 px-4 py-3 bg-[#132028] border-t border-white/10 flex items-center justify-between gap-3 shrink-0 shadow-lg">
-            <span className="text-[11px] text-stone-400 truncate">
+          {/* Bottom Compact Sticky Footer with Single "Geri Dön" Button */}
+          <div className="sticky bottom-0 z-30 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-[#132028] border-t border-white/10 flex items-center justify-between gap-2 shrink-0 shadow-lg">
+            <span className="text-[10px] text-stone-400 truncate">
               36.71° K, 37.11° D &bull; Canlı Meteoroloji
             </span>
             <button
               onClick={onClose}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-stone-950 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer shrink-0"
             >
-              <ArrowLeft className="w-4 h-4 text-stone-950" />
-              <span>Geri Menüye Dön</span>
+              <ArrowLeft className="w-3.5 h-3.5 text-stone-950" />
+              <span>Geri Dön</span>
             </button>
           </div>
         </motion.div>

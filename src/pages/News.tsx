@@ -12,28 +12,13 @@ import {
   Filter,
   X,
   Sparkles,
-  Calendar,
-  Building2,
-  Trophy,
-  Award
+  Calendar
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, parseDateToTimestamp } from '../lib/utils';
 import DetailModal from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
-
-const NEWS_FILTERS = [
-  { id: 'all', name: 'Tümü' },
-  { id: 'Üniversite Haberleri', name: 'Üniversite Haberleri' },
-  { id: 'Mühendislik-Mimarlık Fakültesi', name: 'Mühendislik' },
-  { id: 'İktisadi ve İdari Bilimler Fakültesi', name: 'İİBF' },
-  { id: 'Sağlık Bilimleri Fakültesi', name: 'Sağlık Bilimleri' },
-  { id: 'Kültür & Sanat', name: 'Kültür & Sanat' },
-  { id: 'Akademik & AR-GE', name: 'Akademik & AR-GE' },
-  { id: 'İş Birlikleri', name: 'İş Birlikleri' },
-  { id: 'Başarılar', name: 'Başarılar' }
-];
 
 export default function News() {
   const navigate = useNavigate();
@@ -42,6 +27,7 @@ export default function News() {
       const cached = localStorage.getItem('k7_cached_news');
       if (cached) {
         const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data;
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
@@ -50,14 +36,16 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [selectedItem, setSelectedItem] = useState<{ url: string; title: string } | null>(null);
 
   const load = async (force = false) => {
+    if (force) setLoading(true);
     const data = await getNews(force);
     if (data && data.length > 0) {
       setNews(data);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -68,16 +56,50 @@ export default function News() {
     await load(true);
   };
 
-  // Filtered news items
+  // Dynamically extract and sort all available news categories by freshest date
+  const sortedFilterChips = useMemo(() => {
+    const catStats: Record<string, { latestDate: number; count: number }> = {};
+    
+    news.forEach((a) => {
+      const cat = a.category?.trim() || 'Üniversite Haberleri';
+      const ts = parseDateToTimestamp(a.date);
+      if (!catStats[cat]) {
+        catStats[cat] = { latestDate: ts, count: 1 };
+      } else {
+        if (ts > catStats[cat].latestDate) {
+          catStats[cat].latestDate = ts;
+        }
+        catStats[cat].count += 1;
+      }
+    });
+
+    const sortedCats = Object.keys(catStats).sort((a, b) => {
+      // 1. Sort by freshest news date
+      if (catStats[b].latestDate !== catStats[a].latestDate) {
+        return catStats[b].latestDate - catStats[a].latestDate;
+      }
+      // 2. Tie breaker: count
+      return catStats[b].count - catStats[a].count;
+    });
+
+    const chips: { id: string; name: string }[] = [{ id: 'all', name: 'Tümü' }];
+    sortedCats.forEach((cat) => {
+      chips.push({ id: cat, name: cat });
+    });
+
+    return chips;
+  }, [news]);
+
+  // Filter news items
   const filteredNews = useMemo(() => {
     return news.filter((item) => {
-      // 1. Filter by category / faculty
+      // 1. Filter by category
       if (selectedFilter !== 'all') {
-        const itemCat = (item.category || '').toLowerCase();
-        const selFilter = selectedFilter.toLowerCase();
-        const matchCat = itemCat.includes(selFilter) || selFilter.includes(itemCat);
-        const matchTitle = (item.title || '').toLowerCase().includes(selFilter);
-        if (!matchCat && !matchTitle) return false;
+        const itemCat = (item.category || '').toLowerCase().trim();
+        const selFilter = selectedFilter.toLowerCase().trim();
+        if (itemCat !== selFilter && !itemCat.includes(selFilter) && !selFilter.includes(itemCat)) {
+          return false;
+        }
       }
 
       // 2. Filter by search query
@@ -93,16 +115,40 @@ export default function News() {
     });
   }, [news, selectedFilter, searchQuery]);
 
-  // Group filtered news by category
-  const groupedCategories = useMemo(() => {
+  // Group and sort categories strictly by the latest news date (freshest at top)
+  const sortedGroupedCategories = useMemo(() => {
     const groups: Record<string, Announcement[]> = {};
     filteredNews.forEach((item) => {
-      const cat = item.category || 'Üniversite Haberleri';
+      const cat = item.category?.trim() || 'Üniversite Haberleri';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(item);
     });
-    return groups;
+
+    // Sort items within each category from newest to oldest
+    Object.keys(groups).forEach((cat) => {
+      groups[cat].sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
+    });
+
+    // Sort category entries so categories with the most recent news date appear at the top
+    const entries = Object.entries(groups) as [string, Announcement[]][];
+    entries.sort((a, b) => {
+      const latestA = a[1].length > 0 ? parseDateToTimestamp(a[1][0].date) : 0;
+      const latestB = b[1].length > 0 ? parseDateToTimestamp(b[1][0].date) : 0;
+      if (latestB !== latestA) {
+        return latestB - latestA;
+      }
+      return b[1].length - a[1].length;
+    });
+
+    return entries;
   }, [filteredNews]);
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
 
   if (loading) {
     return <LoadingState message="Haberler Yükleniyor..." subtitle="Üniversite haberleri güncelleniyor" />;
@@ -162,30 +208,30 @@ export default function News() {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
 
-          {/* Horizontal Scrollable Categories Filter */}
+          {/* Horizontal Scrollable Category Filter Pills (Sorted by latest news date) */}
           <div className="pt-1">
             <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-stone-500 dark:text-white/60">
               <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Kategori & Fakülteye Göre Filtrele:</span>
+              <span>Haber Kategorileri (En Yakın Tarihe Göre Sıralı):</span>
             </div>
             <HorizontalScrollWrapper>
-              {NEWS_FILTERS.map((filter) => {
+              {sortedFilterChips.map((filter) => {
                 const isActive = selectedFilter === filter.id;
                 return (
                   <button
                     key={filter.id}
                     onClick={() => setSelectedFilter(filter.id)}
                     className={cn(
-                      "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer",
+                      "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer whitespace-nowrap",
                       isActive
-                        ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30"
+                        ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30 font-bold"
                         : "bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-[#e6e2d6] dark:border-white/10"
                     )}
                   >
@@ -210,14 +256,14 @@ export default function News() {
                 setSelectedFilter('all');
                 setSearchQuery('');
               }}
-              className="text-amber-700 dark:text-amber-300 hover:underline font-bold"
+              className="text-amber-700 dark:text-amber-300 hover:underline font-bold cursor-pointer"
             >
               Filtreleri Temizle
             </button>
           </div>
         )}
 
-        {/* News List Grouped */}
+        {/* News List Grouped & Sorted by Recency */}
         {filteredNews.length === 0 ? (
           <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
             <Newspaper className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
@@ -232,92 +278,102 @@ export default function News() {
                 setSelectedFilter('all');
                 setSearchQuery('');
               }}
-              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm"
+              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
             >
               Tüm Haberleri Göster
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            {(Object.entries(groupedCategories) as [string, Announcement[]][]).map(([category, items]) => {
-              const isExpanded = activeCategory === category || activeCategory === null;
+            {sortedGroupedCategories.map(([category, items]) => {
+              const isCollapsed = collapsedCategories[category] === true;
+              const isExpanded = !isCollapsed;
+              const latestDateStr = items[0]?.date;
+
               return (
                 <div
                   key={category}
                   className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden shadow-sm"
                 >
                   <button
-                    onClick={() => setActiveCategory(activeCategory === category ? '' : category)}
-                    className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none"
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Newspaper className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <Newspaper className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                       <span className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
                         {category}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
                         {items.length}
                       </span>
+                      {latestDateStr && (
+                        <span className="text-[10px] text-stone-400 dark:text-white/50 font-normal">
+                          (Son: {latestDateStr})
+                        </span>
+                      )}
                     </div>
                     <ChevronDown
                       strokeWidth={2}
                       className={cn(
-                        "w-4 h-4 text-stone-400 transition-transform duration-300",
+                        "w-4 h-4 text-stone-400 transition-transform duration-300 shrink-0",
                         isExpanded ? "rotate-180 text-amber-600 dark:text-amber-500" : "rotate-0"
                       )}
                     />
                   </button>
 
-                  <AnimatePresence>
+                  <AnimatePresence initial={false}>
                     {isExpanded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.2 }}
                         className="border-t border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653]"
                       >
-                        <div className="p-4 sm:p-5 space-y-4 divide-y divide-stone-100 dark:divide-white/10">
-                          {items.map((item) => (
+                        <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {items.map((newsItem) => (
                             <div
-                              key={item.id}
-                              className="pt-4 first:pt-0 group hover:bg-stone-50/50 dark:hover:bg-white/5 rounded-xl transition-all"
+                              key={newsItem.id}
+                              className="p-4 bg-white/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 rounded-xl hover:shadow-md transition-all flex flex-col justify-between"
                             >
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                {/* Category Badge */}
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                                  {item.category || category}
-                                </span>
-                                {item.date && !item.date.includes('T') && (
-                                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {item.date}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  {/* Category Badge */}
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                    {newsItem.category || category}
                                   </span>
+                                  {newsItem.date && !newsItem.date.includes('T') && (
+                                    <span className="text-[10px] sm:text-[11px] font-semibold text-stone-400 dark:text-white/50 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {newsItem.date}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug mb-2">
+                                  {newsItem.title}
+                                </h4>
+
+                                {newsItem.content && (
+                                  <p className="text-xs text-stone-600 dark:text-white/70 line-clamp-3 leading-relaxed mb-3">
+                                    {newsItem.content}
+                                  </p>
                                 )}
                               </div>
 
-                              <h4 className="font-display font-bold text-[0.95rem] sm:text-[1.05rem] leading-snug text-stone-800 dark:text-white/90 mb-2">
-                                {item.title}
-                              </h4>
-
-                              {item.content && (
-                                <p className="text-xs sm:text-sm text-stone-600 dark:text-white/70 line-clamp-2 leading-relaxed mb-3">
-                                  {item.content}
-                                </p>
-                              )}
-
-                              {item.url && (
+                              {newsItem.url && (
                                 <button
                                   onClick={() =>
                                     setSelectedItem({
-                                      url: item.url || '',
-                                      title: item.title
+                                      url: newsItem.url || '',
+                                      title: newsItem.title
                                     })
                                   }
-                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors focus:outline-none"
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors pt-2 border-t border-stone-100 dark:border-white/10 mt-2 cursor-pointer"
                                 >
-                                  <span>Haberi Oku & Detaylar</span>
-                                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
+                                  <span>Haberi Oku</span>
+                                  <ExternalLink className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
