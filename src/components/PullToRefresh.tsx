@@ -26,13 +26,21 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Ignore if document body scroll is locked or touch is inside a dialog/modal
+      if (document.body.style.overflow === 'hidden') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[role="dialog"], [data-modal], .fixed, [aria-modal="true"]')) return;
       if (window.scrollY > 0 || isRefreshing) return;
+      
       isPulling.current = true;
       startY.current = e.touches[0].clientY;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isPulling.current || window.scrollY > 0 || isRefreshing) return;
+      if (!isPulling.current || window.scrollY > 0 || isRefreshing || document.body.style.overflow === 'hidden') {
+        isPulling.current = false;
+        return;
+      }
       
       const currentY = e.touches[0].clientY;
       const distance = currentY - startY.current;

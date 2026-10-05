@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sun,
@@ -149,7 +150,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
     return 'Kampüste yürüyüş ve kütüphane bahçesinde vakit geçirmek için ferah ve elverişli bir hava var.';
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && weather && (
         <div 
@@ -157,6 +158,9 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
           role="dialog"
           aria-modal="true"
           aria-labelledby="weather-modal-title"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           {/* Backdrop click to close */}
           <div 
@@ -172,6 +176,9 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg max-h-full flex flex-col shadow-2xl relative z-10 overflow-hidden"
             style={{ contain: 'layout' }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
           >
             {/* Top Compact Header with safe clearance */}
             <div className="sticky top-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 shadow-sm">
@@ -429,6 +436,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
