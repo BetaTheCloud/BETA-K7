@@ -354,8 +354,8 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
 
                         {/* Micro Metrics: Yağış İhtimali ve Rüzgar Hızı */}
                         <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[8px] sm:text-[9px]">
-                          <span className="flex items-center gap-0.5 text-blue-300 font-semibold" title="Yağış İhtimali">
-                            <Droplets className="w-2.5 h-2.5 text-blue-400" />
+                          <span className="flex items-center gap-0.5 text-indigo-300 font-semibold" title="Yağış İhtimali">
+                            <Umbrella className="w-2.5 h-2.5 text-indigo-400" />
                             %{item.precipitationProb}
                           </span>
                           <span className="flex items-center gap-0.5 text-stone-300 font-medium" title="Rüzgar Hızı">
