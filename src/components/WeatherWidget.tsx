@@ -41,7 +41,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   useEffect(() => {
     async function fetchWeather() {
       try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,apparent_temperature,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=2&timezone=Europe%2FIstanbul';
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=2&timezone=Europe%2FIstanbul';
         const res = await fetch(url);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
@@ -55,7 +55,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           is_day: data.current.is_day,
         });
 
-        // Compute hourly items (+0h, +1h, +2h, +4h, +6h, +8h, +12h, +24h)
+        // Compute hourly items (+0h, +1h, +2h, +3h, +4h, +6h, +8h, +12h, +24h)
         const times: string[] = data.hourly.time || [];
         const currentTimeIso = data.current.time || '';
         let baseIndex = times.findIndex((t: string) => t >= currentTimeIso);
@@ -86,8 +86,12 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               timeStr: timeStr,
               temp: data.hourly.temperature_2m[idx] ?? data.current.temperature_2m,
               apparentTemp: data.hourly.apparent_temperature?.[idx] ?? data.current.temperature_2m,
+              humidity: data.hourly.relative_humidity_2m?.[idx] ?? data.current.relative_humidity_2m,
               precipitationProb: data.hourly.precipitation_probability?.[idx] ?? 0,
               windSpeed: data.hourly.wind_speed_10m?.[idx] ?? 0,
+              windDirection: data.hourly.wind_direction_10m?.[idx] ?? (data.current.wind_direction_10m || 0),
+              surfacePressure: data.hourly.surface_pressure?.[idx] ?? (data.current.surface_pressure || 1013),
+              uvIndex: data.hourly.uv_index?.[idx] ?? (data.daily.uv_index_max?.[0] || 0),
               weatherCode: data.hourly.weather_code?.[idx] ?? 0,
               isDay: data.hourly.is_day?.[idx] ?? 1,
             });

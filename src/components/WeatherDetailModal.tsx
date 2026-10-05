@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -23,7 +23,8 @@ import {
   MapPin,
   Thermometer,
   Info,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw
 } from 'lucide-react';
 
 export interface HourlyForecastItem {
@@ -32,8 +33,12 @@ export interface HourlyForecastItem {
   timeStr: string;
   temp: number;
   apparentTemp: number;
+  humidity: number;
   precipitationProb: number;
   windSpeed: number;
+  windDirection: number;
+  surfacePressure: number;
+  uvIndex: number;
   weatherCode: number;
   isDay: number;
 }
@@ -90,6 +95,15 @@ export function getWeatherConditionInfo(code: number, isDay: number) {
 }
 
 export default function WeatherDetailModal({ isOpen, onClose, weather }: WeatherDetailModalProps) {
+  const [selectedHourOffset, setSelectedHourOffset] = useState<number>(0);
+
+  // Reset selected hour on open
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedHourOffset(0);
+    }
+  }, [isOpen]);
+
   // Prevent background scroll and support Escape key
   useEffect(() => {
     if (!isOpen) return;
@@ -112,7 +126,24 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
 
   if (!isOpen || !weather) return null;
 
-  const currentCondition = getWeatherConditionInfo(weather.weathercode, weather.is_day);
+  // Active selected forecast item or fallback to current
+  const selectedItem = weather.hourlyList.find(item => item.hourOffset === selectedHourOffset) || weather.hourlyList[0];
+  
+  const activeTemp = selectedItem ? selectedItem.temp : weather.temperature;
+  const activeApparentTemp = selectedItem ? selectedItem.apparentTemp : weather.apparentTemperature;
+  const activeHumidity = selectedItem ? selectedItem.humidity : weather.humidity;
+  const activeRainChance = selectedItem ? selectedItem.precipitationProb : weather.rainChance;
+  const activeWindSpeed = selectedItem ? selectedItem.windSpeed : weather.windSpeed;
+  const activeWindDirection = selectedItem ? selectedItem.windDirection : weather.windDirection;
+  const activePressure = selectedItem ? selectedItem.surfacePressure : weather.surfacePressure;
+  const activeUv = selectedItem ? selectedItem.uvIndex : weather.uvIndexMax;
+  const activeWeatherCode = selectedItem ? selectedItem.weatherCode : weather.weathercode;
+  const activeIsDay = selectedItem ? selectedItem.isDay : weather.is_day;
+  const activeLabel = selectedItem ? selectedItem.label : 'Şu An';
+  const activeTimeStr = selectedItem ? selectedItem.timeStr : '';
+  const isCurrentTime = selectedHourOffset === 0;
+
+  const currentCondition = getWeatherConditionInfo(activeWeatherCode, activeIsDay);
   const CurrentIcon = currentCondition.Icon;
 
   // Format sunrise / sunset
@@ -134,20 +165,20 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
     return { text: 'Çok Yüksek', color: 'text-rose-400', bg: 'bg-rose-500/10' };
   };
 
-  const uvLevel = getUvLevel(weather.uvIndexMax);
+  const uvLevel = getUvLevel(activeUv);
 
-  // Dynamic campus recommendation
+  // Dynamic campus recommendation based on selected hour metrics
   const getCampusTip = () => {
-    if (weather.rainChance > 40 || weather.weathercode >= 60) {
-      return 'Kampüse geçerken şemsiyenizi almayı unutmayın. Kütüphane ve kapalı sosyal alanlar konforlu olacaktır.';
+    if (activeRainChance > 40 || activeWeatherCode >= 60) {
+      return `${activeLabel} (${activeTimeStr}) saatinde yağış ihtimali yüksek (%${activeRainChance}). Kampüse geçerken şemsiyenizi almanız veya kapalı sosyal alanları tercih etmeniz önerilir.`;
     }
-    if (weather.temperature >= 26) {
-      return 'Hava sıcak ve güneşli. Kampüs amfisinde veya ağaç gölgeliklerinde açık hava çalışması için elverişli.';
+    if (activeTemp >= 26) {
+      return `${activeLabel} saatinde sıcak ve güneşli bir hava bekleniyor (${Math.round(activeTemp)}°C). Kampüs amfisi veya ağaç gölgeliklerinde açık hava çalışmaları için elverişli.`;
     }
-    if (weather.temperature <= 10) {
-      return 'Serin bir kampüs havası hakim. SKS kafeteryası veya etüt salonlarında sıcak bir içecek tercih edebilirsiniz.';
+    if (activeTemp <= 10) {
+      return `${activeLabel} saatinde serin bir kampüs havası hakim (${Math.round(activeTemp)}°C). SKS kafeteryası veya kütüphane etüt salonlarında sıcak bir mola verebilirsiniz.`;
     }
-    return 'Kampüste yürüyüş ve kütüphane bahçesinde vakit geçirmek için ferah ve elverişli bir hava var.';
+    return `${activeLabel} saatinde kampüste yürüyüş ve kütüphane bahçesinde vakit geçirmek için ferah ve elverişli bir hava var.`;
   };
 
   return createPortal(
@@ -188,35 +219,54 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                   <span id="weather-modal-title" className="truncate">Kilis 7 Aralık Kampüsü &bull; Canlı Hava</span>
                 </div>
 
-                {/* Close (X) button */}
-                <button
-                  onClick={onClose}
-                  className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all cursor-pointer border border-white/10 flex items-center justify-center shrink-0"
-                  aria-label="Kapat"
-                  title="Kapat (ESC)"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {!isCurrentTime && (
+                    <button
+                      onClick={() => setSelectedHourOffset(0)}
+                      className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-semibold border border-amber-500/40 flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      title="Şu anki zamana dön"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Şu An</span>
+                    </button>
+                  )}
+
+                  {/* Close (X) button */}
+                  <button
+                    onClick={onClose}
+                    className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all cursor-pointer border border-white/10 flex items-center justify-center shrink-0"
+                    aria-label="Kapat"
+                    title="Kapat (ESC)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              {/* Weather overview banner - Compact height */}
+              {/* Weather overview banner - Dynamically reflects selected hour */}
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-white leading-none">
-                      {Math.round(weather.temperature)}°C
+                      {Math.round(activeTemp)}°C
                     </span>
                     <span className="text-[11px] sm:text-xs text-stone-300">
-                      Hissedilen {Math.round(weather.apparentTemperature)}°C
+                      Hissedilen {Math.round(activeApparentTemp)}°C
                     </span>
                   </div>
                   <div className="text-[11px] font-semibold text-amber-200 mt-1 flex items-center gap-1.5 flex-wrap">
                     <span className="px-1.5 py-0.5 rounded-md bg-white/15 text-amber-200 text-[10px] sm:text-xs font-semibold border border-white/10">
                       {currentCondition.text}
                     </span>
-                    <span className="text-[10px] sm:text-[11px] text-stone-300 font-normal">
-                      {Math.round(weather.tempMin)}° / {Math.round(weather.tempMax)}°
-                    </span>
+                    {!isCurrentTime ? (
+                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-bold border border-amber-400/40">
+                        {activeLabel} ({activeTimeStr})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] sm:text-[11px] text-stone-300 font-normal">
+                        {Math.round(weather.tempMin)}° / {Math.round(weather.tempMax)}°
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -250,7 +300,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                 <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    Saatlik Tahmin (1, 2, 3, 4, 6, 8, 12, 24 Saat)
+                    Saatlik Tahmin (Detay için saate dokunun)
                   </span>
                   <span className="text-[9px] sm:text-[10px] text-amber-300/80 font-medium lowercase tracking-normal">
                     kaydırın &rarr;
@@ -270,20 +320,23 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                   {weather.hourlyList.map((item, idx) => {
                     const cond = getWeatherConditionInfo(item.weatherCode, item.isDay);
                     const IconComponent = cond.Icon;
-                    const isCurrent = item.hourOffset === 0;
+                    const isSelected = item.hourOffset === selectedHourOffset;
 
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={idx}
-                        className={`shrink-0 w-[74px] sm:w-[80px] flex flex-col items-center justify-between p-2 rounded-xl border transition-colors text-center ${
-                          isCurrent
-                            ? 'bg-amber-500/25 border-amber-400/60 shadow-sm ring-1 ring-amber-400/30'
-                            : 'bg-[#1e3440] border-white/10 hover:border-white/25 hover:bg-[#254252]'
+                        onClick={() => setSelectedHourOffset(item.hourOffset)}
+                        className={`shrink-0 w-[78px] sm:w-[84px] flex flex-col items-center justify-between p-2 rounded-xl border transition-all text-center cursor-pointer active:scale-95 ${
+                          isSelected
+                            ? 'bg-amber-500/30 border-amber-400 ring-2 ring-amber-400/50 shadow-md scale-[1.02]'
+                            : 'bg-[#1e3440] border-white/10 hover:border-amber-400/40 hover:bg-[#254252]'
                         }`}
                         style={{ contain: 'paint' }}
+                        aria-pressed={isSelected}
                       >
                         <div>
-                          <div className="text-[10px] font-bold text-amber-300 leading-none">
+                          <div className={`text-[10px] font-bold leading-none ${isSelected ? 'text-amber-200' : 'text-amber-300'}`}>
                             {item.label}
                           </div>
                           <div className="text-[9px] text-stone-300 font-mono mt-0.5">
@@ -291,7 +344,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                           </div>
                         </div>
 
-                        <div className="my-1 p-1 rounded-md bg-white/5">
+                        <div className={`my-1 p-1 rounded-md ${isSelected ? 'bg-amber-400/20' : 'bg-white/5'}`}>
                           <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 ${cond.color}`} />
                         </div>
 
@@ -299,18 +352,18 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                           {Math.round(item.temp)}°C
                         </div>
 
-                        {/* Micro Metrics: Rain & Wind */}
+                        {/* Micro Metrics: Yağış İhtimali ve Rüzgar Hızı */}
                         <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[8px] sm:text-[9px]">
-                          <span className="flex items-center gap-0.5 text-blue-300" title="Yağış İhtimali">
-                            <Droplets className="w-2.5 h-2.5" />
-                            {item.precipitationProb}%
+                          <span className="flex items-center gap-0.5 text-blue-300 font-semibold" title="Yağış İhtimali">
+                            <Droplets className="w-2.5 h-2.5 text-blue-400" />
+                            %{item.precipitationProb}
                           </span>
-                          <span className="flex items-center gap-0.5 text-stone-300" title="Rüzgar Hızı">
-                            <Wind className="w-2.5 h-2.5" />
+                          <span className="flex items-center gap-0.5 text-stone-300 font-medium" title="Rüzgar Hızı">
+                            <Wind className="w-2.5 h-2.5 text-teal-300" />
                             {Math.round(item.windSpeed)}k
                           </span>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -318,10 +371,17 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
 
               {/* ================= 2. DETAYLI ATMOSFER METRİKLERİ ================= */}
               <div className="space-y-1.5">
-                <h4 className="text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Gauge className="w-3.5 h-3.5 text-emerald-400" />
-                  Atmosferik Değerler
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+                    Atmosferik Değerler ({activeLabel})
+                  </h4>
+                  {!isCurrentTime && (
+                    <span className="text-[10px] text-amber-300/90 font-medium">
+                      {activeTimeStr} tahmini
+                    </span>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
                   {/* Hissedilen Sıcaklık */}
@@ -331,9 +391,21 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                       <span className="truncate">Hissedilen</span>
                     </div>
                     <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      {Math.round(weather.apparentTemperature)}°C
+                      {Math.round(activeApparentTemp)}°C
                     </div>
                     <div className="text-[9px] text-stone-400 truncate">Vücut algısı</div>
+                  </div>
+
+                  {/* Yağış İhtimali */}
+                  <div className="bg-[#1e3440] border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
+                      <Umbrella className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
+                      <span className="truncate">Yağış İhtimali</span>
+                    </div>
+                    <div className="text-sm sm:text-base font-bold text-blue-300 mt-0.5">
+                      %{activeRainChance}
+                    </div>
+                    <div className="text-[9px] text-stone-400 truncate">Beklenen olasılık</div>
                   </div>
 
                   {/* Bağıl Nem */}
@@ -343,7 +415,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                       <span className="truncate">Bağıl Nem</span>
                     </div>
                     <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      %{weather.humidity}
+                      %{activeHumidity}
                     </div>
                     <div className="text-[9px] text-stone-400 truncate">Havadaki nem</div>
                   </div>
@@ -355,24 +427,12 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                       <span className="truncate">Rüzgar Hızı</span>
                     </div>
                     <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      {Math.round(weather.windSpeed)} km/s
+                      {Math.round(activeWindSpeed)} km/s
                     </div>
                     <div className="text-[9px] text-stone-400 flex items-center gap-1 truncate">
                       <Compass className="w-2.5 h-2.5 text-teal-300 shrink-0" />
-                      <span>Yön {weather.windDirection}°</span>
+                      <span>Yön {activeWindDirection}°</span>
                     </div>
-                  </div>
-
-                  {/* Yağış İhtimali */}
-                  <div className="bg-[#1e3440] border border-white/10 rounded-xl p-2 sm:p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-stone-300">
-                      <Umbrella className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
-                      <span className="truncate">Yağış İhtimali</span>
-                    </div>
-                    <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      %{weather.rainChance}
-                    </div>
-                    <div className="text-[9px] text-stone-400 truncate">En yüksek olasılık</div>
                   </div>
 
                   {/* UV İndeksi */}
@@ -383,7 +443,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-sm sm:text-base font-bold text-white">
-                        {weather.uvIndexMax.toFixed(1)}
+                        {activeUv.toFixed(1)}
                       </span>
                       <span className={`px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${uvLevel.bg} ${uvLevel.color}`}>
                         {uvLevel.text}
@@ -399,7 +459,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                       <span className="truncate">Hava Basıncı</span>
                     </div>
                     <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      {Math.round(weather.surfacePressure)} hPa
+                      {Math.round(activePressure)} hPa
                     </div>
                     <div className="text-[9px] text-stone-400 truncate">Barometrik basınç</div>
                   </div>
@@ -411,7 +471,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                 <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <h5 className="text-[10px] sm:text-[11px] font-bold text-amber-300 uppercase tracking-wide">
-                    Kampüs Rehberi Tavsiyesi
+                    Kampüs Rehberi Tavsiyesi ({activeLabel})
                   </h5>
                   <p className="text-[11px] sm:text-xs text-stone-300 mt-0.5 leading-relaxed">
                     {getCampusTip()}
