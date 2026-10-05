@@ -3,11 +3,10 @@ import Header from './Header';
 import BottomNav from './BottomNav';
 import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { OfflineIndicator } from './OfflineIndicator';
 import { ServerColdStartAlert } from './ServerColdStartAlert';
-import { getAnnouncements } from '../mockData';
 import K7Logo from './K7Logo';
 
 export default function Layout() {
@@ -17,6 +16,7 @@ export default function Layout() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname, search]);
+
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
     { to: '/announcements', label: 'Duyurular', icon: Megaphone },
@@ -26,52 +26,6 @@ export default function Layout() {
     { to: '/calendar', label: 'Takvim', icon: CalendarClock },
     { to: '/menu', label: 'Yemek Menüsü', icon: ChefHat },
   ];
-
-  useEffect(() => {
-    let isMounted = true;
-    
-    const checkForNewAnnouncements = async () => {
-      try {
-        const announcements = await getAnnouncements();
-        if (!isMounted || announcements.length === 0) return;
-        
-        const newest = announcements[0];
-        const lastSeenTitle = localStorage.getItem('lastSeenAnnouncementTitle');
-        
-        if (lastSeenTitle) {
-          if (newest.title !== lastSeenTitle) {
-            toast.success(`Yeni Duyuru: ${newest.title}`, {
-              duration: 6000,
-              style: {
-                borderRadius: '8px',
-                background: '#264653',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,0.1)',
-                fontFamily: 'Inter, sans-serif'
-              },
-            });
-            localStorage.setItem('lastSeenAnnouncementTitle', newest.title);
-          }
-        } else {
-          // İlk açılışta bildirim gönderme, sadece son duyuruyu kaydet
-          localStorage.setItem('lastSeenAnnouncementTitle', newest.title);
-        }
-      } catch (error) {
-        console.error("Failed to check announcements", error);
-      }
-    };
-
-    // İlk açılışta bir kez kontrol et
-    checkForNewAnnouncements();
-
-    // Ardından her 3 dakikada bir kontrol et
-    const interval = setInterval(checkForNewAnnouncements, 3 * 60 * 1000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#f4f1ea] dark:bg-[#1d3540] text-stone-800 dark:text-white/90 font-sans flex flex-col md:flex-row">

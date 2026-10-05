@@ -41,7 +41,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   useEffect(() => {
     async function fetchWeather() {
       try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=2&timezone=Europe%2FIstanbul';
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=3&timezone=Europe%2FIstanbul';
         const res = await fetch(url);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
@@ -58,7 +58,19 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         // Compute hourly items (+0h, +1h, +2h, +3h, +4h, +6h, +8h, +12h, +24h)
         const times: string[] = data.hourly.time || [];
         const currentTimeIso = data.current.time || '';
-        let baseIndex = times.findIndex((t: string) => t >= currentTimeIso);
+        
+        // Exact matching on current hour block (e.g. "2026-10-05T19" from "2026-10-05T19:45")
+        const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
+        let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : -1;
+        
+        if (baseIndex === -1 && currentTimeIso) {
+          const nextIndex = times.findIndex((t: string) => t >= currentTimeIso);
+          if (nextIndex > 0) {
+            baseIndex = nextIndex - 1;
+          } else if (nextIndex === 0) {
+            baseIndex = 0;
+          }
+        }
         if (baseIndex === -1) baseIndex = 0;
 
         const targetOffsets = [
