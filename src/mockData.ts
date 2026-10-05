@@ -648,19 +648,19 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 
 // ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
 export const CACHE_TTL = {
-  ANNOUNCEMENTS: 15 * 60 * 1000,     // 15 dakika
-  NEWS: 15 * 60 * 1000,              // 15 dakika
-  MENU: 24 * 60 * 60 * 1000,         // 24 saat (1 gün - günlük menü önbelleği)
-  CALENDAR: 14 * 24 * 60 * 60 * 1000,// 14 gün (Akademik takvim nadir değişir)
-  BOLOGNA: 30 * 24 * 60 * 60 * 1000, // 30 gün (Müfredat ve dersler dönemliktir)
-  PHONEBOOK: 7 * 24 * 60 * 60 * 1000,// 7 gün
-  TRANSPORT: 14 * 24 * 60 * 60 * 1000,// 14 gün
-  LIBRARY: 14 * 24 * 60 * 60 * 1000, // 14 gün
-  SPORTS: 14 * 24 * 60 * 60 * 1000,  // 14 gün
-  HOTEL: 14 * 24 * 60 * 60 * 1000,   // 14 gün
-  MAP: 30 * 24 * 60 * 60 * 1000,     // 30 gün
-  STAFF: 7 * 24 * 60 * 60 * 1000,    // 7 gün
-  FORMS: 14 * 24 * 60 * 60 * 1000    // 14 gün
+  ANNOUNCEMENTS: 0,                   // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  NEWS: 0,                            // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir (sunucuyu yormaz)
+  CALENDAR: 30 * 24 * 60 * 60 * 1000, // 30 gün -> Akademik takvim dönemliktir, önbellekten çalışır
+  BOLOGNA: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Bologna ders planları dönemliktir, önbellekten çalışır
+  PHONEBOOK: 14 * 24 * 60 * 60 * 1000,// 14 gün -> Telefon rehberi önbellekten çalışır
+  TRANSPORT: 30 * 24 * 60 * 60 * 1000,// 30 gün -> Ulaşım bilgileri önbellekten çalışır
+  LIBRARY: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Kütüphane rehberi önbellekten çalışır
+  SPORTS: 30 * 24 * 60 * 60 * 1000,   // 30 gün -> Spor tesisleri önbellekten çalışır
+  HOTEL: 30 * 24 * 60 * 60 * 1000,    // 30 gün -> Uygulama oteli önbellekten çalışır
+  MAP: 30 * 24 * 60 * 60 * 1000,      // 30 gün -> Kampüs haritası & yerleşkeler önbellekten çalışır
+  STAFF: 30 * 24 * 60 * 60 * 1000,    // 30 gün -> Akademik personel rehberi önbellekten çalışır
+  FORMS: 30 * 24 * 60 * 60 * 1000     // 30 gün -> Matbu formlar önbellekten çalışır
 };
 
 interface CacheEnvelope<T> {
@@ -676,7 +676,7 @@ export function getStoredWithTTL<T>(key: string, ttlMs: number, fallback: T): { 
       if (item) {
         const parsed = JSON.parse(item);
         if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
-          const isFresh = (Date.now() - parsed.timestamp) < ttlMs;
+          const isFresh = ttlMs === 0 ? false : (Date.now() - parsed.timestamp) < ttlMs;
           if (parsed.data && (Array.isArray(parsed.data) ? parsed.data.length > 0 : Object.keys(parsed.data).length > 0)) {
             return { data: parsed.data, isFresh };
           }
@@ -733,11 +733,8 @@ function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
 
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
-export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
+export const getAnnouncements = async (force: boolean = true): Promise<Announcement[]> => {
   const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
-  if (!force && cached.isFresh) {
-    return cached.data;
-  }
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
@@ -755,11 +752,8 @@ export const getAnnouncements = async (force: boolean = false): Promise<Announce
   return cached.data || FALLBACK_ANNOUNCEMENTS;
 };
 
-export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
+export const getNews = async (force: boolean = true): Promise<Announcement[]> => {
   const cached = getStoredWithTTL<Announcement[]>('k7_cached_news', CACHE_TTL.NEWS, FALLBACK_NEWS);
-  if (!force && cached.isFresh) {
-    return cached.data;
-  }
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
@@ -784,7 +778,8 @@ export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {
     localStorage.removeItem('k7_cached_menu_v2');
   } catch {}
   const cached = getStoredWithTTL<MenuItem[]>('k7_cached_menu_v6', CACHE_TTL.MENU, FALLBACK_MENU);
-  if (!force && cached.isFresh) {
+  // Uzun süreli değişmeyen menü sistemi: Önbellek tazeyse doğrudan önbellekten döner (sunucuyu yormaz)
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
     return cached.data;
   }
   try {
