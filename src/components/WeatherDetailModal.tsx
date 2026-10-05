@@ -153,7 +153,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
     <AnimatePresence>
       {isOpen && weather && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+5.75rem)] sm:pt-24 pb-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] sm:pb-12 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+5.35rem)] sm:pt-20 pb-[calc(env(safe-area-inset-bottom,0px)+5.20rem)] sm:pb-10 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="weather-modal-title"
