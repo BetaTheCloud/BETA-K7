@@ -94,7 +94,16 @@ export default function Home() {
     }
     
     loadDashboardData();
-    return () => { isMounted = false; };
+
+    const onGlobalRefresh = () => {
+      loadDashboardData();
+    };
+    window.addEventListener('k7_force_refreshed', onGlobalRefresh);
+
+    return () => { 
+      isMounted = false; 
+      window.removeEventListener('k7_force_refreshed', onGlobalRefresh);
+    };
   }, []);
 
   const isMainAnnouncement = (item: Announcement) => {

@@ -716,6 +716,21 @@ function setStored(key: string, value: any): void {
   setStoredWithTTL(key, value);
 }
 
+function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
+  if (typeof window !== 'undefined') {
+    const now = Date.now();
+    if (status === 'live') {
+      try {
+        localStorage.setItem('k7_last_live_sync_time', String(now));
+        localStorage.setItem('k7_sync_mode', 'live');
+      } catch {}
+    }
+    window.dispatchEvent(new CustomEvent('k7_sync_status_change', {
+      detail: { status, time: now }
+    }));
+  }
+}
+
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
 export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
@@ -729,11 +744,13 @@ export const getAnnouncements = async (force: boolean = false): Promise<Announce
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_announcements', data);
+        notifySyncSuccess('live');
         return data;
       }
     }
   } catch (err) {
     console.warn("Duyurular canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
   }
   return cached.data || FALLBACK_ANNOUNCEMENTS;
 };
@@ -749,11 +766,13 @@ export const getNews = async (force: boolean = false): Promise<Announcement[]> =
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_news', data);
+        notifySyncSuccess('live');
         return data;
       }
     }
   } catch (err) {
     console.warn("Haberler canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
   }
   return cached.data || FALLBACK_NEWS;
 };
@@ -774,11 +793,13 @@ export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_menu_v6', data);
+        notifySyncSuccess('live');
         return data;
       }
     }
   } catch (err) {
     console.warn("Yemek menüsü canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
   }
   return cached.data || FALLBACK_MENU;
 };
@@ -794,11 +815,13 @@ export const getCalendarEvents = async (force: boolean = false): Promise<Calenda
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_calendar', data);
+        notifySyncSuccess('live');
         return data;
       }
     }
   } catch (err) {
     console.warn("Canlı takvim çekilemedi, yerleşik veriler kullanılıyor:", err);
+    notifySyncSuccess('cached');
   }
 
   if (cached.data && cached.data.length > 0) return cached.data;
@@ -941,11 +964,13 @@ export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> 
       if (Array.isArray(data) && data.length > 0) {
         const normalized = normalize(data);
         setStored('k7_cached_events_v5', normalized);
+        notifySyncSuccess('live');
         return normalized;
       }
     }
   } catch (err) {
     console.warn("Etkinlikler canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
   }
   return normalize(getStored('k7_cached_events_v5', FALLBACK_EVENTS));
 };

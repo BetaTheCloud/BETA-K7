@@ -4,6 +4,7 @@ import { Sun, Moon, Landmark, Server, ArrowLeft } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { PWAInstallButton } from './PWAInstallButton';
 import ApiConfigModal from './ApiConfigModal';
+import SyncStatusBadge from './SyncStatusBadge';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -56,7 +57,9 @@ export default function Header() {
         </div>
         
         {/* Actions Section */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          <SyncStatusBadge />
+
           <button
             onClick={() => setIsApiModalOpen(true)}
             title="Sunucu / API Ayarı"
