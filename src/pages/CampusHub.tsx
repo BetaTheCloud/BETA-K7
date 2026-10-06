@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -198,6 +199,26 @@ export default function CampusHub() {
       phone
     };
   }, [selectedStaffPhoto, staffList]);
+
+  // Prevent background scroll and support Escape key when staff modal is open
+  useEffect(() => {
+    if (!selectedStaffPhoto) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedStaffPhoto(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedStaffPhoto]);
 
   // Detail Modal for events
   const [selectedDetail, setSelectedDetail] = useState<{ url: string; title: string } | null>(null);
@@ -2358,201 +2379,240 @@ export default function CampusHub() {
         title={selectedDetail?.title || ''}
       />
 
-      {/* Staff Photo Enlarged Modal with Premium Badges, Academic Discipline & Administrative Duties */}
-      <AnimatePresence>
-        {selectedStaffPhoto && staffProfileData && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
-            onClick={() => setSelectedStaffPhoto(null)}
-          >
-            <motion.div
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.2 }}
-              className="relative max-w-md w-full bg-[#fcfbf9] dark:bg-[#264653] rounded-3xl overflow-hidden shadow-2xl border border-stone-200 dark:border-white/15 p-5 space-y-4 max-h-[92vh] overflow-y-auto"
+      {/* Staff Photo Enlarged Modal rendered via createPortal to document.body (identical to WeatherDetailModal architecture) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {selectedStaffPhoto && staffProfileData && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+5.35rem)] sm:pt-20 pb-[calc(env(safe-area-inset-bottom,0px)+5.20rem)] sm:pb-10 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="staff-modal-title"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between pb-1 border-b border-stone-200/60 dark:border-white/10">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <UserCheck className="w-4 h-4" />
-                  Personel Bilgileri & Bilim Dalı
-                </span>
-                <button
-                  onClick={() => setSelectedStaffPhoto(null)}
-                  className="p-1.5 rounded-full hover:bg-stone-200 dark:hover:bg-white/10 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
-                  aria-label="Kapat"
+              {/* Backdrop click to close */}
+              <div 
+                className="fixed inset-0 transition-opacity bg-transparent" 
+                onClick={() => setSelectedStaffPhoto(null)} 
+                aria-hidden="true" 
+              />
+
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md max-h-full flex flex-col shadow-2xl relative z-10 overflow-hidden"
+                style={{ contain: 'layout' }}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                {/* Top Compact Header with safe clearance */}
+                <div className="sticky top-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 shadow-sm flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-300 font-semibold tracking-wide truncate">
+                    <UserCheck className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                    <span id="staff-modal-title" className="truncate">Akademik Personel & Bilim Dalı</span>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedStaffPhoto(null)}
+                    className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all cursor-pointer border border-white/10 flex items-center justify-center shrink-0"
+                    aria-label="Kapat"
+                    title="Kapat (ESC)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Scrollable Body with touch pan & overflow containment */}
+                <div 
+                  className="p-3.5 sm:p-4 space-y-3.5 overflow-y-auto overscroll-contain flex-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent bg-[#182730]"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
                 >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Photo View - Generous Large Photo Dimensions */}
-              <div className="relative rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-white/10 flex items-center justify-center min-h-[260px] max-h-[46vh] shadow-inner">
-                {staffProfileData.image ? (
-                  <img
-                    src={staffProfileData.image}
-                    alt={selectedStaffPhoto.fullName}
-                    className="w-full h-full object-contain max-h-[46vh] rounded-2xl"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="py-16 flex flex-col items-center justify-center text-stone-400">
-                    <Users className="w-16 h-16 mb-2 opacity-50 text-emerald-600" />
-                    <span className="text-sm font-semibold">Resmi Fotoğraf Bulunamadı</span>
+                  {/* Photo View - Generous Large Photo Dimensions */}
+                  <div className="relative rounded-2xl overflow-hidden bg-stone-900/80 border border-white/10 flex items-center justify-center min-h-[240px] max-h-[44vh] shadow-inner">
+                    {staffProfileData.image ? (
+                      <img
+                        src={staffProfileData.image}
+                        alt={selectedStaffPhoto.fullName}
+                        className="w-full h-full object-contain max-h-[44vh] rounded-2xl"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="py-16 flex flex-col items-center justify-center text-stone-400">
+                        <Users className="w-16 h-16 mb-2 opacity-50 text-emerald-400" />
+                        <span className="text-xs font-semibold">Resmi Fotoğraf Bulunamadı</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Title & Name Header */}
-              <div className="space-y-1 text-center">
-                <span className="inline-block px-3 py-0.5 rounded-lg text-xs font-extrabold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
-                  {selectedStaffPhoto.title}
-                </span>
-                <h3 className="font-display font-extrabold text-lg sm:text-xl text-stone-900 dark:text-white mt-1 leading-tight">
-                  {selectedStaffPhoto.name}
-                </h3>
-              </div>
-
-              {/* 1. Özel İdari Görev & Konum Rozet Bloğu (Varsa) */}
-              {staffProfileData.adminDuties.length > 0 && (
-                <div className="p-3 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/30 rounded-2xl space-y-1.5 shadow-xs">
-                  <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-                    <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>İdari Görev & Konum</span>
+                  {/* Title & Name Header */}
+                  <div className="space-y-1 text-center">
+                    <span className="inline-block px-3 py-0.5 rounded-lg text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-xs">
+                      {selectedStaffPhoto.title}
+                    </span>
+                    <h3 className="font-display font-extrabold text-lg sm:text-xl text-white mt-1 leading-tight">
+                      {selectedStaffPhoto.name}
+                    </h3>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {staffProfileData.adminDuties.map((duty, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-950 dark:text-amber-100 font-bold text-xs border border-amber-500/40 shadow-xs"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                        <span>{duty}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* 2. Akademik Bilim Dalı & Bölüm Bilgileri Rozet Bloğu */}
-              <div className="p-3.5 bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border border-emerald-500/30 rounded-2xl space-y-2 shadow-xs">
-                <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                  <GraduationCap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Akademik Bilim Dalı & Bölüm Bilgileri</span>
-                </div>
-
-                <div className="space-y-1.5 text-xs">
-                  {/* Bilim / Anabilim Dalı Vurgusu */}
-                  {staffProfileData.disciplines.length > 0 && (
-                    <div className="bg-white/80 dark:bg-white/10 p-2.5 rounded-xl border border-emerald-500/25 shadow-xs">
-                      <span className="text-[10px] text-stone-500 dark:text-white/60 font-semibold block uppercase tracking-wide">
-                        Bilim / Anabilim Dalı:
-                      </span>
-                      <div className="mt-0.5 font-bold text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm">
-                        {staffProfileData.disciplines.join(' • ')}
+                  {/* 1. Özel İdari Görev & Konum Rozet Bloğu (Varsa) */}
+                  {staffProfileData.adminDuties.length > 0 && (
+                    <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl space-y-1.5 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
+                        <Award className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>İdari Görev & Konum</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {staffProfileData.adminDuties.map((duty, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-100 font-bold text-xs border border-amber-500/40 shadow-xs"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                            <span>{duty}</span>
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Bölüm & Fakülte */}
-                  <div className="bg-white/80 dark:bg-white/10 p-2.5 rounded-xl border border-stone-200/60 dark:border-white/10 shadow-xs">
-                    <span className="text-[10px] text-stone-500 dark:text-white/60 font-semibold block uppercase tracking-wide">
-                      Görev Yaptığı Bölüm & Fakülte:
-                    </span>
-                    <div className="mt-0.5 font-semibold text-stone-800 dark:text-stone-100 text-xs">
-                      {staffProfileData.allDepartments.join(' • ')} &bull; {selectedStaffPhoto.facultyName}
+                  {/* 2. Akademik Bilim Dalı & Bölüm Bilgileri Rozet Bloğu */}
+                  <div className="p-3.5 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl space-y-2 shadow-xs">
+                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
+                      <GraduationCap className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Akademik Bilim Dalı & Bölüm Bilgileri</span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      {/* Bilim / Anabilim Dalı Vurgusu */}
+                      {staffProfileData.disciplines.length > 0 && (
+                        <div className="bg-white/10 p-2.5 rounded-xl border border-emerald-500/25 shadow-xs">
+                          <span className="text-[10px] text-white/60 font-semibold block uppercase tracking-wide">
+                            Bilim / Anabilim Dalı:
+                          </span>
+                          <div className="mt-0.5 font-bold text-emerald-300 text-xs sm:text-sm">
+                            {staffProfileData.disciplines.join(' • ')}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bölüm & Fakülte */}
+                      <div className="bg-white/10 p-2.5 rounded-xl border border-white/10 shadow-xs">
+                        <span className="text-[10px] text-white/60 font-semibold block uppercase tracking-wide">
+                          Görev Yaptığı Bölüm & Fakülte:
+                        </span>
+                        <div className="mt-0.5 font-semibold text-white/90 text-xs">
+                          {staffProfileData.allDepartments.join(' • ')} &bull; {selectedStaffPhoto.facultyName}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* 3. Akademik Ağlar & Profil Rozetleri (Varsa) */}
-              {(staffProfileData.yokUrl || staffProfileData.scholarUrl || staffProfileData.orcidUrl || staffProfileData.publonsUrl) && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-white/50 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-blue-500" />
-                    Akademik Ağlar
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {staffProfileData.yokUrl && (
-                      <a
-                        href={staffProfileData.yokUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/25 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
-                      >
-                        <BookOpen className="w-3.5 h-3.5" />
-                        <span>YÖK Akademik</span>
-                      </a>
-                    )}
-                    {staffProfileData.scholarUrl && (
-                      <a
-                        href={staffProfileData.scholarUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/25 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
-                      >
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>Google Scholar</span>
-                      </a>
-                    )}
-                    {staffProfileData.orcidUrl && (
-                      <a
-                        href={staffProfileData.orcidUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-lime-500/10 hover:bg-lime-500/20 text-lime-800 dark:text-lime-300 border border-lime-500/25 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>ORCID</span>
-                      </a>
-                    )}
-                    {staffProfileData.publonsUrl && (
-                      <a
-                        href={staffProfileData.publonsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/25 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
-                      >
-                        <Award className="w-3.5 h-3.5" />
-                        <span>Web of Science</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
+                  {/* 3. Akademik Ağlar & Profil Rozetleri (Varsa) */}
+                  {(staffProfileData.yokUrl || staffProfileData.scholarUrl || staffProfileData.orcidUrl || staffProfileData.publonsUrl) && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-blue-400" />
+                        Akademik Ağlar
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {staffProfileData.yokUrl && (
+                          <a
+                            href={staffProfileData.yokUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-red-400" />
+                            <span>YÖK Akademik</span>
+                          </a>
+                        )}
+                        {staffProfileData.scholarUrl && (
+                          <a
+                            href={staffProfileData.scholarUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
+                          >
+                            <GraduationCap className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Google Scholar</span>
+                          </a>
+                        )}
+                        {staffProfileData.orcidUrl && (
+                          <a
+                            href={staffProfileData.orcidUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-lime-500/20 hover:bg-lime-500/30 text-lime-200 border border-lime-500/30 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
+                          >
+                            <UserCheck className="w-3.5 h-3.5 text-lime-400" />
+                            <span>ORCID</span>
+                          </a>
+                        )}
+                        {staffProfileData.publonsUrl && (
+                          <a
+                            href={staffProfileData.publonsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 flex items-center justify-center gap-1.5 text-center transition-all group font-bold text-[11px]"
+                          >
+                            <Award className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Web of Science</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Action Buttons: Email & Official Profile */}
-              <div className="flex items-center justify-between pt-2.5 border-t border-stone-200/60 dark:border-white/10 gap-2">
-                {selectedStaffPhoto.email && (
-                  <a
-                    href={`mailto:${selectedStaffPhoto.email}`}
-                    className="text-xs font-semibold text-stone-700 dark:text-white/80 hover:text-emerald-600 flex items-center gap-1.5 truncate min-w-0"
+                  {/* 4. E-posta İletişim */}
+                  {selectedStaffPhoto.email && (
+                    <div className="p-2.5 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between text-xs">
+                      <a
+                        href={`mailto:${selectedStaffPhoto.email}`}
+                        className="text-stone-300 hover:text-emerald-400 flex items-center gap-1.5 truncate font-mono text-[11px] transition-colors"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="truncate">{selectedStaffPhoto.email}</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Compact Sticky Footer */}
+                <div className="sticky bottom-0 z-30 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-[#132028] border-t border-white/10 flex items-center justify-between gap-2 shrink-0 shadow-lg">
+                  <button
+                    onClick={() => setSelectedStaffPhoto(null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 active:scale-95 text-stone-200 rounded-xl text-xs font-bold transition-all border border-white/10 cursor-pointer shrink-0"
                   >
-                    <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate">{selectedStaffPhoto.email}</span>
-                  </a>
-                )}
-                {selectedStaffPhoto.sourceUrl && (
-                  <a
-                    href={selectedStaffPhoto.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shrink-0 ml-auto"
-                  >
-                    <span>Resmi Profil</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                    <ArrowLeft className="w-3.5 h-3.5 text-stone-300" />
+                    <span>Geri Dön</span>
+                  </button>
+
+                  {selectedStaffPhoto.sourceUrl && (
+                    <a
+                      href={selectedStaffPhoto.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0"
+                    >
+                      <span>Resmi Profil</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
   );
 }
