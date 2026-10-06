@@ -139,6 +139,15 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
       }
     }
     fetchWeather();
+
+    const handleGlobalRefresh = () => {
+      fetchWeather();
+    };
+    window.addEventListener('k7_force_refreshed', handleGlobalRefresh);
+
+    return () => {
+      window.removeEventListener('k7_force_refreshed', handleGlobalRefresh);
+    };
   }, []);
 
   if (loading) {

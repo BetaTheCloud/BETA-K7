@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle2, Database, ShieldCheck, X, ArrowUpRight, Clock } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle2, Database, ShieldCheck, X, ArrowUpRight, Clock, Activity, CloudSun, Megaphone, Newspaper } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getEffectiveApiBase } from '../config';
+import { getEffectiveApiBase, getApiUrl } from '../config';
 import { getAnnouncements, getNews, getMenu, getEvents, getCalendarEvents } from '../mockData';
 
 export type SyncState = 'live' | 'cached' | 'syncing' | 'offline';
 
 export default function SyncStatusBadge() {
   const [syncState, setSyncState] = useState<SyncState>('live');
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number>(() => {
     try {
       const stored = localStorage.getItem('k7_last_live_sync_time');
@@ -22,11 +23,62 @@ export default function SyncStatusBadge() {
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
+  const [timeAgoStr, setTimeAgoStr] = useState<string>('Az önce');
+
+  // Relative time updater
+  const updateRelativeTime = useCallback(() => {
+    const diffSec = Math.floor((Date.now() - lastSyncTime) / 1000);
+    if (diffSec < 15) {
+      setTimeAgoStr('Az önce');
+    } else if (diffSec < 60) {
+      setTimeAgoStr(`${diffSec} sn önce`);
+    } else if (diffSec < 3600) {
+      const mins = Math.floor(diffSec / 60);
+      setTimeAgoStr(`${mins} dk önce`);
+    } else {
+      const hrs = Math.floor(diffSec / 3600);
+      setTimeAgoStr(`${hrs} sa önce`);
+    }
+  }, [lastSyncTime]);
+
+  // Periodic heartbeat / health check to confirm server live status & latency
+  const checkHealth = useCallback(async () => {
+    if (!navigator.onLine) {
+      setSyncState('offline');
+      return;
+    }
+    const startTime = performance.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(getApiUrl('/api/health'), { signal: controller.signal });
+      clearTimeout(timer);
+      const latency = Math.round(performance.now() - startTime);
+
+      if (res.ok) {
+        setLatencyMs(latency);
+        setSyncState('live');
+        localStorage.setItem('k7_sync_mode', 'live');
+      } else {
+        setSyncState('cached');
+      }
+    } catch {
+      setSyncState('cached');
+    }
+  }, []);
 
   useEffect(() => {
+    // Initial health check on mount
+    checkHealth();
+
+    // Heartbeat every 45 seconds while app is active
+    const healthInterval = setInterval(checkHealth, 45000);
+    const timeAgoInterval = setInterval(updateRelativeTime, 10000);
+    updateRelativeTime();
+
     const handleOnline = () => {
       setIsOnline(true);
-      setSyncState('live');
+      checkHealth();
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -43,19 +95,30 @@ export default function SyncStatusBadge() {
       if (e?.detail?.time) {
         setLastSyncTime(e.detail.time);
       }
+      updateRelativeTime();
     };
 
     window.addEventListener('k7_sync_status_change', handleSyncEvent);
 
     return () => {
+      clearInterval(healthInterval);
+      clearInterval(timeAgoInterval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('k7_sync_status_change', handleSyncEvent);
     };
-  }, []);
+  }, [checkHealth, updateRelativeTime]);
 
-  const formatLastSync = (timestamp: number) => {
-    if (!timestamp) return 'Bilinmiyor';
+  // Re-check health and time on modal open
+  useEffect(() => {
+    if (isModalOpen) {
+      checkHealth();
+      updateRelativeTime();
+    }
+  }, [isModalOpen, checkHealth, updateRelativeTime]);
+
+  const formatLastSyncClock = (timestamp: number) => {
+    if (!timestamp) return '--:--:--';
     const d = new Date(timestamp);
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
@@ -89,6 +152,7 @@ export default function SyncStatusBadge() {
         setSyncState('live');
         localStorage.setItem('k7_sync_mode', 'live');
         toast.success('Canlı veriler başarıyla güncellendi!', { id: toastId });
+        await checkHealth();
       } else {
         setSyncState('cached');
         localStorage.setItem('k7_sync_mode', 'cached');
@@ -97,6 +161,7 @@ export default function SyncStatusBadge() {
 
       // Dispatch global refresh event so active pages re-read data
       window.dispatchEvent(new CustomEvent('k7_force_refreshed'));
+      updateRelativeTime();
     } catch (error) {
       setSyncState('cached');
       toast.error('Bağlantı kurulamadı, önbellek kullanılıyor');
@@ -105,15 +170,13 @@ export default function SyncStatusBadge() {
     }
   };
 
-  const apiBase = getEffectiveApiBase();
-
   return (
     <>
       {/* Header Compact Badge Button */}
       <button
         onClick={() => setIsModalOpen(true)}
-        title={`Veri Durumu: ${syncState === 'live' ? 'Canlı Sunucuya Bağlı' : syncState === 'syncing' ? 'Eşitleniyor...' : 'Önbellek / Çevrimdışı'} (Tıkla ve İncele)`}
-        className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 hover:border-amber-500/50 text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+        title={`Veri Durumu: ${syncState === 'live' ? `Canlı Sunucuya Bağlı (${latencyMs ? `${latencyMs}ms` : 'Aktif'})` : syncState === 'syncing' ? 'Eşitleniyor...' : 'Önbellek / Çevrimdışı'} (Tıkla ve İncele)`}
+        className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 hover:border-amber-500/50 text-xs font-semibold transition-all active:scale-95 cursor-pointer shadow-xs"
         aria-label="Veri Senkronizasyon Durumu"
       >
         {syncState === 'syncing' || isRefreshing ? (
@@ -167,10 +230,10 @@ export default function SyncStatusBadge() {
                   </div>
                   <div>
                     <h3 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                      Veri Bağlantı Durumu
+                      Veri & Sunucu Bağlantı Durumu
                     </h3>
                     <p className="text-[11px] text-stone-500 dark:text-white/60">
-                      Sunucu senkronizasyon göstergesi
+                      Canlı servisler ve akıllı önbellek kontrol paneli
                     </p>
                   </div>
                 </div>
@@ -184,7 +247,7 @@ export default function SyncStatusBadge() {
 
               {/* Status Details Cards */}
               <div className="py-4 space-y-3">
-                {/* 1. Main Status Pill */}
+                {/* 1. Main Status Banner */}
                 <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${
                   syncState === 'live'
                     ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-950 dark:text-emerald-100'
@@ -200,13 +263,18 @@ export default function SyncStatusBadge() {
                       }`}></span>
                     </div>
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-wider">
-                        {syncState === 'live' ? 'Canlı Sunucuya Bağlı' : 'Önbellek Verileri Aktif'}
+                      <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                        <span>{syncState === 'live' ? 'Canlı Sunucuya Bağlı' : 'Önbellek Verileri Aktif'}</span>
+                        {latencyMs !== null && syncState === 'live' && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-mono font-semibold">
+                            {latencyMs}ms
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] opacity-80 mt-0.5">
                         {syncState === 'live'
                           ? 'Üniversite web servislerinden anlık veriler çekilmektedir.'
-                          : 'Cihaz hafızasındaki en son güncel veriler gösterilmektedir.'}
+                          : 'Cihaz hafızasındaki güncel veriler gösterilmektedir.'}
                       </div>
                     </div>
                   </div>
@@ -219,32 +287,42 @@ export default function SyncStatusBadge() {
                       <Clock className="w-3 h-3 text-amber-500" />
                       Son Senkronizasyon
                     </div>
-                    <div className="font-mono text-sm font-bold text-stone-800 dark:text-white">
-                      {formatLastSync(lastSyncTime)}
+                    <div className="font-mono text-xs font-bold text-stone-800 dark:text-white flex items-baseline gap-1">
+                      <span>{timeAgoStr}</span>
+                      <span className="text-[10px] text-stone-400 font-normal">({formatLastSyncClock(lastSyncTime)})</span>
                     </div>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-stone-100/70 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
                     <div className="text-[10px] uppercase font-bold text-stone-400 dark:text-white/40 flex items-center gap-1 mb-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                      İnternet Durumu
+                      İnternet & Bağlantı
                     </div>
-                    <div className="text-sm font-bold text-stone-800 dark:text-white flex items-center gap-1.5">
+                    <div className="text-xs font-bold text-stone-800 dark:text-white flex items-center gap-1.5">
                       <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                      <span>{isOnline ? 'Çevrimiçi' : 'Çevrimdışı'}</span>
+                      <span>{isOnline ? 'Çevrimiçi & Aktif' : 'Çevrimdışı'}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. API Source info */}
-                <div className="p-3 rounded-2xl bg-stone-50 dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-[11px] space-y-1">
-                  <div className="text-stone-500 dark:text-white/50 font-semibold">
-                    Veri Kaynakları:
+                {/* 3. Live Streaming & Cache Distribution */}
+                <div className="p-3 rounded-2xl bg-stone-50 dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-[11px] space-y-2">
+                  <div className="flex items-center justify-between text-stone-600 dark:text-white/70 font-semibold text-[10px] uppercase tracking-wider">
+                    <span className="flex items-center gap-1">
+                      <Activity className="w-3 h-3 text-emerald-500" />
+                      Canlı Akış Sağlanan Servisler
+                    </span>
+                    <span className="text-emerald-500 font-bold">🟢 Canlı</span>
                   </div>
-                  <div className="text-stone-700 dark:text-stone-300 font-medium">
-                    • Kilis 7 Aralık Üniversitesi Rektörlüğü (kilis.edu.tr)<br/>
-                    • Sağlık Kültür Spor Daire Bşk. (sks.kilis.edu.tr)<br/>
-                    • Öğrenci Bilgi Sistemi (obs.kilis.edu.tr)
+                  <div className="text-[11px] text-stone-600 dark:text-stone-300 space-y-0.5">
+                    <p>• <strong>Duyurular & Haberler:</strong> Rektörlük ve birimlerden anlık</p>
+                    <p>• <strong>Hava Durumu:</strong> Open-Meteo uydusundan canlı</p>
+                    <p>• <strong>Etkinlik Takvimi:</strong> Kampüs etkinlikleri canlı</p>
+                  </div>
+
+                  <div className="pt-1 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[10px] text-stone-400 dark:text-white/40">
+                    <span>Statik Veriler (Yemekhane, Bologna, Takvim)</span>
+                    <span className="text-amber-500 font-semibold">⚡ Hızlı Önbellek</span>
                   </div>
                 </div>
               </div>
@@ -257,7 +335,7 @@ export default function SyncStatusBadge() {
                   className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span>{isRefreshing ? 'Veriler Çekiliyor...' : 'Canlı Verileri Yenile'}</span>
+                  <span>{isRefreshing ? 'Veriler Çekiliyor...' : 'Canlı Verileri Yenile (Zorunlu Senkronize)'}</span>
                 </button>
               </div>
             </motion.div>
