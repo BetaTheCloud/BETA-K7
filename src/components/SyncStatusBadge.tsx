@@ -43,26 +43,52 @@ export default function SyncStatusBadge() {
 
   // Periodic heartbeat / health check to confirm server live status & latency
   const checkHealth = useCallback(async () => {
-    if (!navigator.onLine) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setSyncState('offline');
       return;
     }
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(getApiUrl('/api/health'), { signal: controller.signal });
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const primaryUrl = getApiUrl('/api/health');
+      const res = await fetch(primaryUrl, { signal: controller.signal });
       clearTimeout(timer);
       const latency = Math.round(performance.now() - startTime);
 
       if (res.ok) {
         setLatencyMs(latency);
         setSyncState('live');
-        localStorage.setItem('k7_sync_mode', 'live');
+        const now = Date.now();
+        setLastSyncTime(now);
+        try {
+          localStorage.setItem('k7_sync_mode', 'live');
+          localStorage.setItem('k7_last_live_sync_time', String(now));
+        } catch {}
       } else {
+        // If custom/remote returned non-200, check if local endpoint responds
+        if (primaryUrl !== '/api/health') {
+          try {
+            const localRes = await fetch('/api/health');
+            if (localRes.ok) {
+              setLatencyMs(Math.round(performance.now() - startTime));
+              setSyncState('live');
+              return;
+            }
+          } catch {}
+        }
         setSyncState('cached');
       }
     } catch {
+      // Fallback check to local /api/health in case remote was sleeping
+      try {
+        const localRes = await fetch('/api/health');
+        if (localRes.ok) {
+          setLatencyMs(Math.round(performance.now() - startTime));
+          setSyncState('live');
+          return;
+        }
+      } catch {}
       setSyncState('cached');
     }
   }, []);
@@ -71,9 +97,9 @@ export default function SyncStatusBadge() {
     // Initial health check on mount
     checkHealth();
 
-    // Heartbeat every 45 seconds while app is active
-    const healthInterval = setInterval(checkHealth, 45000);
-    const timeAgoInterval = setInterval(updateRelativeTime, 10000);
+    // Heartbeat every 30 seconds while app is active
+    const healthInterval = setInterval(checkHealth, 30000);
+    const timeAgoInterval = setInterval(updateRelativeTime, 5000);
     updateRelativeTime();
 
     const handleOnline = () => {
@@ -85,8 +111,14 @@ export default function SyncStatusBadge() {
       setSyncState('offline');
     };
 
+    const handleFocus = () => {
+      checkHealth();
+      updateRelativeTime();
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocus);
 
     const handleSyncEvent = (e: any) => {
       if (e?.detail?.status) {
@@ -105,6 +137,7 @@ export default function SyncStatusBadge() {
       clearInterval(timeAgoInterval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('k7_sync_status_change', handleSyncEvent);
     };
   }, [checkHealth, updateRelativeTime]);

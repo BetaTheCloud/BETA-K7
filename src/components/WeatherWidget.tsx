@@ -23,6 +23,7 @@ interface WeatherData {
   humidity: number;
   windSpeed: number;
   rainChance: number;
+  rainChanceMax: number;
   weathercode: number;
   is_day: number;
 }
@@ -45,19 +46,10 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         const res = await fetch(url);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
-        
-        setWeather({
-          temperature: data.current.temperature_2m,
-          humidity: data.current.relative_humidity_2m,
-          windSpeed: data.current.wind_speed_10m,
-          rainChance: data.daily.precipitation_probability_max[0] || 0,
-          weathercode: data.current.weather_code,
-          is_day: data.current.is_day,
-        });
 
         // Compute hourly items (+0h, +1h, +2h, +3h, +4h, +6h, +8h, +12h, +24h)
-        const times: string[] = data.hourly.time || [];
-        const currentTimeIso = data.current.time || '';
+        const times: string[] = data.hourly?.time || [];
+        const currentTimeIso = data.current?.time || '';
         
         // Exact matching on current hour block (e.g. "2026-10-05T19" from "2026-10-05T19:45")
         const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
@@ -72,6 +64,19 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           }
         }
         if (baseIndex === -1) baseIndex = 0;
+
+        const currentHourlyRainChance = data.hourly?.precipitation_probability?.[baseIndex] ?? 0;
+        const dailyMaxRainChance = data.daily?.precipitation_probability_max?.[0] ?? currentHourlyRainChance;
+
+        setWeather({
+          temperature: data.current.temperature_2m,
+          humidity: data.current.relative_humidity_2m,
+          windSpeed: data.current.wind_speed_10m,
+          rainChance: currentHourlyRainChance,
+          rainChanceMax: dailyMaxRainChance,
+          weathercode: data.current.weather_code,
+          is_day: data.current.is_day,
+        });
 
         const targetOffsets = [
           { offset: 0, label: 'Şu An' },
@@ -117,7 +122,8 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           windSpeed: data.current.wind_speed_10m,
           windDirection: data.current.wind_direction_10m || 0,
           surfacePressure: data.current.surface_pressure || 1013,
-          rainChance: data.daily.precipitation_probability_max[0] || 0,
+          rainChance: currentHourlyRainChance,
+          rainChanceMax: dailyMaxRainChance,
           weathercode: data.current.weather_code,
           is_day: data.current.is_day,
           tempMin: data.daily.temperature_2m_min?.[0] ?? data.current.temperature_2m,
@@ -341,7 +347,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           
           {/* Environmental Indicators */}
           <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-medium text-white/80">
-            <div className="flex items-center gap-1" title="Yağış İhtimali">
+            <div className="flex items-center gap-1" title={`Anlık Yağış İhtimali: %${weather.rainChance} (Günün En Yükseği: %${weather.rainChanceMax})`}>
               <Umbrella className="w-3.5 h-3.5 text-sky-300" strokeWidth={1.75} />
               <span>%{weather.rainChance}</span>
             </div>

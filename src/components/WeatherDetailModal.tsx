@@ -51,6 +51,7 @@ export interface DetailedWeatherInfo {
   windDirection: number;
   surfacePressure: number;
   rainChance: number;
+  rainChanceMax: number;
   weathercode: number;
   is_day: number;
   tempMin: number;
@@ -405,7 +406,11 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                     <div className="text-sm sm:text-base font-bold text-blue-300 mt-0.5">
                       %{activeRainChance}
                     </div>
-                    <div className="text-[9px] text-stone-400 truncate">Beklenen olasılık</div>
+                    <div className="text-[9px] text-stone-400 truncate">
+                      {isCurrentTime && weather.rainChanceMax !== undefined
+                        ? `Günün en yükseği: %${weather.rainChanceMax}`
+                        : 'Beklenen olasılık'}
+                    </div>
                   </div>
 
                   {/* Bağıl Nem */}
