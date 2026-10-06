@@ -2379,12 +2379,12 @@ export default function CampusHub() {
         title={selectedDetail?.title || ''}
       />
 
-      {/* Staff Photo Enlarged Modal rendered via createPortal to document.body (identical to WeatherDetailModal architecture) */}
+      {/* Staff Photo Enlarged Modal rendered via createPortal to document.body */}
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           {selectedStaffPhoto && staffProfileData && (
             <div 
-              className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+5.35rem)] sm:pt-20 pb-[calc(env(safe-area-inset-bottom,0px)+5.20rem)] sm:pb-10 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto"
               role="dialog"
               aria-modal="true"
               aria-labelledby="staff-modal-title"
@@ -2401,11 +2401,11 @@ export default function CampusHub() {
 
               <motion.div
                 onClick={(e) => e.stopPropagation()}
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.97 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md max-h-full flex flex-col shadow-2xl relative z-10 overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="bg-[#182730] text-white border border-white/20 rounded-3xl w-full max-w-md max-h-[90vh] my-auto flex flex-col shadow-2xl relative z-10 overflow-hidden"
                 style={{ contain: 'layout' }}
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
