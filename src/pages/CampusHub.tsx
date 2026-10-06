@@ -2358,36 +2358,27 @@ export default function CampusHub() {
         title={selectedDetail?.title || ''}
       />
 
-      {/* Comprehensive Staff Profile & Academic Discipline Modal */}
+      {/* Staff Photo Enlarged Modal with Academic Discipline & Administrative Duties */}
       <AnimatePresence>
         {selectedStaffPhoto && staffProfileData && (
           <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
             onClick={() => setSelectedStaffPhoto(null)}
           >
             <motion.div
               onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.94, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
               transition={{ duration: 0.2 }}
-              className="relative max-w-lg w-full bg-[#fcfbf9] dark:bg-[#264653] rounded-3xl overflow-hidden shadow-2xl border border-stone-200 dark:border-white/15 my-auto max-h-[90vh] flex flex-col"
+              className="relative max-w-md w-full bg-[#fcfbf9] dark:bg-[#264653] rounded-3xl overflow-hidden shadow-2xl border border-stone-200 dark:border-white/15 p-5 space-y-3.5 max-h-[92vh] overflow-y-auto"
             >
-              {/* Top Header */}
-              <div className="px-5 py-3.5 border-b border-stone-200/70 dark:border-white/10 flex items-center justify-between shrink-0 bg-stone-100/50 dark:bg-white/5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                      Akademik Personel Profili
-                    </h4>
-                    <span className="text-[10px] text-stone-500 dark:text-white/60">
-                      Görev, Bilim Dalı & İletişim Bilgileri
-                    </span>
-                  </div>
-                </div>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4" />
+                  Personel Fotoğrafı & Bilgileri
+                </span>
                 <button
                   onClick={() => setSelectedStaffPhoto(null)}
                   className="p-1.5 rounded-full hover:bg-stone-200 dark:hover:bg-white/10 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
@@ -2397,232 +2388,82 @@ export default function CampusHub() {
                 </button>
               </div>
 
-              {/* Scrollable Content Body */}
-              <div className="p-5 space-y-4 overflow-y-auto flex-1 text-stone-800 dark:text-white">
-                {/* Photo & Identity Section */}
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                  {/* Photo with zoom badge */}
-                  <div className="relative shrink-0 w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800/80 border-2 border-emerald-500/30 shadow-md">
-                    {staffProfileData.image ? (
-                      <img
-                        src={staffProfileData.image}
-                        alt={selectedStaffPhoto.fullName}
-                        className="w-full h-full object-cover object-top"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-2xl">
-                        {(selectedStaffPhoto.name || 'K7').slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Title, Name & Roles */}
-                  <div className="text-center sm:text-left flex-1 min-w-0">
-                    <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
-                      {selectedStaffPhoto.title}
-                    </span>
-                    <h3 className="font-display font-extrabold text-lg sm:text-xl text-stone-900 dark:text-white mt-1 leading-tight">
-                      {selectedStaffPhoto.name}
-                    </h3>
-
-                    {/* Faculty / Unit */}
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-stone-600 dark:text-white/80 mt-1 font-medium">
-                      <School className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span>{selectedStaffPhoto.facultyName}</span>
-                    </div>
-
-                    {/* Quick Roles Pills */}
-                    {staffProfileData.allRoles.length > 0 && (
-                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
-                        {staffProfileData.allRoles.map((role, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30"
-                          >
-                            {role}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 1. Görev, Konum & İdari Sorumluluklar */}
-                {staffProfileData.adminDuties.length > 0 && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-2xl space-y-1.5">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5" />
-                      İdari Görevler & Konum
-                    </div>
-                    <div className="space-y-1">
-                      {staffProfileData.adminDuties.map((duty, idx) => (
-                        <div key={idx} className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                          <span>{duty}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Akademik Bilim Dalı & Ders Verdiği Bölümler */}
-                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl space-y-2.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                    <GraduationCap className="w-4 h-4" />
-                    Akademik Bilim Dalı & Bölüm Bilgileri
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 text-xs">
-                    {/* Science Field / Bilim Dalı */}
-                    {staffProfileData.disciplines.length > 0 ? (
-                      <div className="bg-white/80 dark:bg-white/5 p-2.5 rounded-xl border border-stone-200/60 dark:border-white/10">
-                        <span className="text-[10px] text-stone-500 dark:text-white/50 font-semibold block uppercase">
-                          Bilim / Anabilim Dalı:
-                        </span>
-                        <div className="mt-0.5 space-y-1">
-                          {staffProfileData.disciplines.map((disc, idx) => (
-                            <span key={idx} className="font-bold text-emerald-700 dark:text-emerald-300 block text-xs sm:text-sm">
-                              {disc}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Department / Bölüm */}
-                    <div className="bg-white/80 dark:bg-white/5 p-2.5 rounded-xl border border-stone-200/60 dark:border-white/10">
-                      <span className="text-[10px] text-stone-500 dark:text-white/50 font-semibold block uppercase">
-                        Görev Yaptığı Bölüm / Program:
-                      </span>
-                      <div className="mt-0.5 space-y-1">
-                        {staffProfileData.allDepartments.map((dept, idx) => (
-                          <span key={idx} className="font-semibold text-stone-800 dark:text-stone-200 block text-xs">
-                            {dept}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. İletişim Bilgileri (E-posta & Telefon) */}
-                <div className="p-3 bg-stone-100/80 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 rounded-2xl space-y-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-white/50 flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    İletişim & Ulaşım
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                    {selectedStaffPhoto.email ? (
-                      <a
-                        href={`mailto:${selectedStaffPhoto.email}`}
-                        className="p-2 rounded-xl bg-white dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-stone-800 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 transition-colors font-medium"
-                      >
-                        <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="truncate">{selectedStaffPhoto.email}</span>
-                      </a>
-                    ) : (
-                      <span className="text-stone-400 text-xs">E-posta belirtilmemiş</span>
-                    )}
-
-                    {staffProfileData.phone && (
-                      <a
-                        href={`tel:${staffProfileData.phone}`}
-                        className="p-2 rounded-xl bg-white dark:bg-white/5 border border-stone-200/60 dark:border-white/10 text-stone-800 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 transition-colors font-medium shrink-0"
-                      >
-                        <PhoneCall className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Dahili: {staffProfileData.phone}</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. Akademik Ağlar & Yayın Profilleri (YÖK, Scholar, ORCID, Publons) */}
-                {(staffProfileData.yokUrl || staffProfileData.scholarUrl || staffProfileData.orcidUrl || staffProfileData.publonsUrl) && (
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-white/50 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-blue-500" />
-                      Akademik Ağlar & Yayın Profilleri
-                    </span>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {staffProfileData.yokUrl && (
-                        <a
-                          href={staffProfileData.yokUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/25 flex flex-col items-center justify-center text-center transition-all group"
-                          title="YÖK Akademik Profili"
-                        >
-                          <BookOpen className="w-4 h-4 mb-0.5 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-bold">YÖK Akademik</span>
-                        </a>
-                      )}
-
-                      {staffProfileData.scholarUrl && (
-                        <a
-                          href={staffProfileData.scholarUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/25 flex flex-col items-center justify-center text-center transition-all group"
-                          title="Google Scholar Profili"
-                        >
-                          <GraduationCap className="w-4 h-4 mb-0.5 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-bold">Google Scholar</span>
-                        </a>
-                      )}
-
-                      {staffProfileData.orcidUrl && (
-                        <a
-                          href={staffProfileData.orcidUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-xl bg-lime-500/10 hover:bg-lime-500/20 text-lime-800 dark:text-lime-300 border border-lime-500/25 flex flex-col items-center justify-center text-center transition-all group"
-                          title="ORCID Profili"
-                        >
-                          <UserCheck className="w-4 h-4 mb-0.5 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-bold">ORCID</span>
-                        </a>
-                      )}
-
-                      {staffProfileData.publonsUrl && (
-                        <a
-                          href={staffProfileData.publonsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/25 flex flex-col items-center justify-center text-center transition-all group"
-                          title="Web of Science / Publons"
-                        >
-                          <Award className="w-4 h-4 mb-0.5 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-bold">Web of Science</span>
-                        </a>
-                      )}
-                    </div>
+              {/* Photo View - Restored to classic large dimensions */}
+              <div className="relative rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-white/10 flex items-center justify-center min-h-[260px] max-h-[50vh]">
+                {staffProfileData.image ? (
+                  <img
+                    src={staffProfileData.image}
+                    alt={selectedStaffPhoto.fullName}
+                    className="w-full h-full object-contain max-h-[50vh] rounded-2xl"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="py-16 flex flex-col items-center justify-center text-stone-400">
+                    <Users className="w-16 h-16 mb-2 opacity-50 text-emerald-600" />
+                    <span className="text-sm font-semibold">Resmi Fotoğraf Bulunamadı</span>
                   </div>
                 )}
               </div>
 
-              {/* Bottom Sticky Action Footer */}
-              <div className="px-5 py-3 border-t border-stone-200/70 dark:border-white/10 flex items-center justify-between gap-3 bg-stone-100/70 dark:bg-white/5 shrink-0">
-                <button
-                  onClick={() => setSelectedStaffPhoto(null)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 dark:border-white/20 text-stone-700 dark:text-stone-200 hover:bg-stone-200/60 dark:hover:bg-white/10 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Kapat
-                </button>
+              {/* Staff Details: Title & Name */}
+              <div className="space-y-1 text-center">
+                <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                  {selectedStaffPhoto.title}
+                </span>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white mt-1">
+                  {selectedStaffPhoto.name}
+                </h3>
+              </div>
 
+              {/* İdari Görev & Konum (Eğer Varsa) */}
+              {staffProfileData.adminDuties.length > 0 && (
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
+                    İdari Görev & Konum
+                  </span>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white block">
+                    {staffProfileData.adminDuties.join(' • ')}
+                  </span>
+                </div>
+              )}
+
+              {/* Akademik Bilim Dalı & Bölüm Bilgileri */}
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center space-y-1 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
+                  Akademik Bilim Dalı & Bölüm Bilgileri
+                </span>
+                {staffProfileData.disciplines.length > 0 && (
+                  <div className="font-bold text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm">
+                    {staffProfileData.disciplines.join(' • ')}
+                  </div>
+                )}
+                <div className="text-stone-600 dark:text-white/80 font-medium text-[11px]">
+                  {staffProfileData.allDepartments.join(' • ')} • {selectedStaffPhoto.facultyName}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2.5 border-t border-stone-200/60 dark:border-white/10 gap-2">
+                {selectedStaffPhoto.email && (
+                  <a
+                    href={`mailto:${selectedStaffPhoto.email}`}
+                    className="text-xs font-semibold text-stone-700 dark:text-white/80 hover:text-emerald-600 flex items-center gap-1.5 truncate min-w-0"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">{selectedStaffPhoto.email}</span>
+                  </a>
+                )}
                 {selectedStaffPhoto.sourceUrl && (
                   <a
                     href={selectedStaffPhoto.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shrink-0 ml-auto"
                   >
-                    <span>Resmi Birim Sayfası</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Resmi Profil</span>
+                    <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
