@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { getNews, getDepartmentNews, FALLBACK_NEWS } from '../mockData';
+import { getNews, getDepartmentNews, getCachedOrFallback, FALLBACK_NEWS } from '../mockData';
 import { Announcement, DepartmentNewsItem, StaffUnitCategory } from '../types';
 import {
   ACADEMIC_UNITS_WITH_DEPARTMENTS,
@@ -44,28 +44,12 @@ export default function News() {
 
   // Main news state
   const [news, setNews] = useState<Announcement[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_news');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data;
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_NEWS;
+    return getCachedOrFallback<Announcement[]>('k7_cached_news', FALLBACK_NEWS);
   });
 
   // Department news state
   const [departmentNews, setDepartmentNews] = useState<DepartmentNewsItem[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_dept_news_all');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data;
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_DEPARTMENT_NEWS;
+    return getCachedOrFallback<DepartmentNewsItem[]>('k7_cached_dept_news_all', FALLBACK_DEPARTMENT_NEWS);
   });
 
   const [loading, setLoading] = useState(false);

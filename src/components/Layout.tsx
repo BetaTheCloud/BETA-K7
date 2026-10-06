@@ -20,8 +20,8 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
     { to: '/news', label: 'Haberler', icon: Newspaper },
-    { to: '/announcements', label: 'Duyurular', icon: Megaphone },
     { to: '/campus', label: 'Kampüs Hizmetleri', icon: LayoutGrid },
+    { to: '/announcements', label: 'Duyurular', icon: Megaphone },
     { to: '/bologna', label: 'Bologna', icon: Landmark },
     { to: '/calendar', label: 'Takvim', icon: CalendarClock },
     { to: '/menu', label: 'Yemek Menüsü', icon: ChefHat },

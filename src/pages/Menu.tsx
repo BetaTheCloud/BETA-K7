@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { getMenu, FALLBACK_MENU } from '../mockData';
+import { getMenu, getCachedOrFallback, FALLBACK_MENU } from '../mockData';
 import { MenuItem } from '../types';
 import {
   CalendarDays,
@@ -14,10 +14,12 @@ import {
   Info,
   CheckCircle2,
   Sparkles,
-  X
+  X,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import LoadingState from '../components/LoadingState';
+import CampusCardModal from '../components/CampusCardModal';
 
 const TURKISH_MONTHS: Record<string, number> = {
   ocak: 0,
@@ -43,16 +45,10 @@ const TURKISH_MONTHS: Record<string, number> = {
 export default function Menu() {
   const navigate = useNavigate();
   const [menu, setMenu] = useState<MenuItem[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_menu_v6');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_MENU;
+    return getCachedOrFallback<MenuItem[]>('k7_cached_menu_v6', FALLBACK_MENU);
   });
   const [loading, setLoading] = useState(false);
+  const [isCampusCardOpen, setIsCampusCardOpen] = useState(false);
 
   // Date selection state: ISO string format "YYYY-MM-DD" or null
   const [selectedDateIso, setSelectedDateIso] = useState<string>(() => {
@@ -184,13 +180,26 @@ export default function Menu() {
           <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
           <span>Geri Menüye Dön</span>
         </button>
-        <h2 className="text-3xl font-display font-bold text-stone-900 dark:text-white flex items-center gap-3">
-          <ChefHat className="w-7 h-7 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
-          Yemek Menüsü
-        </h2>
-        <p className="text-stone-500 dark:text-white/60 text-sm mt-1.5 tracking-wide font-medium">
-          Kilis 7 Aralık Üniversitesi Sağlık, Kültür ve Spor Daire Başkanlığı Aylık Yemekhane Menüsü
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-stone-900 dark:text-white flex items-center gap-3">
+              <ChefHat className="w-7 h-7 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
+              Yemek Menüsü
+            </h2>
+            <p className="text-stone-500 dark:text-white/60 text-xs sm:text-sm mt-1 tracking-wide font-medium">
+              Kilis 7 Aralık Üniversitesi Sağlık, Kültür ve Spor Daire Başkanlığı Aylık Yemekhane Menüsü
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCampusCardOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/25 active:scale-95 cursor-pointer self-start sm:self-auto"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Kartına Bakiye Yükle (Kampüs Kart)</span>
+          </button>
+        </div>
       </header>
 
       {/* ================= DATE PICKER & INTERACTIVE CONTROLS ================= */}
@@ -588,6 +597,12 @@ export default function Menu() {
           </div>
         )}
       </section>
+
+      {/* Campus Card Modal */}
+      <CampusCardModal
+        isOpen={isCampusCardOpen}
+        onClose={() => setIsCampusCardOpen(false)}
+      />
     </motion.div>
   );
 }

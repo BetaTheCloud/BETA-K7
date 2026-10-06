@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { getAnnouncements, FALLBACK_ANNOUNCEMENTS } from '../mockData';
+import { getAnnouncements, getCachedOrFallback, FALLBACK_ANNOUNCEMENTS } from '../mockData';
 import { Announcement } from '../types';
 import {
   Search,
@@ -22,15 +22,7 @@ import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
 export default function Announcements() {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_announcements');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.data) && parsed.data.length > 0) return parsed.data;
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_ANNOUNCEMENTS;
+    return getCachedOrFallback<Announcement[]>('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
   });
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

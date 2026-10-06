@@ -464,7 +464,7 @@ app.get('/api/announcements', async (req, res) => {
       return res.json(announcements);
     }
 
-    res.json(DEFAULT_ANNOUNCEMENTS);
+    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
   } catch (error) {
     console.error('Announcements error, returning default data:', error);
     res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
@@ -537,7 +537,7 @@ app.get('/api/news', async (req, res) => {
       return res.json(news);
     }
 
-    res.json(DEFAULT_NEWS);
+    res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   } catch (error) {
     console.error('News error, returning default data:', error);
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);

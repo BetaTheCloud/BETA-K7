@@ -6,8 +6,8 @@ export default function BottomNav() {
   const navItems = [
     { to: '/', label: 'Ana', icon: Compass },
     { to: '/news', label: 'Haber', icon: Newspaper },
-    { to: '/announcements', label: 'Duyuru', icon: Megaphone },
     { to: '/campus', label: 'Hizmetler', icon: LayoutGrid },
+    { to: '/announcements', label: 'Duyuru', icon: Megaphone },
     { to: '/bologna', label: 'Bologna', icon: Landmark },
   ];
 

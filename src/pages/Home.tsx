@@ -5,15 +5,17 @@ import {
   getNews,
   getEvents,
   getMenu,
+  getCachedOrFallback,
   FALLBACK_ANNOUNCEMENTS,
   FALLBACK_NEWS,
   FALLBACK_EVENTS,
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem, CampusEvent } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin, CreditCard, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal from '../components/DetailModal';
+import CampusCardModal from '../components/CampusCardModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
@@ -21,56 +23,28 @@ import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/ut
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_announcements');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_ANNOUNCEMENTS;
+    return getCachedOrFallback<Announcement[]>('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
   });
 
   const [news, setNews] = useState<Announcement[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_news');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_NEWS;
+    return getCachedOrFallback<Announcement[]>('k7_cached_news', FALLBACK_NEWS);
   });
 
   const [events, setEvents] = useState<CampusEvent[]>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_events_v5');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return FALLBACK_EVENTS;
+    return getCachedOrFallback<CampusEvent[]>('k7_cached_events_v5', FALLBACK_EVENTS);
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [todayMenuInfo, setTodayMenuInfo] = useState<TodayMenuInfo<MenuItem>>(() => {
-    try {
-      const cached = localStorage.getItem('k7_cached_menu_v6');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return getTodayMenuInfo(parsed);
-        }
-      }
-    } catch {}
-    return getTodayMenuInfo(FALLBACK_MENU);
+    const menuList = getCachedOrFallback<MenuItem[]>('k7_cached_menu_v6', FALLBACK_MENU);
+    return getTodayMenuInfo(menuList);
   });
 
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
 
   // Modal State
   const [selectedItem, setSelectedItem] = useState<{url: string, title: string} | null>(null);
+  const [isCampusCardOpen, setIsCampusCardOpen] = useState(false);
 
   const handleRefresh = async () => {
     try {
@@ -221,7 +195,19 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsCampusCardOpen(true)}
+            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/60 hover:shadow-md transition-all active:scale-95 cursor-pointer text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2 shadow-inner">
+              <CreditCard className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-stone-800 dark:text-white text-center">Kampüs Kart</span>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Online Bakiye</span>
+          </button>
+
           <Link
             to="/campus?tab=directory"
             className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-emerald-500/50 hover:shadow-md transition-all active:scale-95"
@@ -497,16 +483,22 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Bottom link to full menu */}
-            <div className="mt-4 pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between">
-              <span className="text-[11px] text-stone-400 dark:text-white/40">
-                SKS Yemekhane Öğle Yemeği Servisi (11:30 - 13:30)
-              </span>
+            {/* Bottom link to full menu & Kampüs Kart Topup */}
+            <div className="mt-4 pt-3 border-t border-stone-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsCampusCardOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 text-xs font-bold border border-amber-500/25 transition-all self-start cursor-pointer active:scale-95"
+              >
+                <CreditCard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Yemekhane Kartına Bakiye Yükle (Kampüs Kart)</span>
+              </button>
+
               <Link
                 to="/menu"
-                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1"
+                className="text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-amber-600 dark:hover:text-amber-400 hover:underline inline-flex items-center gap-1 self-end sm:self-auto"
               >
-                <span>Tarihe Göre Menü Seç</span>
+                <span>Aylık Menüyü Gör</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -524,6 +516,12 @@ export default function Home() {
         onClose={() => setSelectedItem(null)}
         url={selectedItem?.url || ''}
         title={selectedItem?.title || ''}
+      />
+
+      {/* Campus Card & Meal Balance Modal */}
+      <CampusCardModal
+        isOpen={isCampusCardOpen}
+        onClose={() => setIsCampusCardOpen(false)}
       />
       </motion.div>
     </PullToRefresh>

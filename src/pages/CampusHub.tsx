@@ -42,8 +42,20 @@ import {
   TabletSmartphone,
   ArrowLeft,
   Maximize2,
-  Newspaper
+  Newspaper,
+  CreditCard,
+  Wallet,
+  Lock,
+  ShieldCheck,
+  CheckCircle2,
+  Sparkles,
+  QrCode,
+  RefreshCw,
+  Utensils,
+  HelpCircle,
+  ChevronUp
 } from 'lucide-react';
+import K7Logo from '../components/K7Logo';
 import { FACULTIES_FILTER_LIST, AUTHENTIC_FORMS_DATA } from '../data/formsData';
 import { STAFF_FACULTIES_LIST, ACADEMIC_STAFF_DATA } from '../data/staffData';
 import {
@@ -73,8 +85,9 @@ import LoadingState from '../components/LoadingState';
 import DetailModal from '../components/DetailModal';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
 import toast from 'react-hot-toast';
+import { cn } from '../lib/utils';
 
-type TabKey = 'all' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
+type TabKey = 'all' | 'card' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
 
 export default function CampusHub() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,6 +96,7 @@ export default function CampusHub() {
 
   const getTabFromLocation = (): TabKey => {
     const path = location.pathname.replace(/^\//, '');
+    if (path === 'card' || path === 'kampuskart') return 'card';
     if (path === 'directory') return 'directory';
     if (path === 'events') return 'events';
     if (path === 'transport') return 'transport';
@@ -95,6 +109,21 @@ export default function CampusHub() {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(getTabFromLocation());
+
+  // Kampüs Kart state
+  const [cardAmount, setCardAmount] = useState<number>(100);
+  const [cardCustomAmount, setCardCustomAmount] = useState<string>('');
+  const [cardUserType, setCardUserType] = useState<'student' | 'staff'>('student');
+  const [cardCopied, setCardCopied] = useState(false);
+  const [cardExpandedFaq, setCardExpandedFaq] = useState<number | null>(null);
+  const [cardSimulatedBalance, setCardSimulatedBalance] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('k7_simulated_card_balance');
+      if (stored) return Number(stored);
+    } catch {}
+    return 85.0;
+  });
+  const [qrActive, setQrActive] = useState(false);
 
   // Instant fallback-backed states so screen is never blank!
   const [phonebook, setPhonebook] = useState<PhonebookEntry[]>(FALLBACK_PHONEBOOK);
@@ -304,6 +333,7 @@ export default function CampusHub() {
 
   const tabs: { key: TabKey; label: string; icon: any; color: string }[] = [
     { key: 'all', label: 'Genel Bakış', icon: Compass, color: 'text-stone-700 dark:text-stone-300' },
+    { key: 'card', label: 'Kampüs Kart', icon: CreditCard, color: 'text-amber-600 dark:text-amber-400' },
     { key: 'directory', label: 'Personel', icon: Users, color: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'events', label: 'Etkinlikler', icon: Calendar, color: 'text-rose-600 dark:text-rose-400' },
     { key: 'transport', label: 'Ulaşım', icon: Bus, color: 'text-blue-600 dark:text-blue-400' },
@@ -578,8 +608,32 @@ export default function CampusHub() {
             exit={{ opacity: 0, y: -8 }}
             className="space-y-6"
           >
-            {/* Quick Grid of all 9 Modules */}
+            {/* Quick Grid of all Modules */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* 0. Kampüs Kart & Yemekhane */}
+              <div
+                onClick={() => handleTabChange('card')}
+                className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-amber-500/40 dark:border-amber-500/30 rounded-2xl p-5 hover:border-amber-500 hover:shadow-lg transition-all relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 group-hover:underline flex items-center gap-1">
+                    Giriş & Bakiye <ChevronRight className="w-4 h-4" />
+                  </span>
+                </div>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                  Kampüs Kart
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
+                    Online Portal
+                  </span>
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
+                  kampuskart.kilis.edu.tr resmi portal girişi, online bakiye yükleme, NFC/RFID akıllı kart ve turnike geçiş tarifesi.
+                </p>
+              </div>
+
               {/* 1. Personel Rehberi */}
               <div
                 onClick={() => handleTabChange('directory')}
@@ -730,6 +784,454 @@ export default function CampusHub() {
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
                   Merkez, Karataş ve Mercidabık fakülteleri, amfileri ve Google Haritalar rotası.
                 </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ================= 0. KAMPÜS KART & YEMEKHANE PORTALI ================= */}
+        {activeTab === 'card' && (
+          <motion.div
+            key="card"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="space-y-6"
+          >
+            {/* Top Official Portal Card */}
+            <div className="bg-gradient-to-r from-[#1d3540] via-[#264653] to-[#2a9d8f] rounded-3xl p-6 text-white shadow-xl border border-white/15 relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-bold text-amber-300 border border-white/15">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Resmi Üniversite Kampüs Kart Portalı</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight">
+                    Kampüs Kart & Yemekhane Sistemi
+                  </h2>
+                  <p className="text-white/80 text-xs sm:text-sm leading-relaxed">
+                    Kilis 7 Aralık Üniversitesi Akıllı Kart portalı (<code className="font-mono bg-black/30 px-1.5 py-0.5 rounded text-amber-200">kampuskart.kilis.edu.tr</code>) üzerinden 3D Secure güvencesiyle online bakiye yükleyebilir, turnike geçişlerinizi ve yemekhane haklarınızı takip edebilirsiniz.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
+                  <a
+                    href="https://kampuskart.kilis.edu.tr/User/Login"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer text-center"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Resmi Portala Giriş Yap</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://kampuskart.kilis.edu.tr/User/Login');
+                      setCardCopied(true);
+                      setTimeout(() => setCardCopied(false), 2500);
+                      toast.success('Kampüs Kart portal linki kopyalandı!');
+                    }}
+                    className="px-4 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all border border-white/15 active:scale-95 cursor-pointer"
+                  >
+                    {cardCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    <span>{cardCopied ? 'Kopyalandı' : 'Linki Kopyala'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Digital Card & Quick Top-Up Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Visual Digital Smart Card (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-[#111e24] via-[#1d3540] to-[#264653] text-white p-6 shadow-2xl border border-white/15">
+                  <div className="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+                  <div className="absolute -left-12 -bottom-12 w-44 h-44 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-2.5">
+                      <K7Logo className="w-8 h-8 drop-shadow-md" />
+                      <div>
+                        <div className="font-display font-extrabold text-sm sm:text-base tracking-wide">
+                          KİLİS 7 ARALIK ÜNİVERSİTESİ
+                        </div>
+                        <div className="text-[9px] uppercase tracking-[0.2em] text-white/60 font-semibold">
+                          Akıllı Kampüs & Yemekhane Kartı
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-white/80">
+                      <Wifi className="w-5 h-5 rotate-90" />
+                    </div>
+                  </div>
+
+                  {/* Chip & User Type */}
+                  <div className="my-6 flex items-center justify-between relative z-10">
+                    <div className="w-12 h-9 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 shadow-inner flex items-center justify-center border border-amber-300/40">
+                      <div className="w-8 h-6 border border-amber-900/30 rounded-sm grid grid-cols-2 gap-0.5 opacity-60" />
+                    </div>
+
+                    {/* Mode Toggle */}
+                    <div className="flex items-center bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setCardUserType('student')}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer",
+                          cardUserType === 'student' ? "bg-amber-500 text-stone-950 shadow" : "text-white/60 hover:text-white"
+                        )}
+                      >
+                        Öğrenci
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCardUserType('staff')}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer",
+                          cardUserType === 'staff' ? "bg-amber-500 text-stone-950 shadow" : "text-white/60 hover:text-white"
+                        )}
+                      >
+                        Personel
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card Number & Turnstile Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 relative z-10 pt-2 border-t border-white/10">
+                    <div>
+                      <div className="text-[10px] text-white/50 font-medium uppercase tracking-wider mb-0.5">
+                        Kart Numarası
+                      </div>
+                      <div className="font-mono text-sm tracking-widest text-white/90 font-bold">
+                        7924 •••• •••• 5406
+                      </div>
+                    </div>
+
+                    <div className="bg-black/35 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 text-right">
+                      <div className="text-[9px] uppercase text-amber-300 font-bold tracking-wider">
+                        Turnike Durumu
+                      </div>
+                      <div className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1 mt-0.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Öğün Hakkı Aktif</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated Local Balance Controller */}
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-stone-400 dark:text-white/50 uppercase font-semibold">
+                        Kişisel Takip Bakiyesi
+                      </div>
+                      <div className="font-display font-extrabold text-lg text-stone-900 dark:text-white">
+                        ₺{cardSimulatedBalance.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(0, cardSimulatedBalance - 25);
+                        setCardSimulatedBalance(next);
+                        try { localStorage.setItem('k7_simulated_card_balance', String(next)); } catch {}
+                        toast.success('Yemek turnikesi geçişi simüle edildi (-₺25.00)');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-[11px] font-bold text-stone-700 dark:text-white transition-colors cursor-pointer"
+                    >
+                      -1 Öğün
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = cardSimulatedBalance + 100;
+                        setCardSimulatedBalance(next);
+                        try { localStorage.setItem('k7_simulated_card_balance', String(next)); } catch {}
+                        toast.success('Bakiye eklendi (+₺100.00)');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-[11px] font-bold text-amber-700 dark:text-amber-300 transition-colors cursor-pointer border border-amber-500/20"
+                    >
+                      +₺100
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Online Top-up & Payment Presets (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 space-y-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white">
+                        Hızlı Online Bakiye Yükleme
+                      </h3>
+                    </div>
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> 3D Secure
+                    </span>
+                  </div>
+
+                  {/* Preset Amount Grid */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-stone-500 dark:text-white/60">
+                      Yüklemek İstediğiniz Tutarı Seçin:
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                      {[50, 100, 150, 250, 500].map((amt) => {
+                        const isSelected = cardAmount === amt && !cardCustomAmount;
+                        return (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => {
+                              setCardAmount(amt);
+                              setCardCustomAmount('');
+                            }}
+                            className={cn(
+                              "py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all border cursor-pointer text-center",
+                              isSelected
+                                ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25 scale-[1.02]"
+                                : "bg-stone-50 dark:bg-white/5 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/10 border-stone-200 dark:border-white/10"
+                            )}
+                          >
+                            ₺{amt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Amount */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-stone-500 dark:text-white/60">
+                      Veya Farklı Bir Tutar Girin:
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400 font-bold text-sm">
+                        ₺
+                      </span>
+                      <input
+                        type="number"
+                        min="10"
+                        max="2000"
+                        step="5"
+                        placeholder="Örn: 75"
+                        value={cardCustomAmount}
+                        onChange={(e) => {
+                          setCardCustomAmount(e.target.value);
+                          if (e.target.value) setCardAmount(Number(e.target.value));
+                        }}
+                        className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 text-stone-900 dark:text-white text-sm outline-none focus:border-amber-500 transition-colors font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Direct Launch Button */}
+                  <div className="pt-2 space-y-2">
+                    <a
+                      href="https://kampuskart.kilis.edu.tr/User/Login"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-display font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-700/25 active:scale-[0.99] cursor-pointer text-center"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span>₺{cardCustomAmount ? cardCustomAmount : cardAmount} Tutarını Resmi Portalda Yükle</span>
+                      <ExternalLink className="w-4 h-4 ml-1 opacity-80" />
+                    </a>
+                    <p className="text-[11px] text-center text-stone-500 dark:text-white/50">
+                      Ödeme işlemi Kilis 7 Aralık Üniversitesi Kampüs Kart resmi banka altyapısı üzerinden 3D Secure ile gerçekleştirilir.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Yemekhane Tarifesi & Saatleri */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tarife Kartı */}
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-stone-200 dark:border-white/10">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <Utensils className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-display font-bold text-base text-stone-900 dark:text-white">
+                    2026-2027 Yemekhane Öğün Tarifesi
+                  </h3>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/70 dark:border-white/10">
+                    <div>
+                      <div className="text-xs font-bold text-stone-900 dark:text-white">Ön Lisans & Lisans Öğrencisi</div>
+                      <div className="text-[10px] text-stone-400 dark:text-white/40">1. Öğün Sübvansiyonlu</div>
+                    </div>
+                    <span className="font-display font-extrabold text-base text-emerald-600 dark:text-emerald-400">
+                      ₺25.00
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/70 dark:border-white/10">
+                    <div>
+                      <div className="text-xs font-bold text-stone-900 dark:text-white">Akademik & İdari Personel</div>
+                      <div className="text-[10px] text-stone-400 dark:text-white/40">Kurum Personel Tarifesi</div>
+                    </div>
+                    <span className="font-display font-extrabold text-base text-amber-600 dark:text-amber-400">
+                      ₺60.00
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/70 dark:border-white/10">
+                    <div>
+                      <div className="text-xs font-bold text-stone-900 dark:text-white">Misafir & 2. Öğün</div>
+                      <div className="text-[10px] text-stone-400 dark:text-white/40">Sübvansiyonsuz Standart Tarife</div>
+                    </div>
+                    <span className="font-display font-extrabold text-base text-stone-700 dark:text-stone-300">
+                      ₺90.00
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Servis Saatleri & Kiosk Noktaları */}
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-stone-200 dark:border-white/10">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-display font-bold text-base text-stone-900 dark:text-white">
+                    Yemek Saatleri & Fiziki Kiosk Dolum
+                  </h3>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="space-y-1.5">
+                    <div className="font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Yemekhane Servis Saatleri:
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pl-3.5">
+                      <div className="p-2 rounded-lg bg-stone-50 dark:bg-white/5">
+                        <span className="text-[10px] text-stone-400 dark:text-white/40 block">Öğle Yemeği:</span>
+                        <span className="font-semibold text-stone-800 dark:text-white">11:30 - 14:00</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-stone-50 dark:bg-white/5">
+                        <span className="text-[10px] text-stone-400 dark:text-white/40 block">Akşam Yemeği:</span>
+                        <span className="font-semibold text-stone-800 dark:text-white">16:30 - 18:30</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <div className="font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                      Kampüs Kiosk (Nakit/Kart) Dolum Noktaları:
+                    </div>
+                    <ul className="space-y-1 text-stone-600 dark:text-white/70 pl-5 list-disc text-[11px]">
+                      <li><strong>Merkez Kampüs:</strong> Öğrenci Yemekhanesi Giriş Holü (7/24 Kiosk)</li>
+                      <li><strong>Karataş Yerleşkesi:</strong> Yemekhane & Sosyal Tesisler Girişi</li>
+                      <li><strong>Mercidabık Yerleşkesi:</strong> İdari Bina Giriş Katı</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SSS & İletişim */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                    <HelpCircle className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-display font-bold text-base text-stone-900 dark:text-white">
+                    Sıkça Sorulan Sorular & Kart Birimi
+                  </h3>
+                </div>
+                <span className="text-xs text-stone-500 dark:text-white/60">
+                  SKS Daire Başkanlığı
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {[
+                  {
+                    q: 'Yüklediğim bakiye turnikede ne zaman aktif olur?',
+                    a: 'Online olarak kredi/banka kartı ve 3D Secure ile yapılan yüklemeler kampuskart.kilis.edu.tr üzerinden tamamlandığı anda sistemle senkronize olur ve yemekhane turnikelerinde anında kullanılabilir.'
+                  },
+                  {
+                    q: 'Kartımı kaybettim veya bozuldu, ne yapmalıyım?',
+                    a: 'Kartınızı kaybettiğinizde derhal Sağlık Kültür ve Spor Daire Başkanlığı (SKS) Kart İşlem Birimi’ne başvurarak eski kartınızı kullanıma kapattırabilir ve yeni akıllı kartınızı teslim alabilirsiniz.'
+                  },
+                  {
+                    q: 'Öğrenci kimlik kartı ile yemekhane kartı aynı mı?',
+                    a: 'Evet, Kilis 7 Aralık Üniversitesi Akıllı Kimlik Kartları temassız RFID/NFC çiplidir. Hem kampüs girişlerinde hem de yemekhane ve kütüphane turnikelerinde tek kart olarak kullanılır.'
+                  }
+                ].map((faq, idx) => {
+                  const isOpen = cardExpandedFaq === idx;
+                  return (
+                    <div
+                      key={idx}
+                      className="border border-stone-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-white dark:bg-white/5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setCardExpandedFaq(isOpen ? null : idx)}
+                        className="w-full p-3.5 text-left flex items-center justify-between gap-3 text-xs sm:text-sm font-bold text-stone-800 dark:text-white hover:bg-stone-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      >
+                        <span>{faq.q}</span>
+                        {isOpen ? <ChevronUp className="w-4 h-4 shrink-0 text-amber-500" /> : <ChevronDown className="w-4 h-4 shrink-0 text-stone-400" />}
+                      </button>
+                      {isOpen && (
+                        <div className="p-3.5 pt-0 text-xs text-stone-600 dark:text-white/70 leading-relaxed border-t border-stone-100 dark:border-white/5">
+                          {faq.a}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* SKS Contact Banner */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                    i
+                  </div>
+                  <div>
+                    <div className="font-bold text-stone-900 dark:text-white">Kart İşlem & Destek Birimi</div>
+                    <div className="text-[11px] text-stone-500 dark:text-white/60">Merkez Kampüs SKS Daire Başkanlığı Zemin Kat</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href="tel:03488142666"
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-white/10 text-stone-800 dark:text-white font-bold border border-stone-200 dark:border-white/10 hover:border-amber-500 transition-colors"
+                  >
+                    Dahili: 1180
+                  </a>
+                  <a
+                    href="mailto:sks@kilis.edu.tr"
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition-colors"
+                  >
+                    sks@kilis.edu.tr
+                  </a>
+                </div>
               </div>
             </div>
           </motion.div>

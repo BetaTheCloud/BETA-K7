@@ -693,10 +693,56 @@ export function getStoredWithTTL<T>(key: string, ttlMs: number, fallback: T): { 
   return { data: fallback, isFresh: false };
 }
 
-// Helper: safe local storage save with timestamp
+// Helper: safe direct offline cache retriever (unwraps both envelopes and raw data)
+export function getCachedOrFallback<T>(key: string, fallback: T): T {
+  try {
+    if (typeof window !== 'undefined') {
+      const item = localStorage.getItem(key);
+      if (item) {
+        const parsed = JSON.parse(item);
+        if (parsed && typeof parsed === 'object' && 'data' in parsed) {
+          if (Array.isArray(parsed.data) ? parsed.data.length > 0 : parsed.data != null) {
+            return parsed.data;
+          }
+        }
+        if (Array.isArray(parsed) ? parsed.length > 0 : parsed != null) {
+          return parsed;
+        }
+      }
+    }
+  } catch {}
+  return fallback;
+}
+
+// Helper to check if a dataset is only generic static fallback
+export function isGenericFallbackList(items: any[]): boolean {
+  if (!Array.isArray(items) || items.length === 0) return true;
+  return items.every(item => {
+    if (!item) return true;
+    const id = String(item.id || '');
+    return id.startsWith('news-fb-') || id.startsWith('ann-fb-') || id.startsWith('ev-fb-') || id.startsWith('dept-fb-') || id.startsWith('menu-fb-');
+  });
+}
+
+// Helper: safe local storage save with timestamp (preserves authentic live scraped data from being overwritten by static fallback)
 export function setStoredWithTTL<T>(key: string, value: T): void {
   try {
     if (typeof window !== 'undefined' && value) {
+      // If incoming value is purely a static fallback array, but localStorage already has authentic live scraped data, protect the live data!
+      if (Array.isArray(value) && isGenericFallbackList(value)) {
+        const existing = localStorage.getItem(key);
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing);
+            const existingData = parsed?.data || parsed;
+            if (Array.isArray(existingData) && existingData.length > 0 && !isGenericFallbackList(existingData)) {
+              // Retain authentic live scraped data in cache!
+              return;
+            }
+          } catch {}
+        }
+      }
+
       const envelope: CacheEnvelope<T> = {
         data: value,
         timestamp: Date.now()
