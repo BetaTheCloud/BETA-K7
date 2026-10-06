@@ -3,13 +3,15 @@ import { motion } from 'motion/react';
 import {
   getAnnouncements,
   getNews,
+  getEvents,
   getMenu,
   FALLBACK_ANNOUNCEMENTS,
   FALLBACK_NEWS,
+  FALLBACK_EVENTS,
   FALLBACK_MENU
 } from '../mockData';
-import { Announcement, MenuItem } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles } from 'lucide-react';
+import { Announcement, MenuItem, CampusEvent } from '../types';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
@@ -40,6 +42,17 @@ export default function Home() {
     return FALLBACK_NEWS;
   });
 
+  const [events, setEvents] = useState<CampusEvent[]>(() => {
+    try {
+      const cached = localStorage.getItem('k7_cached_events_v5');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return FALLBACK_EVENTS;
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [todayMenuInfo, setTodayMenuInfo] = useState<TodayMenuInfo<MenuItem>>(() => {
     try {
@@ -61,13 +74,15 @@ export default function Home() {
 
   const handleRefresh = async () => {
     try {
-      const [announcementsData, newsData, menuData] = await Promise.all([
+      const [announcementsData, newsData, eventsData, menuData] = await Promise.all([
         getAnnouncements(true),
         getNews(true),
+        getEvents(true),
         getMenu(true)
       ]);
       if (announcementsData?.length) setAnnouncements(announcementsData);
       if (newsData?.length) setNews(newsData);
+      if (eventsData?.length) setEvents(eventsData);
       if (menuData?.length) setTodayMenuInfo(getTodayMenuInfo(menuData));
     } catch (error) {
       console.error("Yenileme hatası", error);
@@ -78,15 +93,17 @@ export default function Home() {
     let isMounted = true;
     async function loadDashboardData() {
       try {
-        const [announcementsData, newsData, menuData] = await Promise.all([
+        const [announcementsData, newsData, eventsData, menuData] = await Promise.all([
           getAnnouncements(),
           getNews(),
+          getEvents(),
           getMenu()
         ]);
         
         if (!isMounted) return;
         if (announcementsData?.length) setAnnouncements(announcementsData);
         if (newsData?.length) setNews(newsData);
+        if (eventsData?.length) setEvents(eventsData);
         if (menuData?.length) setTodayMenuInfo(getTodayMenuInfo(menuData));
       } catch (error) {
         console.warn("Veri güncellenirken bildirim:", error);
@@ -139,6 +156,10 @@ export default function Home() {
   const filteredNews = searchQuery
     ? sortedNews.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : sortedNews.slice(0, 3);
+
+  const filteredEvents = searchQuery
+    ? events.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : events.slice(0, 3);
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -269,47 +290,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Main Announcements */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
-          <h3 className="text-xl font-display font-bold flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
-            Duyurular
-          </h3>
-          <Link to="/announcements" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
-            Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
-          </Link>
-        </div>
-        
-        <div className="space-y-3">
-          {filteredAnnouncements.map((announcement) => (
-            <button 
-              key={announcement.id} 
-              onClick={() => setSelectedItem({ url: announcement.url || '', title: announcement.title })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
-            >
-              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                  {announcement.category || 'Duyuru'}
-                </span>
-                {announcement.date && !announcement.date.includes('T') && (
-                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
-                    {announcement.date}
-                  </span>
-                )}
-              </div>
-              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
-                {announcement.title}
-              </h4>
-            </button>
-          ))}
-          {filteredAnnouncements.length === 0 && (
-            <div className="text-stone-500 italic text-sm px-2">Güncel duyuru bulunamadı.</div>
-          )}
-        </div>
-      </section>
-
-      {/* News Section */}
+      {/* News Section (Haberler) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
           <h3 className="text-xl font-display font-bold flex items-center gap-2">
@@ -350,6 +331,98 @@ export default function Home() {
           ))}
           {filteredNews.length === 0 && (
             <div className="text-stone-500 italic text-sm px-2">Güncel haber bulunamadı.</div>
+          )}
+        </div>
+      </section>
+
+      {/* Main Announcements Section (Duyurular) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
+          <h3 className="text-xl font-display font-bold flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
+            Duyurular
+          </h3>
+          <Link to="/announcements" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
+            Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
+          </Link>
+        </div>
+        
+        <div className="space-y-3">
+          {filteredAnnouncements.map((announcement) => (
+            <button 
+              key={announcement.id} 
+              onClick={() => setSelectedItem({ url: announcement.url || '', title: announcement.title })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                  {announcement.category || 'Duyuru'}
+                </span>
+                {announcement.date && !announcement.date.includes('T') && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
+                    {announcement.date}
+                  </span>
+                )}
+              </div>
+              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
+                {announcement.title}
+              </h4>
+            </button>
+          ))}
+          {filteredAnnouncements.length === 0 && (
+            <div className="text-stone-500 italic text-sm px-2">Güncel duyuru bulunamadı.</div>
+          )}
+        </div>
+      </section>
+
+      {/* Events Section (Etkinlikler) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
+          <h3 className="text-xl font-display font-bold flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-rose-600 dark:text-rose-500" strokeWidth={1.5} />
+            Etkinlikler
+          </h3>
+          <Link to="/campus?tab=events" className="text-sm text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1 font-medium tracking-wide">
+            Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
+          </Link>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+          {filteredEvents.map((ev) => (
+            <button
+              key={ev.id}
+              onClick={() => setSelectedItem({ url: ev.url || '', title: ev.title })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-md hover:border-rose-500/40 transition-all focus:outline-none group cursor-pointer"
+            >
+              {ev.img && (
+                <div className="h-32 w-full bg-stone-200 dark:bg-stone-800 overflow-hidden relative">
+                  <img
+                    src={ev.img}
+                    alt={ev.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-[9px] font-semibold text-white tracking-wider uppercase">
+                    {ev.category || 'Etkinlik'}
+                  </div>
+                </div>
+              )}
+              <div className="p-3.5 sm:p-4 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                  <Clock className="w-3 h-3" />
+                  <span>{ev.date || '02 Ekim 2026'}</span>
+                </div>
+                <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                  {ev.title}
+                </h4>
+              </div>
+            </button>
+          ))}
+          {filteredEvents.length === 0 && (
+            <div className="text-stone-500 italic text-sm px-2 sm:col-span-3">Güncel etkinlik bulunamadı.</div>
           )}
         </div>
       </section>
