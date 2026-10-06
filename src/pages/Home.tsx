@@ -316,9 +316,14 @@ export default function Home() {
             <Newspaper className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
             Haberler
           </h3>
-          <Link to="/news" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
-            Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/news?tab=department" className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+              Bölüm Haberleri
+            </Link>
+            <Link to="/news" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
+              Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
         
         <div className="space-y-3">

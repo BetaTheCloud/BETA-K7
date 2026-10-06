@@ -5,6 +5,7 @@ import {
   BolognaFaculty,
   PhonebookEntry,
   AcademicStaffMember,
+  DepartmentNewsItem,
   CampusEvent,
   CampusForm,
   CampusBuilding
@@ -12,6 +13,7 @@ import {
 import { getApiUrl, safeFetch } from './config';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
+import { FALLBACK_DEPARTMENT_NEWS } from './data/departmentNewsData';
 
 // ================= FALLBACK DATA =================
 
@@ -769,6 +771,54 @@ export const getNews = async (force: boolean = true): Promise<Announcement[]> =>
     notifySyncSuccess('cached');
   }
   return cached.data || FALLBACK_NEWS;
+};
+
+export const getDepartmentNews = async (
+  deptUrl?: string,
+  deptId?: string,
+  facultyId?: string,
+  force: boolean = false
+): Promise<DepartmentNewsItem[]> => {
+  const cacheKey = `k7_cached_dept_news_${deptId || deptUrl || facultyId || 'all'}`;
+  const cached = getStoredWithTTL<DepartmentNewsItem[]>(cacheKey, CACHE_TTL.NEWS, FALLBACK_DEPARTMENT_NEWS);
+  
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return cached.data;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (deptUrl) params.append('deptUrl', deptUrl);
+    if (deptId) params.append('deptId', deptId);
+    if (facultyId) params.append('facultyId', facultyId);
+    if (force) params.append('force', 'true');
+
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const response = await safeFetch(getApiUrl(`/api/department-news${queryStr}`));
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setStoredWithTTL(cacheKey, data);
+        notifySyncSuccess('live');
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("Bölüm haberleri canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
+  }
+
+  // Filter fallback data if specific department or faculty requested
+  let fallback = FALLBACK_DEPARTMENT_NEWS;
+  if (deptId && deptId !== 'all') {
+    const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
+    if (matched.length > 0) return matched;
+  } else if (facultyId && facultyId !== 'all') {
+    const matched = fallback.filter(i => i.facultyId === facultyId);
+    if (matched.length > 0) return matched;
+  }
+
+  return cached.data || fallback;
 };
 
 export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {

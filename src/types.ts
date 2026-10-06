@@ -95,6 +95,33 @@ export interface AcademicStaffMember {
   publonsUrl?: string;
 }
 
+export interface DepartmentNewsItem {
+  id: string;
+  title: string;
+  date: string;
+  content?: string;
+  url: string;
+  imageUrl?: string;
+  facultyId: string;
+  facultyName: string;
+  departmentId: string;
+  departmentName: string;
+  category?: string;
+  sourceUrl?: string;
+}
+
+export interface AcademicDepartmentUnit {
+  id: string;
+  name: string;
+  slug: string;
+  facultyId: string;
+  facultyName: string;
+  category: StaffUnitCategory;
+  newsUrl: string;
+  websiteUrl?: string;
+  description?: string;
+}
+
 export interface CampusEvent {
   id: string;
   title: string;

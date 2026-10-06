@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   PhoneCall,
@@ -41,7 +41,8 @@ import {
   Smartphone,
   TabletSmartphone,
   ArrowLeft,
-  Maximize2
+  Maximize2,
+  Newspaper
 } from 'lucide-react';
 import { FACULTIES_FILTER_LIST, AUTHENTIC_FORMS_DATA } from '../data/formsData';
 import { STAFF_FACULTIES_LIST, ACADEMIC_STAFF_DATA } from '../data/staffData';
@@ -990,17 +991,26 @@ export default function CampusHub() {
                       <span className="text-stone-500 dark:text-white/60 ml-1.5">({filteredStaff.length} personel)</span>
                     </div>
                   </div>
-                  {activeStaffFacultyConfig.sourceUrl && (
-                    <a
-                      href={activeStaffFacultyConfig.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm self-start sm:self-auto"
+                  <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+                    <Link
+                      to={`/news?tab=department&dept=${selectedStaffFaculty}`}
+                      className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
                     >
-                      <span>Resmi Sayfa (academic-staffs)</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
+                      <Newspaper className="w-3 h-3" />
+                      <span>Bölüm Haberleri</span>
+                    </Link>
+                    {activeStaffFacultyConfig.sourceUrl && (
+                      <a
+                        href={activeStaffFacultyConfig.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                      >
+                        <span>Resmi Personel Sayfası</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
