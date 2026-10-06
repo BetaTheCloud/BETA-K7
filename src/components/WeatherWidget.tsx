@@ -346,18 +346,16 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           </div>
           
           {/* Environmental Indicators */}
-          <div className="flex items-center gap-2.5 mt-1.5 text-[11px] font-medium text-white/80">
-            <div className="flex items-center gap-1" title={`Anlık Yağış İhtimali: %${weather.rainChance} (Günün En Yükseği: %${weather.rainChanceMax})`}>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] font-medium text-white/85 flex-wrap">
+            <div className="flex items-center gap-1 bg-white/10 px-1.5 py-0.5 rounded-md border border-white/10" title={`Anlık Yağış İhtimali: %${weather.rainChance} (Günün En Yüksek Beklentisi: %${weather.rainChanceMax})`}>
               <Umbrella className="w-3.5 h-3.5 text-sky-300" strokeWidth={1.75} />
-              <span>%{weather.rainChance}</span>
+              <span className="font-bold text-sky-200">Yağış %{weather.rainChance}</span>
             </div>
-            <div className="w-1 h-1 rounded-full bg-white/30"></div>
-            <div className="flex items-center gap-1" title="Bağıl Nem">
+            <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5" title={`Bağıl Nem (Havadaki Nem Oranı): %${weather.humidity}`}>
               <Droplets className="w-3.5 h-3.5 text-blue-300" strokeWidth={1.75} />
-              <span>%{weather.humidity}</span>
+              <span>Nem %{weather.humidity}</span>
             </div>
-            <div className="w-1 h-1 rounded-full bg-white/30"></div>
-            <div className="flex items-center gap-1" title="Rüzgar Hızı">
+            <div className="hidden xs:flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-md border border-white/5" title={`Rüzgar Hızı: ${Math.round(weather.windSpeed)} km/s`}>
               <Wind className="w-3.5 h-3.5 text-stone-300" strokeWidth={1.75} />
               <span>{Math.round(weather.windSpeed)} km/s</span>
             </div>

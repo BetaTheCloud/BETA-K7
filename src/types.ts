@@ -81,10 +81,13 @@ export interface AcademicStaffMember {
   facultyName: string;
   facultyShortName: string;
   department: string;
+  academicDiscipline?: string;
+  administrativeDuty?: string;
   unitCategory?: StaffUnitCategory;
   email: string;
   image?: string;
   phone?: string;
+  officeLocation?: string;
   sourceUrl: string;
   yokUrl?: string;
   scholarUrl?: string;
