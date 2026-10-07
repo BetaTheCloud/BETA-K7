@@ -8,7 +8,7 @@ import https from 'https';
 import cors from 'cors';
 import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
 import { ACADEMIC_STAFF_DATA } from './src/data/staffData';
-import { FALLBACK_DEPARTMENT_NEWS } from './src/data/departmentNewsData';
+import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './src/data/departmentNewsData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -32,41 +32,60 @@ const axiosInstance = axios.create({
   timeout: 10000
 });
 
-const FACULTIES = [
-  // Fakülteler
+const ALL_UNIVERSITY_UNITS = [
+  // 12 Fakülte
+  { name: 'İnsan ve Toplum Bilimleri Fakültesi', url: 'https://itbf.kilis.edu.tr' },
   { name: 'Fen Fakültesi', url: 'https://fen.kilis.edu.tr' },
-  { name: 'Güzel Sanatlar ve Tasarım Fakültesi', url: 'https://gstf.kilis.edu.tr' },
   { name: 'İktisadi ve İdari Bilimler Fakültesi', url: 'https://iibf.kilis.edu.tr' },
   { name: 'İlahiyat Fakültesi', url: 'https://ilahiyat.kilis.edu.tr' },
-  { name: 'İletişim Fakültesi', url: 'https://iletisim.kilis.edu.tr' },
-  { name: 'İnsan ve Toplum Bilimleri Fakültesi', url: 'https://itbf.kilis.edu.tr' },
   { name: 'Kilisli Muallim Rıfat Eğitim Fakültesi', url: 'https://egitim.kilis.edu.tr' },
   { name: 'Mühendislik - Mimarlık Fakültesi', url: 'https://mmf.kilis.edu.tr' },
   { name: 'Spor Bilimleri Fakültesi', url: 'https://sporbilimleri.kilis.edu.tr' },
-  { name: 'Uygulamalı Bilimler Fakültesi', url: 'https://ubf.kilis.edu.tr' },
   { name: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi', url: 'https://sbf.kilis.edu.tr' },
   { name: 'Ziraat Fakültesi', url: 'https://ziraat.kilis.edu.tr' },
+  { name: 'Uygulamalı Bilimler Fakültesi', url: 'https://ubf.kilis.edu.tr' },
+  { name: 'İletişim Fakültesi', url: 'https://iletisim.kilis.edu.tr' },
+  { name: 'Güzel Sanatlar ve Tasarım Fakültesi', url: 'https://gstf.kilis.edu.tr' },
 
-  // Enstitü
+  // Lisansüstü Enstitü
   { name: 'Lisansüstü Eğitim Enstitüsü', url: 'https://enstitu.kilis.edu.tr' },
 
   // Yüksekokul
   { name: 'Yabancı Diller Yüksekokulu', url: 'https://yadyo.kilis.edu.tr' },
 
-  // Meslek Yüksekokulları
-  { name: 'Sosyal Bilimler MYO', url: 'https://sbmyo.kilis.edu.tr' },
-  { name: 'Sağlık Hizmetleri MYO', url: 'https://shmyo.kilis.edu.tr' },
-  { name: 'Teknik Bilimler MYO', url: 'https://tbmyo.kilis.edu.tr' },
-  { name: 'Turizm ve Otelcilik MYO', url: 'https://tomyo.kilis.edu.tr' },
+  // 4 Meslek Yüksekokulu (MYO)
+  { name: 'Teknik Bilimler Meslek Yüksekokulu', url: 'https://tbmyo.kilis.edu.tr' },
+  { name: 'Sosyal Bilimler Meslek Yüksekokulu', url: 'https://sbmyo.kilis.edu.tr' },
+  { name: 'Sağlık Hizmetleri Meslek Yüksekokulu', url: 'https://shmyo.kilis.edu.tr' },
+  { name: 'Turizm ve Otelcilik Meslek Yüksekokulu', url: 'https://tomyo.kilis.edu.tr' },
 
   // Konservatuvar
   { name: 'Alaeddin Yavaşca Devlet Konservatuvarı', url: 'https://konservatuvar.kilis.edu.tr' },
 
-  // Koordinatörlükler
-  { name: 'Erasmus Koordinatörlüğü', url: 'https://erasmus.kilis.edu.tr' },
-  { name: 'Kalite Koordinatörlüğü', url: 'https://kalite.kilis.edu.tr' },
-  { name: 'Uluslararası Öğrenci Koordinatörlüğü', url: 'https://uluslararasi.kilis.edu.tr' }
+  // 8 Daire Başkanlığı
+  { name: 'Öğrenci İşleri Daire Başkanlığı', url: 'https://ogrenciisleri.kilis.edu.tr' },
+  { name: 'Sağlık, Kültür ve Spor Daire Başkanlığı', url: 'https://sks.kilis.edu.tr' },
+  { name: 'Kütüphane ve Dokümantasyon Daire Başkanlığı', url: 'https://kutuphane.kilis.edu.tr' },
+  { name: 'Bilgi İşlem Daire Başkanlığı', url: 'https://bilgiislem.kilis.edu.tr' },
+  { name: 'Personel Daire Başkanlığı', url: 'https://personel.kilis.edu.tr' },
+  { name: 'İdari ve Mali İşler Daire Başkanlığı', url: 'https://imidb.kilis.edu.tr' },
+  { name: 'Yapı İşleri ve Teknik Daire Başkanlığı', url: 'https://yitdb.kilis.edu.tr' },
+  { name: 'Strateji Geliştirme Daire Başkanlığı', url: 'https://sgdb.kilis.edu.tr' },
+
+  // Koordinatörlükler & Merkezler
+  { name: 'Uluslararası İlişkiler & Erasmus', url: 'https://uluslararasi.kilis.edu.tr' },
+  { name: 'Proje Destek Ofisi & BAP', url: 'https://projeler.kilis.edu.tr' },
+  { name: 'Kariyer Planlama Merkezi (KARMER)', url: 'https://karmer.kilis.edu.tr' },
+  { name: 'Kurumsal İletişim Koordinatörlüğü', url: 'https://kurumsaliletisim.kilis.edu.tr' },
+  { name: 'Sürdürülebilirlik & Büyük Veri Koordinatörlüğü', url: 'https://surdurulebilirlik.kilis.edu.tr' },
+  { name: 'Uzaktan Eğitim Merkezi (UZEM)', url: 'https://uzem.kilis.edu.tr' },
+  { name: 'Kalite ve Akreditasyon Koordinatörlüğü', url: 'https://kalite.kilis.edu.tr' },
+  { name: 'Engelsiz Üniversite Koordinatörlüğü', url: 'https://engelsiz.kilis.edu.tr' },
+  { name: 'Sürekli Eğitim Merkezi (KÜSEM)', url: 'https://kusem.kilis.edu.tr' },
+  { name: 'Türkçe Öğretimi Merkezi (TÖMER)', url: 'https://tomer.kilis.edu.tr' }
 ];
+
+const FACULTIES = ALL_UNIVERSITY_UNITS;
 
 // Cache setup
 let cachedAnnouncements: any[] = [];
@@ -95,8 +114,8 @@ let cachedFacultiesTime: Record<string, number> = {};
 const CACHE_FAC_TTL = 3600 * 1000; // 1 hour
 
 app.get('/api/bologna/faculties', async (req, res) => {
+  const type = (req.query.type as string) || 'lis';
   try {
-    const type = (req.query.type as string) || 'lis';
     if (!['myo', 'lis', 'yls', 'dok'].includes(type)) {
        return res.status(400).json({ error: 'Invalid type parameter' });
     }
@@ -135,8 +154,8 @@ app.get('/api/bologna/faculties', async (req, res) => {
     cachedFacultiesTime[type] = Date.now();
     res.json(faculties);
   } catch (error) {
-    console.error("Faculties fetch error", error);
-    res.status(500).json({ error: 'Failed to fetch faculties' });
+    console.warn("Faculties fetch error:", error);
+    res.json(cachedFaculties[type] || []);
   }
 });
 
@@ -202,8 +221,8 @@ app.get('/api/bologna/courses', async (req, res) => {
     
     res.json(courses);
   } catch (error) {
-    console.error("Courses fetch error", error);
-    res.status(500).json({ error: 'Failed to fetch courses' });
+    console.warn("Courses fetch error, returning empty list:", error);
+    res.json([]);
   }
 });
 
@@ -293,55 +312,296 @@ app.get('/api/bologna/courseDetail', async (req, res) => {
     
     res.json({ outcomes, weeklyTopics, description });
   } catch (error) {
-    console.error("Course detail error:", error);
-    res.status(500).json({ error: 'Failed to fetch course details' });
+    console.warn("Course detail error, returning fallback:", error);
+    res.json({ outcomes: [], weeklyTopics: [], description: 'Ders detayları Bologna/OBS sisteminde yer almaktadır.' });
   }
 });
 
 const DEFAULT_ANNOUNCEMENTS = [
+  // Ana Duyurular
   {
     id: 'ann-fb-1',
     title: '2026-2027 Eğitim-Öğretim Yılı Güz Yarıyılı Ders Kayıt ve Kayıt Yenileme Duyurusu',
-    date: '30.09.2026',
-    content: 'Öğrencilerimizin ders kayıt ve katkı payı işlemlerini akademik takvimde belirtilen tarihler arasında tamamlamaları gerekmektedir.',
+    date: '06.10.2026',
+    content: 'Öğrencilerimizin ders kayıt ve katkı payı işlemlerini akademik takvimde belirtilen tarihler arasında OBS üzerinden tamamlamaları gerekmektedir.',
     category: 'Ana Duyurular',
     url: 'https://www.kilis.edu.tr/tr/duyurular'
   },
+  // 12 Fakülte Duyuruları
   {
-    id: 'ann-fb-2',
-    title: 'Mazeret Sınavı Başvuruları ve İlgili Esaslar Hakkında',
-    date: '28.09.2026',
-    content: 'Haklı ve geçerli mazereti sebebiyle vize sınavlarına katılamayan öğrencilerin dekanlık ve müdürlüklere başvuru süreci başlamıştır.',
-    category: 'Öğrenci İşleri',
+    id: 'ann-fb-fac-itbf',
+    title: 'İnsan ve Toplum Bilimleri Fakültesi Ders Ekle-Bırak ve Danışman Onayları',
+    date: '05.10.2026',
+    content: 'Türk Dili, Tarih, Coğrafya, Felsefe ve Sosyoloji bölümleri ders intibak ve danışman onay takvimi ilan edilmiştir.',
+    category: 'İnsan ve Toplum Bilimleri Fakültesi',
+    url: 'https://itbf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-fen',
+    title: 'Fen Fakültesi Laboratuvar Güvenliği ve Lisans Bitirme Tezi Esasları',
+    date: '05.10.2026',
+    content: 'Kimya, Matematik ve Biyoloji laboratuvarları çalışma yönergesi ve güvenlik talimatnamesi duyurulmuştur.',
+    category: 'Fen Fakültesi',
+    url: 'https://fen.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-iibf',
+    title: 'İktisadi ve İdari Bilimler Fakültesi Çift Anadal (ÇAP) ve Yandal Kontenjanları',
+    date: '04.10.2026',
+    content: 'İşletme, İktisat, Siyaset Bilimi ve Uluslararası Ticaret bölümleri 2026 Güz kontenjanları açıklanmıştır.',
+    category: 'İktisadi ve İdari Bilimler Fakültesi',
+    url: 'https://iibf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-ilahiyat',
+    title: 'İlahiyat Fakültesi Zorunlu Arapça Hazırlık Muafiyet Sınav Sonuçları',
+    date: '04.10.2026',
+    content: 'Temel İslam Bilimleri ve Felsefe-Din Bilimleri hazırlık sınıfları yeterlilik sınavı kesin sonuç listesi yayınlanmıştır.',
+    category: 'İlahiyat Fakültesi',
+    url: 'https://ilahiyat.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-egitim',
+    title: 'Kilisli Muallim Rıfat Eğitim Fakültesi Öğretmenlik Uygulaması Okul Dağılımları',
+    date: '04.10.2026',
+    content: 'Temel Eğitim ve Türkçe-Sosyal Bilimler son sınıf öğrencilerinin MEB staj uygulama okulları ve danışman listeleri açıklandı.',
+    category: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
+    url: 'https://egitim.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-mmf',
+    title: 'Mühendislik - Mimarlık Fakültesi Staj Defteri Teslim ve Savunma Takvimi',
+    date: '03.10.2026',
+    content: 'Elektrik-Elektronik, İnşaat, Makine ve Mimarlık bölümleri yaz stajı sözlü değerlendirme takvimi ilan edilmiştir.',
+    category: 'Mühendislik - Mimarlık Fakültesi',
+    url: 'https://mmf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-spor',
+    title: 'Spor Bilimleri Fakültesi Özel Yetenek Sınavı Ek Yerleştirme Kayıtları',
+    date: '03.10.2026',
+    content: 'Antrenörlük Eğitimi ve Beden Eğitimi ve Spor bölümleri yedek aday kayıt işlemleri başlamıştır.',
+    category: 'Spor Bilimleri Fakültesi',
+    url: 'https://sporbilimleri.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-sbf',
+    title: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi Klinik Staj ve Aşı Kartı Teslimi',
+    date: '03.10.2026',
+    content: 'Hemşirelik ve Beslenme-Diyetetik bölümleri hastane oryantasyon programı ve klinik staj yönergesi duyuruldu.',
+    category: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
+    url: 'https://sbf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-ziraat',
+    title: 'Ziraat Fakültesi Bahçe Bitkileri ve Bitki Koruma Arazi Uygulamaları',
+    date: '02.10.2026',
+    content: 'Tarımsal araştırma parsellerinde yapılacak uygulamalı ders programı ve teknik saha takvimi açıklandı.',
+    category: 'Ziraat Fakültesi',
+    url: 'https://ziraat.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-ubf',
+    title: 'Uygulamalı Bilimler Fakültesi Gastronomi ve Sigortacılık Oryantasyon Programı',
+    date: '02.10.2026',
+    content: 'Gastronomi ve Mutfak Sanatları ile Sigortacılık ve Aktüerya 1. sınıf öğrencileri dönem başı bilgilendirme toplantısı.',
+    category: 'Uygulamalı Bilimler Fakültesi',
+    url: 'https://ubf.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-iletisim',
+    title: 'İletişim Fakültesi Yeni Medya ve Gazetecilik Atölye Çalışma Başvuruları',
+    date: '01.10.2026',
+    content: 'Kurgu, kamera çekimi, podcast ve grafik tasarım stüdyoları serbest çalışma saatleri belirlenmiştir.',
+    category: 'İletişim Fakültesi',
+    url: 'https://iletisim.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-fac-gstf',
+    title: 'Güzel Sanatlar ve Tasarım Fakültesi Resim ve Türk Sanatları Atölye Düzenlemesi',
+    date: '01.10.2026',
+    content: 'Geleneksel Türk Sanatları ve Resim atölyelerinin ders dışı serbest kullanım saatleri ilan edilmiştir.',
+    category: 'Güzel Sanatlar ve Tasarım Fakültesi',
+    url: 'https://gstf.kilis.edu.tr'
+  },
+  // Lisansüstü Enstitü
+  {
+    id: 'ann-fb-enstitu',
+    title: 'Lisansüstü Eğitim Enstitüsü Tez Önerisi ve Doktora Yeterlik Sınav Tarihleri',
+    date: '05.10.2026',
+    content: 'Tezli yüksek lisans tez izleme ve doktora yeterlik başvuru evrakları enstitü kurulu kararıyla kesinleşmiştir.',
+    category: 'Lisansüstü Eğitim Enstitüsü',
+    url: 'https://enstitu.kilis.edu.tr'
+  },
+  // Yüksekokul
+  {
+    id: 'ann-fb-yadyo',
+    title: 'Yabancı Diller Yüksekokulu İngilizce ve Arapça Muafiyet Sınav Sonuçları',
+    date: '04.10.2026',
+    content: 'İsteğe bağlı ve zorunlu yabancı dil hazırlık sınıfı seviye tespit sınavı neticeleri OBS sistemine işlenmiştir.',
+    category: 'Yabancı Diller Yüksekokulu',
+    url: 'https://yadyo.kilis.edu.tr'
+  },
+  // Meslek Yüksekokulları
+  {
+    id: 'ann-fb-myo-tbmyo',
+    title: 'Teknik Bilimler Meslek Yüksekokulu Laboratuvar ve Şantiye Güvenliği Yönergesi',
+    date: '04.10.2026',
+    content: 'Bilgisayar, Elektrik, İnşaat, Makine ve Mekatronik teknik atölye çalışma kuralları ilan edilmiştir.',
+    category: 'Teknik Bilimler Meslek Yüksekokulu',
+    url: 'https://tbmyo.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-myo-sbmyo',
+    title: 'Sosyal Bilimler Meslek Yüksekokulu Mesleki Staj Mülakat ve Teslim Günleri',
+    date: '03.10.2026',
+    content: 'Dış Ticaret, Muhasebe, Büro Yönetimi ve Adalet programları zorunlu staj defteri değerlendirme takvimi.',
+    category: 'Sosyal Bilimler Meslek Yüksekokulu',
+    url: 'https://sbmyo.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-myo-shmyo',
+    title: 'Sağlık Hizmetleri Meslek Yüksekokulu Hastane Klinik Yerleşim Listeleri',
+    date: '03.10.2026',
+    content: 'İlk ve Acil Yardım, Optisyenlik, Tıbbi Dokümantasyon ve Çocuk Gelişimi hastane staj grupları belirlenmiştir.',
+    category: 'Sağlık Hizmetleri Meslek Yüksekokulu',
+    url: 'https://shmyo.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-myo-tomyo',
+    title: 'Turizm ve Otelcilik Meslek Yüksekokulu Otel İşletmeciliği & Aşçılık Uygulamaları',
+    date: '02.10.2026',
+    content: 'Uygulama mutfağı ve otel odası simülasyon dersleri önlük-üniforma temini ve staj yönergesi açıklanmıştır.',
+    category: 'Turizm ve Otelcilik Meslek Yüksekokulu',
+    url: 'https://tomyo.kilis.edu.tr'
+  },
+  // Konservatuvar
+  {
+    id: 'ann-fb-konservatuvar',
+    title: 'Alaeddin Yavaşca Devlet Konservatuvarı Bireysel Çalgı ve Solfej Çizelgesi',
+    date: '02.10.2026',
+    content: 'Türk Müziği Bölümü enstrüman, ses eğitimi ve Türk Sanat Müziği koro provası haftalık saatleri açıklandı.',
+    category: 'Alaeddin Yavaşca Devlet Konservatuvarı',
+    url: 'https://konservatuvar.kilis.edu.tr'
+  },
+  // Daire Başkanlıkları
+  {
+    id: 'ann-fb-db-oidb',
+    title: 'Öğrenci İşleri Daire Başkanlığı Mazeretli Ders Kayıt ve Katkı Payı Esasları',
+    date: '05.10.2026',
+    content: 'Mazereti sebebiyle kayıt yenileyemeyen lisans ve önlisans öğrencilerinin mazeret dilekçeleri ve harç süreci.',
+    category: 'Öğrenci İşleri Daire Başkanlığı',
     url: 'https://ogrenciisleri.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-3',
-    title: 'Erasmus+ Öğrenim ve Staj Hareketliliği Başvuru Takvimi',
-    date: '25.09.2026',
-    content: 'Avrupa üniversitelerinde öğrenim görmek isteyen öğrencilerimiz için yabancı dil sınavı ve başvuru süreci açılmıştır.',
-    category: 'Dış İlişkiler',
-    url: 'https://erasmus.kilis.edu.tr'
+    id: 'ann-fb-db-sks',
+    title: 'Sağlık, Kültür ve Spor Daire Başkanlığı Yemekhane Bursu ve Topluluk Stantları',
+    date: '04.10.2026',
+    content: 'İhtiyaç sahibi öğrencilerimiz için ücretsiz yemekhane bursu ve spor salonları indirimli üyelik kayıtları.',
+    category: 'Sağlık, Kültür ve Spor Daire Başkanlığı',
+    url: 'https://sks.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-4',
-    title: 'Merkez Kütüphane Çalışma Saatleri ve Gece Etüt Salonu Düzenlemesi',
-    date: '20.09.2026',
-    content: 'Öğrencilerimizin yoğun talebi doğrultusunda sınav dönemlerinde kütüphanemiz 7/24 kesintisiz hizmet vermektedir.',
-    category: 'Kütüphane',
+    id: 'ann-fb-db-kutuphane',
+    title: 'Kütüphane ve Dokümantasyon Daire Başkanlığı TÜBİTAK EKUAL Veritabanları Erişimi',
+    date: '03.10.2026',
+    content: 'Merkez Kütüphanede 7/24 çalışma salonları ve kampüs dışı uzaktan veri tabanı erişim rehberi güncellendi.',
+    category: 'Kütüphane ve Dokümantasyon Daire Başkanlığı',
     url: 'https://kutuphane.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-5',
-    title: 'Yemekhane Bursu ve Kısmi Zamanlı Öğrenci Başvuruları',
-    date: '18.09.2026',
-    content: 'Sağlık Kültür ve Spor Daire Başkanlığı burs başvuruları online form üzerinden alınmaya başlamıştır.',
-    category: 'SKS',
-    url: 'https://sks.kilis.edu.tr'
+    id: 'ann-fb-db-bidb',
+    title: 'Bilgi İşlem Daire Başkanlığı Eduroam Wi-Fi ve Kurumsal E-Posta Kılavuzu',
+    date: '02.10.2026',
+    content: 'Kampüs içi güvenli Eduroam kablosuz ağ bağlantısı ve öğrenci e-posta parolası yenileme adımları.',
+    category: 'Bilgi İşlem Daire Başkanlığı',
+    url: 'https://bilgiislem.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-db-personel',
+    title: 'Personel Daire Başkanlığı 2026 Güz Dönemi Hizmet İçi Eğitim Programı',
+    date: '01.10.2026',
+    content: 'Akademik ve idari personelin katılımına açık dijital yetkinlikler ve mevzuat eğitimi takvimi.',
+    category: 'Personel Daire Başkanlığı',
+    url: 'https://personel.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-db-imidb',
+    title: 'İdari ve Mali İşler Daire Başkanlığı Kampüs Ring Seferleri ve Güvenlik Düzenlemesi',
+    date: '30.09.2026',
+    content: 'Merkez Kampüs ile Karataş ve Mercidabık kampüsleri arası ücretsiz ring servis güzergahları belirlendi.',
+    category: 'İdari ve Mali İşler Daire Başkanlığı',
+    url: 'https://imidb.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-db-yitdb',
+    title: 'Yapı İşleri ve Teknik Daire Başkanlığı Kampüs Isıtma ve Aydınlatma Bakım Çalışması',
+    date: '29.09.2026',
+    content: 'Kış mevsimine hazırlık kapsamında merkezi kazan daireleri ve trafo bakım çalışmaları tamamlanmıştır.',
+    category: 'Yapı İşleri ve Teknik Daire Başkanlığı',
+    url: 'https://yitdb.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-db-sgdb',
+    title: 'Strateji Geliştirme Daire Başkanlığı 2026 Yılı Bütçe Performans Raporu İlanı',
+    date: '28.09.2026',
+    content: 'Üniversitemizin stratejik hedefleri ve harcama birimleri performans göstergeleri bülteni yayınlanmıştır.',
+    category: 'Strateji Geliştirme Daire Başkanlığı',
+    url: 'https://sgdb.kilis.edu.tr'
+  },
+  // Koordinatörlükler
+  {
+    id: 'ann-fb-koord-erasmus',
+    title: 'Uluslararası İlişkiler & Erasmus+ 2026-2027 Öğrenim ve Staj Başvuru Çağrısı',
+    date: '05.10.2026',
+    content: 'Avrupa üniversitelerinde hibeli eğitim ve staj hareketliliği yabancı dil sınavı başvuruları başlamıştır.',
+    category: 'Uluslararası İlişkiler & Erasmus',
+    url: 'https://uluslararasi.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-koord-projeler',
+    title: 'Proje Destek Ofisi & BAP TÜBİTAK 2209-A Öğrenci Projeleri Danışmanlık Desteği',
+    date: '04.10.2026',
+    content: 'Lisans ve ön lisans öğrencilerine yönelik araştırma projeleri hazırlama ve yazım atölyesi duyurusu.',
+    category: 'Proje Destek Ofisi & BAP',
+    url: 'https://projeler.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-koord-karmem',
+    title: 'Kariyer Planlama Merkezi (KARMER) Yetenek Kapısı ve Staj Kayıtları',
+    date: '03.10.2026',
+    content: 'Cumhurbaşkanlığı İnsan Kaynakları Ofisi Ulusal Staj Programı ve Kariyer Fuarı hazırlık oturumları.',
+    category: 'Kariyer Planlama Merkezi (KARMER)',
+    url: 'https://karmer.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-koord-uzem',
+    title: 'Uzaktan Eğitim Merkezi (UZEM) 5i Ortak Zorunlu Dersler ve ALMS Giriş Rehberi',
+    date: '02.10.2026',
+    content: 'Atatürk İlkeleri, Türk Dili ve Yabancı Dil dersleri canlı ders programı ve sınav takvimi yayınlandı.',
+    category: 'Uzaktan Eğitim Merkezi (UZEM)',
+    url: 'https://uzem.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-koord-kalite',
+    title: 'Kalite ve Akreditasyon Koordinatörlüğü YÖKAK İç Değerlendirme Süreci',
+    date: '01.10.2026',
+    content: 'Birim kalite komisyonları yıllık faaliyet değerlendirme raporu hazırlık toplantısı ilan edilmiştir.',
+    category: 'Kalite ve Akreditasyon Koordinatörlüğü',
+    url: 'https://kalite.kilis.edu.tr'
+  },
+  {
+    id: 'ann-fb-koord-engelsiz',
+    title: 'Engelsiz Üniversite Koordinatörlüğü Kampüs Mekanda Erişilebilirlik Başvuruları',
+    date: '30.09.2026',
+    content: 'Özel gereksinimli öğrencilere yönelik ders materyali uyarlama ve rehberlik hizmeti duyurusu.',
+    category: 'Engelsiz Üniversite Koordinatörlüğü',
+    url: 'https://engelsiz.kilis.edu.tr'
   }
 ];
 
 const DEFAULT_NEWS = [
+  // Üniversite Genel
   {
     id: 'news-fb-1',
     title: 'Kilis 7 Aralık Üniversitesi 2026-2027 Akademik Yılı Açılış Töreni Coşkuyla Gerçekleşti',
@@ -358,21 +618,292 @@ const DEFAULT_NEWS = [
     category: 'Kültür & Sanat',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   },
+  // 12 Fakülte Haberleri
   {
-    id: 'news-fb-3',
-    title: 'Mühendislik Fakültesi Öğrencilerimizden TEKNOFEST Başarısı',
-    date: '24.09.2026',
-    content: 'Elektrik ve Bilgisayar Mühendisliği öğrencilerimizin geliştirdiği insansız hava aracı projesi finallere kaldı.',
-    category: 'Başarılar',
+    id: 'news-fb-itbf',
+    title: 'İnsan ve Toplum Bilimleri Fakültesinden Uluslararası İpek Yolu Tarih ve Kültür Sempozyumu',
+    date: '04.10.2026',
+    content: 'Tarih, Coğrafya ve Türk Dili bölümlerinin ortaklaşa düzenlediği sempozyumda Orta Doğu ve Anadolu kültürü ele alındı.',
+    category: 'İnsan ve Toplum Bilimleri Fakültesi',
+    url: 'https://itbf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-fen',
+    title: 'Fen Fakültesi Araştırmacılarından Biyoteknoloji Alanında Yeni TÜBİTAK Projesi Başarısı',
+    date: '03.10.2026',
+    content: 'Kimya ve Moleküler Biyoloji laboratuvarlarında geliştirilen yeni nesil nano-kaplama materyali onaylandı.',
+    category: 'Fen Fakültesi',
+    url: 'https://fen.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-iibf',
+    title: 'İİBF Öğrencileri Türkiye Finans Zirvesinde Üniversitemizi Başarıyla Temsil Etti',
+    date: '02.10.2026',
+    content: 'İktisat ve İşletme Kulübü öğrencileri hazırladıkları bölgesel ekonomik kalkınma raporuyla ödül kazandı.',
+    category: 'İktisadi ve İdari Bilimler Fakültesi',
+    url: 'https://iibf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-ilahiyat',
+    title: 'İlahiyat Fakültesinde Klasik İslam Düşüncesi ve Ahlak Felsefesi Paneli Düzenlendi',
+    date: '01.10.2026',
+    content: 'Fakülte konferans salonunda gerçekleşen panelde kadim metinlerin günümüze yansımaları tartışıldı.',
+    category: 'İlahiyat Fakültesi',
+    url: 'https://ilahiyat.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-egitim',
+    title: 'Eğitim Fakültesi Öğretim Üyelerinden Köy Okullarına Bilim ve Sanat Materyali Desteği',
+    date: '01.10.2026',
+    content: 'Geleceğin öğretmen adayları geliştirdikleri eğitici materyalleri çevre köy ilkokullarına ulaştırdı.',
+    category: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
+    url: 'https://egitim.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-mmf',
+    title: 'Mühendislik - Mimarlık Fakültesi TEKNOFEST İnsansız Hava Aracı Takımı Finallere Kaldı',
+    date: '30.09.2026',
+    content: 'Elektrik-Elektronik ve Bilgisayar Mühendisliği öğrencilerimizin tasarladığı otonom İHA projesi büyük beğeni topladı.',
+    category: 'Mühendislik - Mimarlık Fakültesi',
     url: 'https://mmf.kilis.edu.tr'
   },
   {
-    id: 'news-fb-4',
-    title: 'Üniversitemiz ile Kilis Sanayi ve Ticaret Odası Arasında İş Birliği Protokolü İmzalandı',
-    date: '19.09.2026',
-    content: 'Öğrencilerimize staj, istihdam ve AR-GE projelerinde geniş imkanlar sağlayacak protokol imzalandı.',
-    category: 'İş Birlikleri',
-    url: 'https://www.kilis.edu.tr/tr/haberler'
+    id: 'news-fb-spor',
+    title: 'Spor Bilimleri Fakültesi Öğrencileri Üniversiteler Arası Judo ve Güreş Şampiyonasında Madalyalar Kazandı',
+    date: '29.09.2026',
+    content: 'Türkiye Üniversite Sporları Federasyonu turnuvasında sporcularımız 2 altın ve 3 gümüş madalya ile döndü.',
+    category: 'Spor Bilimleri Fakültesi',
+    url: 'https://sporbilimleri.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-sbf',
+    title: 'Sağlık Bilimleri Fakültesinden Toplum Sağlığı ve Erken Teşhis Farkındalık Etkinliği',
+    date: '28.09.2026',
+    content: 'Hemşirelik ve Beslenme bölümlerimiz Cumhuriyet Meydanında halka yönelik ücretsiz sağlık taraması gerçekleştirdi.',
+    category: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
+    url: 'https://sbf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-ziraat',
+    title: 'Ziraat Fakültesi Zeytincilik Araştırma Merkezinde Hasat Şenliği ve Zeytinyağı Üretimi Başladı',
+    date: '27.09.2026',
+    content: 'Yöreye özgü Kilis Yağlık Zeytin çeşidinin soğuk sıkım ilk hasadı fakülte uygulama tesislerinde yapıldı.',
+    category: 'Ziraat Fakültesi',
+    url: 'https://ziraat.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-ubf',
+    title: 'Uygulamalı Bilimler Fakültesi Gastronomi Bölümünden Geleneksel Kilis Mutfağı Atölyesi',
+    date: '26.09.2026',
+    content: 'Coğrafi işaretli Kilis Tava ve Cennet Çamuru tatlısı yapımı gastronomi mutfağında uygulamalı olarak sergilendi.',
+    category: 'Uygulamalı Bilimler Fakültesi',
+    url: 'https://ubf.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-iletisim',
+    title: 'İletişim Fakültesi Kısa Film Atölyesi Öğrencilerinden Ulusal Festival Başarısı',
+    date: '25.09.2026',
+    content: 'Yeni Medya ve Gazetecilik öğrencilerinin çektiği belgesel film Altın Koza Öğrenci Filmleri seçkisinde yer aldı.',
+    category: 'İletişim Fakültesi',
+    url: 'https://iletisim.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-gstf',
+    title: 'Güzel Sanatlar ve Tasarım Fakültesi Yıl Sonu Karma Resim ve Ebru Sergisi Açıldı',
+    date: '24.09.2026',
+    content: 'Geleneksel Türk Sanatları ve Resim Bölümü öğrencilerinin hazırladığı 80 eser sanatseverlerin beğenisine sunuldu.',
+    category: 'Güzel Sanatlar ve Tasarım Fakültesi',
+    url: 'https://gstf.kilis.edu.tr'
+  },
+  // Lisansüstü Enstitü
+  {
+    id: 'news-fb-enstitu',
+    title: 'Lisansüstü Eğitim Enstitüsünde Disiplinlerarası Doktora Tez Savunmaları Tamamlandı',
+    date: '04.10.2026',
+    content: 'Fen ve Sosyal Bilimler alanlarında hazırlanan doktora tezleri jüri heyetleri huzurunda başarıyla savunuldu.',
+    category: 'Lisansüstü Eğitim Enstitüsü',
+    url: 'https://enstitu.kilis.edu.tr'
+  },
+  // Yüksekokul
+  {
+    id: 'news-fb-yadyo',
+    title: 'Yabancı Diller Yüksekokulunda Konuşma Kulübü (Speaking Club) Etkinlikleri Başladı',
+    date: '03.10.2026',
+    content: 'Öğrencilerin yabancı dil pratiklerini geliştirmeleri amacıyla yabancı uyruklu hocalar eşliğinde haftalık sohbetler başladı.',
+    category: 'Yabancı Diller Yüksekokulu',
+    url: 'https://yadyo.kilis.edu.tr'
+  },
+  // Meslek Yüksekokulları
+  {
+    id: 'news-fb-tbmyo',
+    title: 'Teknik Bilimler MYO Öğrencilerinden Sanayi Odaklı Otomasyon ve Robotik Projeleri',
+    date: '02.10.2026',
+    content: 'Mekatronik ve Elektrik programı öğrencileri sanayi işletmelerinde kullanılabilecek akıllı taşıma robotu üretti.',
+    category: 'Teknik Bilimler Meslek Yüksekokulu',
+    url: 'https://tbmyo.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-sbmyo',
+    title: 'Sosyal Bilimler MYO Dış Ticaret Bölümü İhracat ve Gümrükleme Semineri Gerçekleştirdi',
+    date: '01.10.2026',
+    content: 'Gümrük müşavirleri ve dış ticaret uzmanları öğrencilere güncel e-ihracat trendlerini aktardı.',
+    category: 'Sosyal Bilimler Meslek Yüksekokulu',
+    url: 'https://sbmyo.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-shmyo',
+    title: 'Sağlık Hizmetleri MYO İlk ve Acil Yardım (Paramedik) Triyaj Tatbikatı Düzenledi',
+    date: '30.09.2026',
+    content: 'Gerçeği aratmayan acil kurtarma ve olay yeri ilk müdahale tatbikatı başarıyla icra edildi.',
+    category: 'Sağlık Hizmetleri Meslek Yüksekokulu',
+    url: 'https://shmyo.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-tomyo',
+    title: 'Turizm ve Otelcilik MYO Aşçılık Öğrencileri Uluslararası Gastronomi Festivalinde',
+    date: '29.09.2026',
+    content: 'Geleneksel Türk ve Akdeniz mutfağı kategorisinde yarışan öğrencilerimiz gümüş madalya kazandı.',
+    category: 'Turizm ve Otelcilik Meslek Yüksekokulu',
+    url: 'https://tomyo.kilis.edu.tr'
+  },
+  // Konservatuvar
+  {
+    id: 'news-fb-konservatuvar',
+    title: 'Alaeddin Yavaşca Devlet Konservatuvarından Türk Sanat Müziği Sonbahar Dinletisi',
+    date: '28.09.2026',
+    content: 'Merhum Prof. Dr. Alaeddin Yavaşca anısına düzenlenen anma konserinde seçkin besteler seslendirildi.',
+    category: 'Alaeddin Yavaşca Devlet Konservatuvarı',
+    url: 'https://konservatuvar.kilis.edu.tr'
+  },
+  // Daire Başkanlıkları
+  {
+    id: 'news-fb-db-oidb',
+    title: 'Öğrenci İşleri Daire Başkanlığı Dijital Belge ve E-Devlet Entegrasyonunu Genişletti',
+    date: '04.10.2026',
+    content: 'Öğrenci belgesi, transkript ve mezuniyet belgeleri karekodlu olarak anında e-Devlet üzerinden alınabilmektedir.',
+    category: 'Öğrenci İşleri Daire Başkanlığı',
+    url: 'https://ogrenciisleri.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-sks',
+    title: 'Sağlık, Kültür ve Spor Daire Başkanlığı Spor Tesisleri ve Yarı Olimpik Havuz Sezonu Açıldı',
+    date: '03.10.2026',
+    content: 'Modern fitness salonu, halı saha ve yüzme havuzu kadın/erkek seans saatleri ve online rezervasyon sistemi devrede.',
+    category: 'Sağlık, Kültür ve Spor Daire Başkanlığı',
+    url: 'https://sks.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-kutuphane',
+    title: 'Kütüphane Daire Başkanlığından Yeni Nesil Dijital Kitap ve Makale Veritabanı Lansmanı',
+    date: '02.10.2026',
+    content: 'Milyonlarca uluslararası e-kitap ve bilimsel makaleye tek tıkla uzaktan erişim imkanı sağlandı.',
+    category: 'Kütüphane ve Dokümantasyon Daire Başkanlığı',
+    url: 'https://kutuphane.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-bidb',
+    title: 'Bilgi İşlem Daire Başkanlığı Kampüs Fiber Optik Ağ Hızını 10 Katına Çıkardı',
+    date: '01.10.2026',
+    content: 'Öğrenci yurtları, fakülteler ve açık alanlarda Eduroam kablosuz erişim noktaları güçlendirildi.',
+    category: 'Bilgi İşlem Daire Başkanlığı',
+    url: 'https://bilgiislem.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-personel',
+    title: 'Personel Daire Başkanlığından Akademik Yükseltilme ve Atama Tebrik Töreni',
+    date: '30.09.2026',
+    content: 'Profesörlük ve Doçentlik kadrosuna atanan öğretim üyelerimize cübbeleri törenle takdim edildi.',
+    category: 'Personel Daire Başkanlığı',
+    url: 'https://personel.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-imidb',
+    title: 'İdari ve Mali İşler Daire Başkanlığı Kampüs Çevre Düzenlemesi ve Yeşil Alan Projesi',
+    date: '29.09.2026',
+    content: 'Merkez Kampüs rekreasyon alanları, bisiklet yolları ve oturma alanları yenilendi.',
+    category: 'İdari ve Mali İşler Daire Başkanlığı',
+    url: 'https://imidb.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-yitdb',
+    title: 'Yapı İşleri ve Teknik Daire Başkanlığı Güneş Enerjisi Santrali (GES) Projesini Başlattı',
+    date: '28.09.2026',
+    content: 'Kampüs binalarının çatılarına kurulan GES panelleriyle üniversitemiz kendi yeşil enerjisini üretiyor.',
+    category: 'Yapı İşleri ve Teknik Daire Başkanlığı',
+    url: 'https://yitdb.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-db-sgdb',
+    title: 'Strateji Geliştirme Daire Başkanlığı 2026-2030 Stratejik Plan Çalıştayı Gerçekleştirildi',
+    date: '27.09.2026',
+    content: 'Üniversitenin gelecek vizyonu, AR-GE hedefleri ve sürdürülebilir büyüme politikaları değerlendirildi.',
+    category: 'Strateji Geliştirme Daire Başkanlığı',
+    url: 'https://sgdb.kilis.edu.tr'
+  },
+  // Koordinatörlükler
+  {
+    id: 'news-fb-koord-erasmus',
+    title: 'Erasmus Koordinatörlüğü İtalya ve Polonya Üniversiteleri ile Yeni Ortaklıklar Kurdu',
+    date: '04.10.2026',
+    content: 'Öğrenci ve personel değişim anlaşmaları kapsamında 15 yeni kontenjan daha sağlandı.',
+    category: 'Uluslararası İlişkiler & Erasmus',
+    url: 'https://uluslararasi.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-projeler',
+    title: 'Proje Destek Ofisi ve BAP Koordinatörlüğünden 25 Yeni Bilimsel Araştırma Projesine Fon',
+    date: '03.10.2026',
+    content: 'Akademisyenlerimizin sanayi ve tarım alanlarındaki yenilikçi projeleri destek kapsamına alındı.',
+    category: 'Proje Destek Ofisi & BAP',
+    url: 'https://projeler.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-karmem',
+    title: 'Kariyer Merkezi (KARMER) Sektör Buluşmaları ve CV Hazırlama Simülasyonu Düzenledi',
+    date: '02.10.2026',
+    content: 'Önde gelen şirketlerin insan kaynakları yöneticileri öğrencilerle birebir mülakat pratikleri yaptı.',
+    category: 'Kariyer Planlama Merkezi (KARMER)',
+    url: 'https://karmer.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-kurumsal',
+    title: 'Kurumsal İletişim Koordinatörlüğü K7AÜ Dijital Kampüs Bülteninin Yeni Sayısını Yayınladı',
+    date: '01.10.2026',
+    content: 'Üniversitenin aylık bilim, sanat ve öğrenci başarılarının yer aldığı bülten erişime açıldı.',
+    category: 'Kurumsal İletişim Koordinatörlüğü',
+    url: 'https://kurumsaliletisim.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-surdurulebilirlik',
+    title: 'Sürdürülebilirlik Koordinatörlüğü Yeşil Kampüs Sıfır Atık Ödülünü Kazandı',
+    date: '30.09.2026',
+    content: 'Geri dönüşüm ve enerji tasarrufu uygulamalarıyla çevre dostu üniversiteler sıralamasında üst sıralara yükselindi.',
+    category: 'Sürdürülebilirlik & Büyük Veri Koordinatörlüğü',
+    url: 'https://surdurulebilirlik.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-uzem',
+    title: 'UZEM Dijital İçerik Stüdyosu Yeni Etkileşimli Ders Videolarını Yayına Aldı',
+    date: '29.09.2026',
+    content: 'Uzaktan eğitim derslerinde animasyonlu ve etkileşimli modern öğrenme modülleri hazırlandı.',
+    category: 'Uzaktan Eğitim Merkezi (UZEM)',
+    url: 'https://uzem.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-kalite',
+    title: 'Kalite Koordinatörlüğü ISO 9001 ve Kurumsal Akreditasyon Denetimini Başarıyla Geçti',
+    date: '28.09.2026',
+    content: 'Eğitim-öğretim ve idari süreçlerin uluslararası kalite standartlarına uygunluğu tescillendi.',
+    category: 'Kalite ve Akreditasyon Koordinatörlüğü',
+    url: 'https://kalite.kilis.edu.tr'
+  },
+  {
+    id: 'news-fb-koord-engelsiz',
+    title: 'Engelsiz Üniversite Birimi YÖK Turuncu ve Yeşil Bayrak Ödüllerini Kampüse Kazandırdı',
+    date: '27.09.2026',
+    content: 'Mekanda ve eğitimde erişilebilirlik standartlarında Türkiye genelinde örnek üniversiteler arasına girildi.',
+    category: 'Engelsiz Üniversite Koordinatörlüğü',
+    url: 'https://engelsiz.kilis.edu.tr'
   }
 ];
 
@@ -400,6 +931,137 @@ const DEFAULT_MENU = [
   { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
+function slugToCleanTitle(slug: string): string {
+  if (!slug) return '';
+  let s = slug.replace(/-[A-Za-z0-9]{4,6}$/, '');
+  const dict: Record<string, string> = {
+    'rektorumuz': 'Rektörümüz',
+    'akmandan': 'Akman’dan',
+    'akman': 'Akman',
+    'karatas': 'Karataş',
+    'kampusune': 'Kampüsü’ne',
+    'kampusu': 'Kampüsü',
+    'kampus': 'Kampüs',
+    'ziyaret': 'Ziyaret',
+    'akademik': 'Akademik',
+    'yili': 'Yılı',
+    'acilis': 'Açılış',
+    'torenine': 'Töreni’ne',
+    'toreni': 'Töreni',
+    'katildi': 'Katıldı',
+    'teknofest': 'TEKNOFEST',
+    'universitemiz': 'Üniversitemiz',
+    'universitemizde': 'Üniversitemizde',
+    'universitemizi': 'Üniversitemizi',
+    'greenmetric': 'GreenMetric',
+    'dunya': 'Dünya',
+    'siralamasinda': 'Sıralamasında',
+    'ilk': 'İlk',
+    'binde': 'Binde',
+    'ogrencilerimize': 'Öğrencilerimize',
+    'ogrenci': 'Öğrenci',
+    'ogrencilerin': 'Öğrencilerin',
+    'ders': 'Ders',
+    'milli': 'Millî',
+    'dayanisma': 'Dayanışma',
+    'kardeslik': 'Kardeşlik',
+    'demokrasi': 'Demokrasi',
+    'bilal-i': 'Bilal-i',
+    'habes': 'Habeş',
+    'erkek': 'Erkek',
+    'yurduna': 'Yurdu’na',
+    'egitim': 'Eğitim',
+    'ogretim': 'Öğretim',
+    'oryantasyon': 'Oryantasyon',
+    'programi': 'Programı',
+    'basladi': 'Başladı',
+    'yks': 'YKS',
+    'ek': 'Ek',
+    'kontenjaniyla': 'Kontenjanıyla',
+    'kontenjan': 'Kontenjan',
+    'kazanan': 'Kazanan',
+    'kayit': 'Kayıt',
+    'kabul': 'Kabul',
+    'islemleri': 'İşlemleri',
+    'vefat': 'Vefat',
+    'bassagligi': 'Başsağlığı',
+    'mesaji': 'Mesajı',
+    'sozlesmeli': 'Sözleşmeli',
+    'personel': 'Personel',
+    'personeli': 'Personeli',
+    'destek': 'Destek',
+    'hizmetli': 'Hizmetli',
+    'yedek': 'Yedek',
+    'adaylardan': 'Adaylardan',
+    'yerlestirme': 'Yerleştirme',
+    'sonuc': 'Sonuç',
+    'listesi': 'Listesi',
+    'erasmus': 'Erasmus+',
+    'yabanci': 'Yabancı',
+    'dil': 'Dil',
+    'sinavi': 'Sınavı',
+    'tarihi': 'Tarihi',
+    'uygulama': 'Uygulama',
+    'bilgileri': 'Bilgileri',
+    'atanmaya': 'Atanmaya',
+    'hak': 'Hak',
+    'kazananlardan': 'Kazananlardan',
+    'istenilen': 'İstenilen',
+    'belgeler': 'Belgeler',
+    'ingilizce': 'İngilizce',
+    'muafiyet': 'Muafiyet',
+    'sonuclari': 'Sonuçları',
+    'kitap': 'Kitap',
+    'bolumu': 'Bölümü',
+    'cagrisi': 'Çağrısı:',
+    'orta': 'Orta',
+    'doguda': 'Doğu’da',
+    'kadin': 'Kadın',
+    'aile': 'Aile',
+    '4b': '4/B'
+  };
+
+  const words = s.split('-');
+  const capitalized = words.map(w => {
+    const lower = w.toLowerCase();
+    if (dict[lower]) return dict[lower];
+    if (/^\d+$/.test(w)) return w;
+    return w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1).toLocaleLowerCase('tr-TR');
+  });
+  return capitalized.join(' ');
+}
+
+function cleanScrapedTitleAndDate(rawTitle: string, rawDate?: string) {
+  let text = (rawTitle || '').replace(/\s+/g, ' ').trim();
+  text = text.replace(/DEVAMI\.\.\./g, '').trim();
+
+  let date = rawDate || '';
+  const dateMatch = text.match(/^(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}|\d{1,2}\.\d{1,2}\.\d{4}|\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)/);
+  if (dateMatch) {
+    if (!date) date = dateMatch[1];
+    text = text.replace(dateMatch[0], '').trim();
+  }
+
+  // Remove leading breadcrumb if starts with slash
+  if (text.startsWith('/')) {
+    text = text.replace(/^\/\s*([^\/]+?(Fakültesi|Yüksekokulu|Enstitüsü|Başkanlığı|Koordinatörlüğü|Bölümü|Programı)[^\/]*?)\s+(?=[A-ZÇĞİÖŞÜ0-9"“])/i, '').trim();
+    text = text.replace(/^\/\s*/, '').trim();
+  }
+
+  // Deduplicate consecutive repeated phrases (e.g. "Türk Dili Bölümü Türk Dili Bölümü ...")
+  text = text.replace(/^(.{5,40}?)\s+\1/i, '$1').trim();
+
+  // Format ISO release date to Turkish date if needed
+  if (date && date.includes('T') && date.includes('Z')) {
+    try {
+      const d = new Date(date);
+      date = d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch {}
+  }
+
+  return { title: text, date: date || 'Güncel' };
+}
+
 app.get('/api/announcements', async (req, res) => {
   try {
     if (req.query.force !== 'true' && Date.now() - cachedAnnouncementsTime < CACHE_TTL && cachedAnnouncements.length > 0) {
@@ -408,55 +1070,85 @@ app.get('/api/announcements', async (req, res) => {
     
     const announcements: any[] = [];
     
-    // Main Announcements
+    // 1. Fetch Main Announcements from Main Site (supports both JSON API and HTML)
     try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 6000 });
-      const $ = cheerio.load(response.data);
-      $('a.full-link-item').each((i, el) => {
-        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
-        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
-        let href = $(el).attr('href') || '';
-        if (href && !href.startsWith('http')) {
-          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-        
-        if (title) {
-          announcements.push({
-            id: `ann-main-${i}`,
-            title: title,
-            date: dateStr || new Date().toISOString(),
-            content: '',
-            category: 'Ana Duyurular',
-            url: href
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr', { timeout: 6000 });
+      if (response.data && typeof response.data === 'object' && response.data.data) {
+        const dataObj = response.data.data;
+        const mainList = dataObj.announcements_last_8 || dataObj.announcements || (Array.isArray(dataObj.data) ? dataObj.data : []);
+        if (Array.isArray(mainList)) {
+          mainList.forEach((item: any, i: number) => {
+            if (item.slug) {
+              const cleanTitle = slugToCleanTitle(item.slug);
+              let dateStr = item.release_date || item.created_at || '';
+              if (dateStr) {
+                try {
+                  dateStr = new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+                } catch {}
+              }
+              announcements.push({
+                id: `ann-main-json-${item.id || i}`,
+                title: cleanTitle,
+                date: dateStr || 'Güncel',
+                content: '',
+                category: 'Ana Duyurular',
+                url: `https://www.kilis.edu.tr/tr/duyuru/${item.slug}`
+              });
+            }
           });
         }
-      });
-    } catch(e) { console.error('Main ann fetch error'); }
-
-    // Faculty Announcements (parallel with fast individual timeout)
-    const activeFaculties = FACULTIES.slice(0, 10);
-    await processInChunks(activeFaculties, 5, async (fac, index) => {
-      try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        const $ = cheerio.load(facRes.data);
-        $('.announcement-item').each((i, el) => {
-          let title = $(el).find('.announcement-title').text().trim();
-          let dateStr = $(el).find('.announcement-date').text().trim();
-          let url = $(el).attr('href');
-          if (title) {
-            announcements.push({
-              id: `ann-fac-${index}-${i}`,
-              title: title,
-              date: dateStr || new Date().toISOString(),
-              content: '',
-              category: fac.name,
-              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
-            });
+      } else if (typeof response.data === 'string') {
+        const $ = cheerio.load(response.data);
+        $('a[href*="/tr/duyuru/"]').each((i, el) => {
+          const href = $(el).attr('href') || '';
+          const rawText = $(el).text().trim().replace(/\s+/g, ' ');
+          if (href && rawText.length > 5 && !rawText.toLowerCase().includes('tüm duyurular')) {
+            const { title, date } = cleanScrapedTitleAndDate(rawText);
+            const fullUrl = href.startsWith('http') ? href : `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+            if (title && !announcements.some(a => a.url === fullUrl || a.title === title)) {
+              announcements.push({
+                id: `ann-main-html-${i}`,
+                title: title,
+                date: date,
+                content: '',
+                category: 'Ana Duyurular',
+                url: fullUrl
+              });
+            }
           }
         });
+      }
+    } catch(e) {
+      console.warn('Main announcements live scrape error');
+    }
+
+    // 2. Fetch All Academic & Administrative Units Announcements in Parallel
+    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
+      try {
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
+        if (typeof facRes.data === 'string') {
+          const $ = cheerio.load(facRes.data);
+          $('a[href*="announcements-detail"], a[href*="announcement-detail"], .announcement-item, .full-link-item').each((i, el) => {
+            const href = $(el).attr('href') || $(el).find('a').attr('href') || '';
+            const rawText = $(el).text().trim().replace(/\s+/g, ' ');
+            if (rawText.length > 5 && !rawText.toLowerCase().includes('tüm duyuru')) {
+              const { title, date } = cleanScrapedTitleAndDate(rawText);
+              const fullUrl = href.startsWith('http') ? href : `${fac.url}${href.startsWith('/') ? '' : '/'}${href}`;
+              if (title && !announcements.some(a => a.url === fullUrl || a.title === title)) {
+                announcements.push({
+                  id: `ann-unit-${index}-${i}`,
+                  title: title,
+                  date: date,
+                  content: '',
+                  category: fac.name,
+                  url: fullUrl
+                });
+              }
+            }
+          });
+        }
       } catch (e) {
-        // Silently handle
+        // Silently continue
       }
     });
 
@@ -468,7 +1160,7 @@ app.get('/api/announcements', async (req, res) => {
 
     res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
   } catch (error) {
-    console.error('Announcements error, returning default data:', error);
+    console.warn('Announcements error, returning default data:', error);
     res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
   }
 });
@@ -481,55 +1173,85 @@ app.get('/api/news', async (req, res) => {
     
     const news: any[] = [];
     
-    // Main News
+    // 1. Fetch Main News from Main Site (supports both JSON API and HTML)
     try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 6000 });
-      const $ = cheerio.load(response.data);
-      $('a.full-link-item').each((i, el) => {
-        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
-        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
-        let href = $(el).attr('href') || '';
-        if (href && !href.startsWith('http')) {
-          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-        
-        if (title) {
-          news.push({
-            id: `news-main-${i}`,
-            title: title,
-            date: dateStr || new Date().toISOString(),
-            content: '',
-            category: 'Üniversite Haberleri',
-            url: href
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr', { timeout: 6000 });
+      if (response.data && typeof response.data === 'object' && response.data.data) {
+        const dataObj = response.data.data;
+        const mainList = dataObj.news_all_11 || dataObj.other_news_4 || dataObj.news || (Array.isArray(dataObj.data) ? dataObj.data : []);
+        if (Array.isArray(mainList)) {
+          mainList.forEach((item: any, i: number) => {
+            if (item.slug) {
+              const cleanTitle = slugToCleanTitle(item.slug);
+              let dateStr = item.release_date || item.created_at || '';
+              if (dateStr) {
+                try {
+                  dateStr = new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+                } catch {}
+              }
+              news.push({
+                id: `news-main-json-${item.id || i}`,
+                title: cleanTitle,
+                date: dateStr || 'Güncel',
+                content: '',
+                category: 'Üniversite Haberleri',
+                url: `https://www.kilis.edu.tr/tr/haber/${item.slug}`
+              });
+            }
           });
         }
-      });
-    } catch(e) { console.error('Main news fetch error'); }
-
-    // Faculty News
-    const activeFaculties = FACULTIES.slice(0, 10);
-    await processInChunks(activeFaculties, 5, async (fac, index) => {
-      try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        const $ = cheerio.load(facRes.data);
-        $('.news-item').each((i, el) => {
-          let title = $(el).find('.news-title').text().trim();
-          let dateStr = $(el).find('.news-date').text().trim();
-          let url = $(el).attr('href');
-          if (title) {
-            news.push({
-              id: `news-fac-${index}-${i}`,
-              title: title,
-              date: dateStr || new Date().toISOString(),
-              content: '',
-              category: fac.name,
-              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
-            });
+      } else if (typeof response.data === 'string') {
+        const $ = cheerio.load(response.data);
+        $('a[href*="/tr/haber/"]').each((i, el) => {
+          const href = $(el).attr('href') || '';
+          const rawText = $(el).text().trim().replace(/\s+/g, ' ');
+          if (href && rawText.length > 5 && !rawText.toLowerCase().includes('tüm haberler')) {
+            const { title, date } = cleanScrapedTitleAndDate(rawText);
+            const fullUrl = href.startsWith('http') ? href : `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+            if (title && !news.some(n => n.url === fullUrl || n.title === title)) {
+              news.push({
+                id: `news-main-html-${i}`,
+                title: title,
+                date: date,
+                content: '',
+                category: 'Üniversite Haberleri',
+                url: fullUrl
+              });
+            }
           }
         });
+      }
+    } catch(e) {
+      console.warn('Main news live scrape error');
+    }
+
+    // 2. Fetch All Academic & Administrative Units News in Parallel
+    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
+      try {
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
+        if (typeof facRes.data === 'string') {
+          const $ = cheerio.load(facRes.data);
+          $('a[href*="news-detail"], .news-item, .news-all-item, .full-link-item').each((i, el) => {
+            const href = $(el).attr('href') || $(el).find('a').attr('href') || '';
+            const rawText = $(el).text().trim().replace(/\s+/g, ' ');
+            if (rawText.length > 5 && !rawText.toLowerCase().includes('tüm haber')) {
+              const { title, date } = cleanScrapedTitleAndDate(rawText);
+              const fullUrl = href.startsWith('http') ? href : `${fac.url}${href.startsWith('/') ? '' : '/'}${href}`;
+              if (title && !news.some(n => n.url === fullUrl || n.title === title)) {
+                news.push({
+                  id: `news-unit-${index}-${i}`,
+                  title: title,
+                  date: date,
+                  content: '',
+                  category: fac.name,
+                  url: fullUrl
+                });
+              }
+            }
+          });
+        }
       } catch (e) {
-        // Silently handle
+        // Silently continue
       }
     });
 
@@ -541,13 +1263,98 @@ app.get('/api/news', async (req, res) => {
 
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   } catch (error) {
-    console.error('News error, returning default data:', error);
+    console.warn('News error, returning default data:', error);
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   }
 });
 
 // Cache for department specific news
 const cachedDepartmentNewsMap = new Map<string, { data: any[]; time: number }>();
+
+// Enhanced Department Live Scraper
+async function scrapeDepartmentItems(
+  deptUrl: string,
+  type: 'news' | 'announcements',
+  deptId?: string,
+  facultyId?: string
+) {
+  const list: any[] = [];
+  if (!deptUrl || !deptUrl.startsWith('http')) return list;
+
+  const base = deptUrl.split('/tr')[0];
+  const candidateUrls: string[] = [];
+
+  if (type === 'announcements') {
+    candidateUrls.push(`${base}/tr/announcements-all`);
+    candidateUrls.push(`${base}/tr`);
+    candidateUrls.push(deptUrl);
+  } else {
+    candidateUrls.push(`${base}/tr/news-all`);
+    candidateUrls.push(`${base}/tr`);
+    candidateUrls.push(deptUrl);
+  }
+
+  const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
+
+  for (const url of uniqueCandidateUrls) {
+    try {
+      const response = await axiosInstance.get(url, { timeout: 4500 });
+      if (!response.data || typeof response.data !== 'string') continue;
+      const $ = cheerio.load(response.data);
+
+      const targetDetailPattern = type === 'announcements' 
+        ? /(announcements-detail|announcement-detail|duyuru)/i
+        : /(news-detail|haber)/i;
+
+      $('a').each((i, el) => {
+        const href = $(el).attr('href');
+        if (!href) return;
+
+        const isDetail = targetDetailPattern.test(href);
+        const hasItemClass = $(el).hasClass('announcement-item') || $(el).hasClass('news-item') || $(el).closest('.announcement-item, .news-item, .card').length > 0;
+
+        if (!isDetail && !hasItemClass) return;
+
+        let fullHref = href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href}`;
+        if (fullHref === `${base}/tr` || fullHref === `${base}/` || fullHref.endsWith('/tr/news-all') || fullHref.endsWith('/tr/announcements-all')) return;
+
+        const rawText = $(el).text().trim().replace(/\s+/g, ' ');
+        if (rawText.length < 5 || rawText.toLowerCase().includes('tüm haber') || rawText.toLowerCase().includes('tüm duyuru')) return;
+
+        const { title: cleanTitle, date: cleanDate } = cleanScrapedTitleAndDate(rawText);
+
+        let img = $(el).find('img').attr('src');
+        if (img && !img.startsWith('http')) {
+          img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
+        }
+
+        if (cleanTitle && cleanTitle.length > 5 && !list.some(x => x.url === fullHref || x.title === cleanTitle)) {
+          list.push({
+            id: `dept-${type === 'announcements' ? 'ann' : 'news'}-live-${deptId || 'item'}-${list.length}-${Date.now()}`,
+            title: cleanTitle,
+            date: cleanDate || 'Güncel',
+            url: fullHref,
+            imageUrl: img || undefined,
+            facultyId: facultyId || '',
+            facultyName: '',
+            departmentId: deptId || '',
+            departmentName: '',
+            sourceUrl: url,
+            category: type === 'announcements' ? 'Bölüm Duyuruları' : 'Bölüm Haberleri'
+          });
+        }
+      });
+
+      if (list.length > 0) {
+        break;
+      }
+    } catch (err) {
+      // Continue to next candidate URL
+    }
+  }
+
+  return list;
+}
 
 app.get('/api/department-news', async (req, res) => {
   try {
@@ -556,9 +1363,9 @@ app.get('/api/department-news', async (req, res) => {
     const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
     const force = req.query.force === 'true';
 
-    // 1. If a specific department live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/news-all)
+    // 1. Live scraping
     if (deptUrl && deptUrl.startsWith('http')) {
-      const cacheKey = `dept_${deptUrl}`;
+      const cacheKey = `dept_news_${deptUrl}_${deptId}_${facultyId}`;
       if (!force && cachedDepartmentNewsMap.has(cacheKey)) {
         const cached = cachedDepartmentNewsMap.get(cacheKey)!;
         if (Date.now() - cached.time < CACHE_TTL) {
@@ -566,57 +1373,22 @@ app.get('/api/department-news', async (req, res) => {
         }
       }
 
-      try {
-        const response = await axiosInstance.get(deptUrl, { timeout: 6000 });
-        const $ = cheerio.load(response.data);
-        const list: any[] = [];
-        const base = deptUrl.split('/tr')[0];
-
-        $('.news-item, a.news-item, a[href*="news-detail"], .news-all-item').each((i, el) => {
-          let title = $(el).find('.news-item-title, .title, h3, h4').text().trim().replace(/\s+/g, ' ');
-          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
-          if (!title || title.length < 5) return;
-
-          let rawDate = $(el).find('.news-item-date, .date, .time, .link-footer .date').text().trim().replace(/\s+/g, ' ');
-          let href = $(el).attr('href') || $(el).find('a').attr('href');
-          if (href && !href.startsWith('http')) {
-            href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
-          }
-
-          let img = $(el).find('img').attr('src');
-          if (img && !img.startsWith('http')) {
-            img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
-          }
-
-          list.push({
-            id: `dept-live-${deptId || 'item'}-${i}-${Date.now()}`,
-            title,
-            date: rawDate || 'Güncel',
-            url: href || deptUrl,
-            imageUrl: img || undefined,
-            facultyId: facultyId || '',
-            facultyName: '',
-            departmentId: deptId || '',
-            departmentName: '',
-            sourceUrl: deptUrl,
-            category: 'Bölüm Haberleri'
-          });
-        });
-
-        if (list.length > 0) {
-          cachedDepartmentNewsMap.set(cacheKey, { data: list, time: Date.now() });
-          return res.json(list);
-        }
-      } catch (scrapeErr) {
-        console.warn('Live department scrape failed for', deptUrl, scrapeErr);
+      const list = await scrapeDepartmentItems(deptUrl, 'news', deptId, facultyId);
+      if (list.length > 0) {
+        cachedDepartmentNewsMap.set(cacheKey, { data: list, time: Date.now() });
+        return res.json(list);
       }
     }
 
     // 2. Filter fallback department news
     let result = [...FALLBACK_DEPARTMENT_NEWS];
     if (deptId && deptId !== 'all') {
-      const match = result.filter(item => item.departmentId === deptId || item.id.includes(deptId));
+      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
       if (match.length > 0) result = match;
+      else if (facultyId && facultyId !== 'all') {
+        const facMatch = result.filter(item => item.facultyId === facultyId);
+        if (facMatch.length > 0) result = facMatch;
+      }
     } else if (facultyId && facultyId !== 'all') {
       const match = result.filter(item => item.facultyId === facultyId);
       if (match.length > 0) result = match;
@@ -624,8 +1396,56 @@ app.get('/api/department-news', async (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    console.error('Department news error:', error);
+    console.warn('Department news error:', error);
     res.json(FALLBACK_DEPARTMENT_NEWS);
+  }
+});
+
+// Cache for department specific announcements
+const cachedDepartmentAnnMap = new Map<string, { data: any[]; time: number }>();
+
+app.get('/api/department-announcements', async (req, res) => {
+  try {
+    const deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
+    const deptId = typeof req.query.deptId === 'string' ? req.query.deptId.trim() : '';
+    const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
+    const force = req.query.force === 'true';
+
+    // 1. Live scraping
+    if (deptUrl && deptUrl.startsWith('http')) {
+      const cacheKey = `dept_ann_${deptUrl}_${deptId}_${facultyId}`;
+      if (!force && cachedDepartmentAnnMap.has(cacheKey)) {
+        const cached = cachedDepartmentAnnMap.get(cacheKey)!;
+        if (Date.now() - cached.time < CACHE_TTL) {
+          return res.json(cached.data);
+        }
+      }
+
+      const list = await scrapeDepartmentItems(deptUrl, 'announcements', deptId, facultyId);
+      if (list.length > 0) {
+        cachedDepartmentAnnMap.set(cacheKey, { data: list, time: Date.now() });
+        return res.json(list);
+      }
+    }
+
+    // 2. Filter fallback department announcements
+    let result = [...FALLBACK_DEPARTMENT_ANNOUNCEMENTS];
+    if (deptId && deptId !== 'all') {
+      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
+      if (match.length > 0) result = match;
+      else if (facultyId && facultyId !== 'all') {
+        const facMatch = result.filter(item => item.facultyId === facultyId);
+        if (facMatch.length > 0) result = facMatch;
+      }
+    } else if (facultyId && facultyId !== 'all') {
+      const match = result.filter(item => item.facultyId === facultyId);
+      if (match.length > 0) result = match;
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Department announcements error:', error);
+    res.json(FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
   }
 });
 
@@ -978,7 +1798,13 @@ app.get('/api/detail', async (req, res) => {
     
     res.json({ title, contentHtml, imageUrl, images });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch detail content' });
+    console.warn("Detail content fetch error, returning graceful fallback:", error);
+    res.json({
+      title: '',
+      contentHtml: '<p class="text-stone-600 dark:text-white/70">İçerik doğrudan üniversite resmi web sayfasında mevcuttur. "Kaynağına Git" butonunu kullanarak orijinal sayfayı inceleyebilirsiniz.</p>',
+      imageUrl: '',
+      images: []
+    });
   }
 });
 

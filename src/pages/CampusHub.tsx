@@ -371,6 +371,8 @@ export default function CampusHub() {
         return { label: 'Meslek Yüksekokulu', shortLabel: 'MYO', badgeClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' };
       case 'konservatuvar':
         return { label: 'Konservatuvar', shortLabel: 'Konservatuvar', badgeClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20' };
+      case 'daire':
+        return { label: 'Daire Başkanlığı', shortLabel: 'Daire Bşk.', badgeClass: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20' };
       case 'koordinatorluk':
         return { label: 'Koordinatörlük', shortLabel: 'Koordinatörlük', badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20' };
       default:
@@ -385,6 +387,7 @@ export default function CampusHub() {
       case 'yuksekokul': return School;
       case 'myo': return Building2;
       case 'konservatuvar': return Music;
+      case 'daire': return Landmark;
       case 'koordinatorluk': return Compass;
       default: return School;
     }
@@ -414,7 +417,8 @@ export default function CampusHub() {
       { key: 'yuksekokul' as StaffUnitCategory, label: 'Yüksekokul', icon: School, items: list.filter(f => f.category === 'yuksekokul') },
       { key: 'myo' as StaffUnitCategory, label: 'Meslek Yüksekokulları (MYO)', icon: Building2, items: list.filter(f => f.category === 'myo') },
       { key: 'konservatuvar' as StaffUnitCategory, label: 'Konservatuvar', icon: Music, items: list.filter(f => f.category === 'konservatuvar') },
-      { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler', icon: Compass, items: list.filter(f => f.category === 'koordinatorluk') },
+      { key: 'daire' as StaffUnitCategory, label: 'Daire Başkanlıkları', icon: Landmark, items: list.filter(f => f.category === 'daire') },
+      { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler & Merkezler', icon: Compass, items: list.filter(f => f.category === 'koordinatorluk') },
     ];
   }, []);
 
@@ -876,6 +880,7 @@ export default function CampusHub() {
                     { key: 'yuksekokul' as StaffUnitCategory, label: 'Yüksekokul', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'yuksekokul').length },
                     { key: 'myo' as StaffUnitCategory, label: 'Meslek Yüksekokulları', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'myo').length },
                     { key: 'konservatuvar' as StaffUnitCategory, label: 'Konservatuvar', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'konservatuvar').length },
+                    { key: 'daire' as StaffUnitCategory, label: 'Daire Başkanlıkları', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'daire').length },
                     { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'koordinatorluk').length },
                   ].map((cat) => {
                     const isCatActive = selectedStaffCategory === cat.key;
