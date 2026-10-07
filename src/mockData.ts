@@ -378,38 +378,89 @@ export const FALLBACK_LIBRARY = {
 };
 
 export const FALLBACK_SPORTS = {
+  sksOfficialUrl: 'https://sks.kilis.edu.tr/tr/page/5063',
+  reservationUrl: 'https://rezervasyon.kilis.edu.tr/',
+  surveyUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfzlMmVodJScaaNNWPxzZWvZc5_pfOlYJlZ-UwTHA-DbAZmuw/viewform',
+  contactPhone: '0348 814 26 66 (Dahili: 5053 - Spor Şube Müdürlüğü)',
   facilities: [
     {
-      id: 'sp-1',
+      id: 'sp-halisaha',
       name: 'Sentetik Çim Halı Saha',
-      specs: 'Standart ölçülerde, gece aydınlatmalı, tribünlü',
+      category: 'Açık Spor Alanı',
+      coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659505280.Hal%C4%B1%20Saha.jpg',
+      specs: 'Standart ölçülerde, gece aydınlatmalı, tel örgülü ve seyirci tribünlü',
       hours: '10:00 – 23:00 (Haftanın 7 günü)',
-      bookingUrl: 'https://rezervasyon.kilis.edu.tr/SporRezervasyon/Rezervasyon',
-      info: 'Öğrenci ve personele uygun seans ücreti ile randevulu hizmet verir.'
+      bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
+      info: 'Öğrenci, akademik ve idari personel ile sivil takımlar için online randevulu seans hizmeti verilmektedir.',
+      images: [
+        {
+          type: 'price',
+          title: 'Halı Saha Seans ve Ücret Listesi',
+          subtitle: 'Gündüz ve gece seans tarifeleri',
+          url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/sks%20hal%C4%B1%20saha%20(1)%20(1).pdf.jpg'
+        }
+      ]
     },
     {
-      id: 'sp-2',
-      name: 'Kapalı Spor Salonu',
-      specs: 'FİBA standartlarında parke zemin, 1.000 seyirci kapasitesi',
-      hours: '08:30 – 21:00',
-      branches: ['Basketbol', 'Voleybol', 'Futsal', 'Hentbol', 'Badminton'],
-      info: 'Öğrenci toplulukları ve fakülte turnuvaları için tahsis edilebilir.'
+      id: 'sp-havuz',
+      name: 'Yarı Olimpik Kapalı Yüzme Havuzu',
+      category: 'Su Sporları & Yüzme',
+      coverImage: 'https://sks.kilis.edu.tr/contentFiles/176665950530.havuz.jpg',
+      specs: '25m Yarı Olimpik, 5 kulvarlı, modern filtrasyon ve hijyen sistemi, duş ve soyunma kabinleri',
+      hours: 'Kadın ve Erkek ayrı seans gün ve saatleri uygulanmaktadır',
+      bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
+      info: 'Öğrenci, personel ve misafirler için serbest yüzme seansları, abonelikler ve yüzme kursları sunulmaktadır.',
+      images: [
+        {
+          type: 'schedule',
+          title: 'Yüzme Havuzu Kadın - Erkek Seans Saatleri',
+          subtitle: 'Haftalık kadın ve erkek seans günleri ve saat dağılım tablosu',
+          url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.23.jpeg'
+        },
+        {
+          type: 'price',
+          title: 'Yüzme Havuzu Seans ve Ücret Tarifesi',
+          subtitle: 'Öğrenci, personel, mezun ve sivil misafir seans ücretleri',
+          url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.22.jpeg'
+        }
+      ]
     },
     {
-      id: 'sp-3',
-      name: 'Fitness & Ağırlık Merkezi',
-      specs: 'Profesyonel kardiyo ve ağırlık istasyonları, soyunma odaları',
-      hours: 'Hafta içi: 09:00 – 20:00 (Kadın/Erkek seans saatleri mevcuttur)',
-      info: 'Dönemlik veya aylık öğrenci aboneliği SKS üzerinden yapılır.'
+      id: 'sp-fitness',
+      name: 'Fitness & Kondisyon Merkezi',
+      category: 'Kondisyon & Vücut Geliştirme',
+      coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659505658.38.jpg',
+      specs: 'Profesyonel kardiyo bantları, eliptik aletler, serbest ağırlık istasyonları ve klima donanımı',
+      hours: 'Kadın ve Erkek ayrı seans saatleri mevcuttur',
+      bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
+      info: 'Öğrenci ve üniversite personeli için tek girişlik veya avantajlı aylık/dönemlik fitness üyelikleri mevcuttur.',
+      images: [
+        {
+          type: 'both',
+          title: 'Fitness Salonu Kadın / Erkek Seansları & Fiyat Listesi',
+          subtitle: 'Kadın - erkek seans saatleri ve güncel abonelik ücret tablosu',
+          url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/G%C3%9CNCEL%20F%C4%B0YATLAR%20F%C4%B0TNES.png'
+        }
+      ]
+    },
+    {
+      id: 'sp-salon',
+      name: 'Kapalı Spor Salonu & Açık Sahalar',
+      category: 'Takım & Kort Sporları',
+      coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659506521.Tenis%20Kortu.jpg',
+      specs: 'FİBA standartlarında parke zeminli 1.000 seyircili salon ve açık tenis kortu / basketbol sahaları',
+      hours: '08:30 – 21:00 (Turnuva, antrenman ve serbest kullanım)',
+      branches: ['Tenis Kortu', 'Basketbol', 'Voleybol', 'Futsal', 'Hentbol', 'Badminton', 'Masa Tenisi'],
+      bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
+      info: 'Fakülte turnuvaları, öğrenci toplulukları, spor kulüpleri ve bireysel spor faaliyetleri için tahsis edilir.'
     }
   ],
   reservationSteps: [
-    '1. rezervasyon.kilis.edu.tr adresine gidin.',
-    '2. Spor Alanı seçeneğinden Sentetik Halı Saha veya Salonu belirleyin.',
-    '3. Uygun seans saatini ve müşteri grubunuzu (Öğrenci/Personel) seçin.',
-    '4. İletişim bilgilerinizi girip SMS/E-posta onayını tamamlayın.'
-  ],
-  contactPhone: '0348 814 26 66 (Dahili: 5053)'
+    '1. rezervasyon.kilis.edu.tr adresine gidin veya tesis kartlarındaki "Online Rezervasyon Yap" butonuna tıklayın.',
+    '2. Spor Alanı seçeneğinden Sentetik Halı Saha, Havuz veya Salonu belirleyin.',
+    '3. Uygun seans saatini ve kullanıcı grubunuzu (Öğrenci / Personel / Misafir) seçin.',
+    '4. İletişim bilgilerinizi girip SMS / E-posta onayını tamamlayın.'
+  ]
 };
 
 export const FALLBACK_HOTEL = {
