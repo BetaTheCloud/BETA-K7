@@ -14,12 +14,10 @@ import {
   Info,
   CheckCircle2,
   Sparkles,
-  X,
-  CreditCard
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import LoadingState from '../components/LoadingState';
-import CampusCardModal from '../components/CampusCardModal';
 
 const TURKISH_MONTHS: Record<string, number> = {
   ocak: 0,
@@ -48,7 +46,6 @@ export default function Menu() {
     return getCachedOrFallback<MenuItem[]>('k7_cached_menu_v6', FALLBACK_MENU);
   });
   const [loading, setLoading] = useState(false);
-  const [isCampusCardOpen, setIsCampusCardOpen] = useState(false);
 
   // Date selection state: ISO string format "YYYY-MM-DD" or null
   const [selectedDateIso, setSelectedDateIso] = useState<string>(() => {
@@ -190,15 +187,6 @@ export default function Menu() {
               Kilis 7 Aralık Üniversitesi Sağlık, Kültür ve Spor Daire Başkanlığı Aylık Yemekhane Menüsü
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsCampusCardOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/25 active:scale-95 cursor-pointer self-start sm:self-auto"
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Kartına Bakiye Yükle (Kampüs Kart)</span>
-          </button>
         </div>
       </header>
 
@@ -597,12 +585,6 @@ export default function Menu() {
           </div>
         )}
       </section>
-
-      {/* Campus Card Modal */}
-      <CampusCardModal
-        isOpen={isCampusCardOpen}
-        onClose={() => setIsCampusCardOpen(false)}
-      />
     </motion.div>
   );
 }

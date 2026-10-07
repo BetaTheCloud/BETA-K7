@@ -15,6 +15,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Enable CORS for all routes (necessary when frontend runs in APK or different origin)
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint for Render / monitoring
 app.get('/api/health', (req, res) => {
