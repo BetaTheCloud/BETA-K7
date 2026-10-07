@@ -15,6 +15,7 @@ import { Announcement, MenuItem, CampusEvent } from '../types';
 import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
+import FeedCardThumbnail from '../components/FeedCardThumbnail';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
@@ -265,15 +266,21 @@ export default function Home() {
       {/* News Section (Haberler) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
-          <h3 className="text-xl font-display font-bold flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
+          <h3 className="text-xl font-display font-bold flex items-center gap-2 text-stone-900 dark:text-white">
+            <Newspaper className="w-5 h-5 text-sky-600 dark:text-sky-400" strokeWidth={1.5} />
             Haberler
           </h3>
-          <div className="flex items-center gap-3">
-            <Link to="/news?tab=department" className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+          <div className="flex items-center gap-2.5">
+            <Link 
+              to="/news?tab=department" 
+              className="hidden sm:inline-flex text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline items-center gap-1 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20"
+            >
               Bölüm Haberleri
             </Link>
-            <Link to="/news" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
+            <Link 
+              to="/news?view=news" 
+              className="text-sm text-stone-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors flex items-center gap-1 font-medium tracking-wide"
+            >
               Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
             </Link>
           </div>
@@ -287,25 +294,39 @@ export default function Home() {
                 url: n.url || '',
                 title: n.title,
                 date: n.date,
-                category: n.category,
+                category: n.category || 'Üniversite Haberi',
                 content: n.content,
                 imageUrl: (n as any).imageUrl || (n as any).img
               })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3.5 sm:p-4 hover:bg-[#f4f1ea] dark:hover:bg-white/10 hover:border-sky-500/40 transition-all focus:outline-none cursor-pointer group shadow-sm"
             >
-              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                  {n.category || 'Haber'}
-                </span>
-                {n.date && !n.date.includes('T') && (
-                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
-                    {n.date}
-                  </span>
-                )}
+              <div className="flex items-start gap-3.5">
+                <FeedCardThumbnail
+                  imageUrl={(n as any).imageUrl || (n as any).img}
+                  type="news"
+                  category={n.category || 'Haber'}
+                  title={n.title}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl"
+                />
+
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/25">
+                      <Newspaper className="w-3 h-3 text-sky-500" />
+                      <span>{n.category || 'Üniversite Haberi'}</span>
+                    </span>
+                    {n.date && !n.date.includes('T') && (
+                      <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {n.date}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                    {n.title}
+                  </h4>
+                </div>
               </div>
-              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
-                {n.title}
-              </h4>
             </button>
           ))}
           {filteredNews.length === 0 && (
@@ -317,11 +338,14 @@ export default function Home() {
       {/* Main Announcements Section (Duyurular) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
-          <h3 className="text-xl font-display font-bold flex items-center gap-2">
+          <h3 className="text-xl font-display font-bold flex items-center gap-2 text-stone-900 dark:text-white">
             <Megaphone className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
             Duyurular
           </h3>
-          <Link to="/announcements" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
+          <Link 
+            to="/news?view=announcements" 
+            className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide"
+          >
             Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
           </Link>
         </div>
@@ -334,24 +358,39 @@ export default function Home() {
                 url: announcement.url || '',
                 title: announcement.title,
                 date: announcement.date,
-                category: announcement.category,
-                content: announcement.content
+                category: announcement.category || 'Genel Duyuru',
+                content: announcement.content,
+                imageUrl: (announcement as any).imageUrl || (announcement as any).img
               })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3.5 sm:p-4 hover:bg-[#f4f1ea] dark:hover:bg-white/10 hover:border-amber-500/40 transition-all focus:outline-none cursor-pointer group shadow-sm"
             >
-              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                  {announcement.category || 'Duyuru'}
-                </span>
-                {announcement.date && !announcement.date.includes('T') && (
-                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
-                    {announcement.date}
-                  </span>
-                )}
+              <div className="flex items-start gap-3.5">
+                <FeedCardThumbnail
+                  imageUrl={(announcement as any).imageUrl || (announcement as any).img}
+                  type="announcement"
+                  category={announcement.category || 'Duyuru'}
+                  title={announcement.title}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl"
+                />
+
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                      <Megaphone className="w-3 h-3 text-amber-500" />
+                      <span>{announcement.category || 'Resmi Duyuru'}</span>
+                    </span>
+                    {announcement.date && !announcement.date.includes('T') && (
+                      <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {announcement.date}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {announcement.title}
+                  </h4>
+                </div>
               </div>
-              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
-                {announcement.title}
-              </h4>
             </button>
           ))}
           {filteredAnnouncements.length === 0 && (
