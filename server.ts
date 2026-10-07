@@ -114,8 +114,8 @@ let cachedFacultiesTime: Record<string, number> = {};
 const CACHE_FAC_TTL = 3600 * 1000; // 1 hour
 
 app.get('/api/bologna/faculties', async (req, res) => {
+  const type = (req.query.type as string) || 'lis';
   try {
-    const type = (req.query.type as string) || 'lis';
     if (!['myo', 'lis', 'yls', 'dok'].includes(type)) {
        return res.status(400).json({ error: 'Invalid type parameter' });
     }
@@ -154,8 +154,8 @@ app.get('/api/bologna/faculties', async (req, res) => {
     cachedFacultiesTime[type] = Date.now();
     res.json(faculties);
   } catch (error) {
-    console.error("Faculties fetch error", error);
-    res.status(500).json({ error: 'Failed to fetch faculties' });
+    console.warn("Faculties fetch error:", error);
+    res.json(cachedFaculties[type] || []);
   }
 });
 
@@ -221,8 +221,8 @@ app.get('/api/bologna/courses', async (req, res) => {
     
     res.json(courses);
   } catch (error) {
-    console.error("Courses fetch error", error);
-    res.status(500).json({ error: 'Failed to fetch courses' });
+    console.warn("Courses fetch error, returning empty list:", error);
+    res.json([]);
   }
 });
 
@@ -312,8 +312,8 @@ app.get('/api/bologna/courseDetail', async (req, res) => {
     
     res.json({ outcomes, weeklyTopics, description });
   } catch (error) {
-    console.error("Course detail error:", error);
-    res.status(500).json({ error: 'Failed to fetch course details' });
+    console.warn("Course detail error, returning fallback:", error);
+    res.json({ outcomes: [], weeklyTopics: [], description: 'Ders detayları Bologna/OBS sisteminde yer almaktadır.' });
   }
 });
 
@@ -1212,8 +1212,12 @@ app.get('/api/department-news', async (req, res) => {
     // 2. Filter fallback department news
     let result = [...FALLBACK_DEPARTMENT_NEWS];
     if (deptId && deptId !== 'all') {
-      const match = result.filter(item => item.departmentId === deptId || item.id.includes(deptId));
+      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
       if (match.length > 0) result = match;
+      else if (facultyId && facultyId !== 'all') {
+        const facMatch = result.filter(item => item.facultyId === facultyId);
+        if (facMatch.length > 0) result = facMatch;
+      }
     } else if (facultyId && facultyId !== 'all') {
       const match = result.filter(item => item.facultyId === facultyId);
       if (match.length > 0) result = match;
@@ -1256,8 +1260,12 @@ app.get('/api/department-announcements', async (req, res) => {
     // 2. Filter fallback department announcements
     let result = [...FALLBACK_DEPARTMENT_ANNOUNCEMENTS];
     if (deptId && deptId !== 'all') {
-      const match = result.filter(item => item.departmentId === deptId || item.id.includes(deptId));
+      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
       if (match.length > 0) result = match;
+      else if (facultyId && facultyId !== 'all') {
+        const facMatch = result.filter(item => item.facultyId === facultyId);
+        if (facMatch.length > 0) result = facMatch;
+      }
     } else if (facultyId && facultyId !== 'all') {
       const match = result.filter(item => item.facultyId === facultyId);
       if (match.length > 0) result = match;
@@ -1619,7 +1627,13 @@ app.get('/api/detail', async (req, res) => {
     
     res.json({ title, contentHtml, imageUrl, images });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch detail content' });
+    console.warn("Detail content fetch error, returning graceful fallback:", error);
+    res.json({
+      title: '',
+      contentHtml: '<p class="text-stone-600 dark:text-white/70">İçerik doğrudan üniversite resmi web sayfasında mevcuttur. "Kaynağına Git" butonunu kullanarak orijinal sayfayı inceleyebilirsiniz.</p>',
+      imageUrl: '',
+      images: []
+    });
   }
 });
 

@@ -69,9 +69,38 @@ export default function Announcements() {
     return list;
   }, []);
 
-  const pinnedDepartmentInfo = useMemo(() => {
+  // Pinned Unit object (Supports Faculty or Department)
+  const pinnedUnitInfo = useMemo(() => {
     if (!pinnedDeptId) return null;
-    return allFlatDepartments.find(item => item.dept.id === pinnedDeptId || item.dept.slug === pinnedDeptId) || null;
+    // 1. Is it a faculty group?
+    const facGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === pinnedDeptId);
+    if (facGroup) {
+      return {
+        type: 'faculty' as const,
+        id: facGroup.facultyId,
+        name: facGroup.facultyName,
+        facultyId: facGroup.facultyId,
+        facultyName: facGroup.facultyName,
+        newsUrl: facGroup.facultyNewsUrl,
+        announcementUrl: facGroup.facultyNewsUrl.replace('/news-all', '/announcements-all'),
+        websiteUrl: facGroup.facultyNewsUrl.split('/tr')[0],
+      };
+    }
+    // 2. Is it a specific department?
+    const deptMatch = allFlatDepartments.find(item => item.dept.id === pinnedDeptId || item.dept.slug === pinnedDeptId);
+    if (deptMatch) {
+      return {
+        type: 'department' as const,
+        id: deptMatch.dept.id,
+        name: deptMatch.dept.name,
+        facultyId: deptMatch.facultyId,
+        facultyName: deptMatch.facultyName,
+        newsUrl: deptMatch.dept.newsUrl,
+        announcementUrl: deptMatch.dept.announcementUrl || (deptMatch.dept.websiteUrl ? `${deptMatch.dept.websiteUrl}/tr/announcements-all` : undefined),
+        websiteUrl: deptMatch.dept.websiteUrl,
+      };
+    }
+    return null;
   }, [pinnedDeptId, allFlatDepartments]);
 
   const load = async (force = false) => {
@@ -87,28 +116,26 @@ export default function Announcements() {
     load();
   }, []);
 
-  // Fetch pinned department announcements
+  // Fetch pinned unit announcements
   useEffect(() => {
-    if (pinnedDepartmentInfo) {
-      const pDept = pinnedDepartmentInfo.dept;
-      const annUrl = pDept.announcementUrl || (pDept.websiteUrl ? `${pDept.websiteUrl}/tr/announcements-all` : undefined);
-      getDepartmentAnnouncements(annUrl, pDept.id, pinnedDepartmentInfo.facultyId, false).then(res => {
+    if (pinnedUnitInfo) {
+      getDepartmentAnnouncements(pinnedUnitInfo.announcementUrl, pinnedUnitInfo.id, pinnedUnitInfo.facultyId, false).then(res => {
         if (res) setPinnedDeptAnnouncements(res);
       });
     }
-  }, [pinnedDeptId, pinnedDepartmentInfo]);
+  }, [pinnedDeptId, pinnedUnitInfo]);
 
   const handleRefresh = async () => {
     await load(true);
   };
 
-  const handleTogglePin = (deptId: string) => {
-    if (pinnedDeptId === deptId) {
+  const handleTogglePin = (unitId: string) => {
+    if (pinnedDeptId === unitId) {
       setPinnedDeptId(null);
       localStorage.removeItem('k7_pinned_department');
     } else {
-      setPinnedDeptId(deptId);
-      localStorage.setItem('k7_pinned_department', deptId);
+      setPinnedDeptId(unitId);
+      localStorage.setItem('k7_pinned_department', unitId);
     }
   };
 
@@ -282,104 +309,101 @@ export default function Announcements() {
           </div>
         </header>
 
-        {/* Pinned Department Smart Card (If User Pinned A Department) */}
-        {pinnedDepartmentInfo ? (
-          <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 rounded-3xl p-5 shadow-sm space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-500/20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-inner">
-                  <Pin className="w-5 h-5 fill-amber-500 text-amber-600" />
+        {/* Pinned Unit Smart Ribbon (Supports Faculty or Department) */}
+        {pinnedUnitInfo ? (
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 dark:border-amber-500/20 rounded-2xl p-3.5 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <Pin className="w-4 h-4 fill-amber-500 text-amber-600" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">
-                      Sabitlenen Bölümüm
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.2 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                      {pinnedUnitInfo.type === 'faculty' ? 'Sabitlenen Fakültem' : 'Sabitlenen Bölümüm'}
                     </span>
-                    <span className="text-xs text-stone-500 dark:text-white/50 font-medium">
-                      {pinnedDepartmentInfo.facultyName}
-                    </span>
+                    {pinnedUnitInfo.type === 'department' && (
+                      <span className="text-[11px] text-stone-400 dark:text-white/40 hidden sm:inline truncate">
+                        ({pinnedUnitInfo.facultyName})
+                      </span>
+                    )}
                   </div>
-                  <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white mt-0.5">
-                    {pinnedDepartmentInfo.dept.name}
+                  <h3 className="font-display font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate mt-0.5">
+                    {pinnedUnitInfo.name}
                   </h3>
                 </div>
               </div>
-              <div className="flex items-center gap-2 self-end sm:self-center">
+
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={() => handleTogglePin(pinnedDepartmentInfo.dept.id)}
-                  title="Sabitlemeyi Kaldır"
-                  className="p-2 rounded-xl bg-white/80 dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-stone-600 dark:text-stone-300 hover:text-rose-600 transition-colors border border-stone-200/80 dark:border-white/10 text-xs font-medium cursor-pointer"
-                >
-                  <PinOff className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => navigate(`/news?tab=department&dept=${pinnedDepartmentInfo.dept.id}`)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                  onClick={() => navigate(`/news?tab=department&dept=${pinnedUnitInfo.id}`)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
                 >
                   <Bell className="w-3.5 h-3.5" />
-                  <span>Bölüm Akışını Aç</span>
+                  <span>Bölüm Masasında Aç</span>
                   <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleTogglePin(pinnedUnitInfo.id)}
+                  title="Sabitlemeyi Kaldır"
+                  className="p-1.5 rounded-xl bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-stone-400 hover:text-rose-600 transition-colors border border-stone-200/60 dark:border-white/10 cursor-pointer"
+                >
+                  <PinOff className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
 
-            {/* Quick Preview of Pinned Department Announcements */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {pinnedDeptAnnouncements.slice(0, 2).map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedItem({
-                    title: item.title,
-                    date: item.date,
-                    category: 'Bölüm Duyurusu',
-                    url: item.url,
-                    content: item.content,
-                    sourceName: pinnedDepartmentInfo.dept.name
-                  })}
-                  className="bg-white/90 dark:bg-[#1a3038]/90 border border-stone-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold">
-                        Bölüm Duyurusu
-                      </span>
-                      <span className="text-[11px] text-stone-400 dark:text-white/40 font-mono">
-                        {item.date}
-                      </span>
+            {/* Quick Preview of Pinned Unit Announcements */}
+            {pinnedDeptAnnouncements.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-amber-500/15">
+                {pinnedDeptAnnouncements.slice(0, 2).map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedItem({
+                      title: item.title,
+                      date: item.date,
+                      category: 'Bölüm Duyurusu',
+                      url: item.url,
+                      content: item.content,
+                      sourceName: pinnedUnitInfo.name
+                    })}
+                    className="bg-white dark:bg-[#1a3038] border border-stone-200/80 dark:border-white/10 rounded-xl p-2.5 hover:border-amber-500/40 transition-all cursor-pointer group flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1 text-[10px] text-stone-400 dark:text-white/40 font-mono">
+                        <span className="font-semibold text-amber-600 dark:text-amber-400">Duyuru</span>
+                        <span>{item.date}</span>
+                      </div>
+                      <h4 className="font-bold text-xs text-stone-800 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                        {item.title}
+                      </h4>
                     </div>
-                    <h4 className="font-bold text-xs sm:text-sm text-stone-800 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                      {item.title}
-                    </h4>
                   </div>
-                  <div className="mt-2.5 pt-2 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[11px] text-stone-400 dark:text-white/40">
-                    <span>Detayları İncele</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="bg-[#fcfbf9] dark:bg-[#1f3741] border border-amber-500/20 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <Bookmark className="w-5 h-5" />
+          <div className="bg-stone-50 dark:bg-[#1a3038] border border-stone-200 dark:border-white/10 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Bookmark className="w-3.5 h-3.5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-stone-900 dark:text-white">
-                  Kendi Bölümünün Duyurularını Sabitle
+                <h3 className="text-xs font-bold text-stone-900 dark:text-white">
+                  Fakülte veya Bölümünüzün Duyurularını Sabitleyin
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
-                  Fakülte ve bölümünü sabitleyerek sınav, ders ve staj duyurularına anında ulaşabilirsin.
+                <p className="text-[11px] text-stone-500 dark:text-white/60">
+                  Bölüm Masası'ndan birim veya bölümünüzü sabitleyerek duyurulara anında ulaşabilirsiniz.
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate('/news?tab=department')}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#264653] dark:bg-amber-600 text-white text-xs font-bold hover:opacity-90 transition-all shadow-xs cursor-pointer shrink-0"
             >
               <Pin className="w-3.5 h-3.5" />
-              <span>Bölüm Seç & Sabitle</span>
+              <span>Bölüm / Birim Sabitle</span>
             </button>
           </div>
         )}
