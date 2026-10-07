@@ -93,9 +93,7 @@ export default function News() {
   // Department navigation filters
   const [selectedUnitCategory, setSelectedUnitCategory] = useState<StaffUnitCategory | 'all'>('all');
   const [selectedFacultyId, setSelectedFacultyId] = useState<string>('itbf'); // Default to İnsan ve Toplum Bilimleri
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>(() => {
-    return searchParams.get('dept') || 'all';
-  });
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('turkdili'); // Default to Türk Dili ve Edebiyatı
   const [deptFeedType, setDeptFeedType] = useState<'all' | 'announcements' | 'news'>('all');
 
   // Spotlight search in Department Hub
@@ -133,52 +131,20 @@ export default function News() {
     }).slice(0, 8);
   }, [spotlightQuery, allFlatDepartments]);
 
-  // Pinned unit object (Supports both Faculty/Upper Unit and Specific Department)
-  const pinnedUnitInfo = useMemo(() => {
+  // Pinned department object
+  const pinnedDepartmentInfo = useMemo(() => {
     if (!pinnedDeptId) return null;
-    // 1. Is it a faculty group?
-    const facGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === pinnedDeptId);
-    if (facGroup) {
-      return {
-        type: 'faculty' as const,
-        id: facGroup.facultyId,
-        name: facGroup.facultyName,
-        facultyId: facGroup.facultyId,
-        facultyName: facGroup.facultyName,
-        category: facGroup.category,
-        newsUrl: facGroup.facultyNewsUrl,
-        announcementUrl: facGroup.facultyNewsUrl.replace('/news-all', '/announcements-all'),
-        websiteUrl: facGroup.facultyNewsUrl.split('/tr')[0],
-        description: `${facGroup.facultyName} genel duyuru ve haber akışı.`
-      };
-    }
-    // 2. Is it a specific department?
-    const deptMatch = allFlatDepartments.find(item => item.dept.id === pinnedDeptId || item.dept.slug === pinnedDeptId);
-    if (deptMatch) {
-      return {
-        type: 'department' as const,
-        id: deptMatch.dept.id,
-        name: deptMatch.dept.name,
-        facultyId: deptMatch.facultyId,
-        facultyName: deptMatch.facultyName,
-        category: deptMatch.category,
-        newsUrl: deptMatch.dept.newsUrl,
-        announcementUrl: deptMatch.dept.announcementUrl || (deptMatch.dept.websiteUrl ? `${deptMatch.dept.websiteUrl}/tr/announcements-all` : undefined),
-        websiteUrl: deptMatch.dept.websiteUrl,
-        description: deptMatch.dept.description
-      };
-    }
-    return null;
+    return allFlatDepartments.find(item => item.dept.id === pinnedDeptId || item.dept.slug === pinnedDeptId) || null;
   }, [pinnedDeptId, allFlatDepartments]);
 
-  // Toggle Pin Unit (Department or Faculty)
-  const handleTogglePinUnit = (unitId: string) => {
-    if (pinnedDeptId === unitId) {
+  // Toggle Pin Department
+  const handleTogglePinDepartment = (deptId: string) => {
+    if (pinnedDeptId === deptId) {
       setPinnedDeptId(null);
       localStorage.removeItem('k7_pinned_department');
     } else {
-      setPinnedDeptId(unitId);
-      localStorage.setItem('k7_pinned_department', unitId);
+      setPinnedDeptId(deptId);
+      localStorage.setItem('k7_pinned_department', deptId);
     }
   };
 
@@ -190,15 +156,10 @@ export default function News() {
     }
     const deptParam = searchParams.get('dept');
     if (deptParam) {
+      setSelectedDepartmentId(deptParam);
       for (const grp of ACADEMIC_UNITS_WITH_DEPARTMENTS) {
-        if (grp.facultyId === deptParam) {
-          setSelectedFacultyId(grp.facultyId);
-          setSelectedDepartmentId('all');
-          break;
-        }
         if (grp.departments.some(d => d.id === deptParam || d.slug === deptParam)) {
           setSelectedFacultyId(grp.facultyId);
-          setSelectedDepartmentId(deptParam);
           break;
         }
       }
@@ -215,33 +176,18 @@ export default function News() {
     setLoading(false);
   };
 
-  // Load Department / Faculty News & Announcements
+  // Load Department News & Announcements
   const loadDeptFeed = async (force = false) => {
     if (force) setDeptLoading(true);
     
-    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
-    const isGeneral = !selectedDepartmentId || selectedDepartmentId === 'all';
-    const currentDept = !isGeneral
-      ? currentGroup?.departments.find(d => d.id === selectedDepartmentId || d.slug === selectedDepartmentId)
-      : null;
-
-    let newsUrl: string | undefined;
-    let annUrl: string | undefined;
-    let queryDeptId: string | undefined;
-
-    if (isGeneral || !currentDept) {
-      newsUrl = currentGroup?.facultyNewsUrl;
-      annUrl = currentGroup?.facultyNewsUrl ? currentGroup.facultyNewsUrl.replace('/news-all', '/announcements-all') : undefined;
-      queryDeptId = currentGroup?.facultyId;
-    } else {
-      newsUrl = currentDept.newsUrl;
-      annUrl = currentDept.announcementUrl || (currentDept.websiteUrl ? `${currentDept.websiteUrl}/tr/announcements-all` : undefined);
-      queryDeptId = currentDept.id;
-    }
+    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId);
+    const currentDept = currentGroup?.departments.find(d => d.id === selectedDepartmentId);
+    const newsUrl = currentDept?.newsUrl;
+    const annUrl = currentDept?.announcementUrl || (currentDept?.websiteUrl ? `${currentDept.websiteUrl}/tr/announcements-all` : undefined);
 
     const [newsData, annData] = await Promise.all([
-      getDepartmentNews(newsUrl, queryDeptId, selectedFacultyId, force),
-      getDepartmentAnnouncements(annUrl, queryDeptId, selectedFacultyId, force)
+      getDepartmentNews(newsUrl, selectedDepartmentId, selectedFacultyId, force),
+      getDepartmentAnnouncements(annUrl, selectedDepartmentId, selectedFacultyId, force)
     ]);
 
     if (newsData && newsData.length > 0) {
@@ -253,17 +199,21 @@ export default function News() {
     setDeptLoading(false);
   };
 
-  // Load Pinned Unit Feed
+  // Load Pinned Department Feed
   useEffect(() => {
-    if (pinnedUnitInfo) {
-      getDepartmentNews(pinnedUnitInfo.newsUrl, pinnedUnitInfo.id, pinnedUnitInfo.facultyId, false).then(res => {
+    if (pinnedDepartmentInfo) {
+      const pDept = pinnedDepartmentInfo.dept;
+      const newsUrl = pDept.newsUrl;
+      const annUrl = pDept.announcementUrl || (pDept.websiteUrl ? `${pDept.websiteUrl}/tr/announcements-all` : undefined);
+
+      getDepartmentNews(newsUrl, pDept.id, pinnedDepartmentInfo.facultyId, false).then(res => {
         if (res) setPinnedNews(res);
       });
-      getDepartmentAnnouncements(pinnedUnitInfo.announcementUrl, pinnedUnitInfo.id, pinnedUnitInfo.facultyId, false).then(res => {
+      getDepartmentAnnouncements(annUrl, pDept.id, pinnedDepartmentInfo.facultyId, false).then(res => {
         if (res) setPinnedAnnouncements(res);
       });
     }
-  }, [pinnedDeptId, pinnedUnitInfo]);
+  }, [pinnedDeptId, pinnedDepartmentInfo]);
 
   useEffect(() => {
     loadMainNews();
@@ -405,48 +355,15 @@ export default function News() {
     return ACADEMIC_UNITS_WITH_DEPARTMENTS.filter(u => u.category === selectedUnitCategory);
   }, [selectedUnitCategory]);
 
-  // Active faculty group object
+  // Active faculty group & department object
   const activeFacultyGroup = useMemo(() => {
     return ACADEMIC_UNITS_WITH_DEPARTMENTS.find(u => u.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
   }, [selectedFacultyId]);
 
-  // Active specific department object (null if faculty-general is selected)
-  const isFacultyGeneral = selectedDepartmentId === 'all' || !selectedDepartmentId;
   const activeDepartment = useMemo(() => {
-    if (!activeFacultyGroup || isFacultyGeneral) return null;
-    return activeFacultyGroup.departments.find(d => d.id === selectedDepartmentId || d.slug === selectedDepartmentId) || null;
-  }, [activeFacultyGroup, selectedDepartmentId, isFacultyGeneral]);
-
-  // Unified Current Active Unit (Department OR Faculty)
-  const currentActiveUnit = useMemo(() => {
     if (!activeFacultyGroup) return null;
-    if (activeDepartment) {
-      return {
-        type: 'department' as const,
-        id: activeDepartment.id,
-        name: activeDepartment.name,
-        facultyId: activeFacultyGroup.facultyId,
-        facultyName: activeFacultyGroup.facultyName,
-        category: activeFacultyGroup.category,
-        websiteUrl: activeDepartment.websiteUrl,
-        newsUrl: activeDepartment.newsUrl,
-        announcementUrl: activeDepartment.announcementUrl || (activeDepartment.websiteUrl ? `${activeDepartment.websiteUrl}/tr/announcements-all` : undefined),
-        description: activeDepartment.description
-      };
-    }
-    return {
-      type: 'faculty' as const,
-      id: activeFacultyGroup.facultyId,
-      name: activeFacultyGroup.facultyName,
-      facultyId: activeFacultyGroup.facultyId,
-      facultyName: activeFacultyGroup.facultyName,
-      category: activeFacultyGroup.category,
-      websiteUrl: activeFacultyGroup.facultyNewsUrl.split('/tr')[0],
-      newsUrl: activeFacultyGroup.facultyNewsUrl,
-      announcementUrl: activeFacultyGroup.facultyNewsUrl.replace('/news-all', '/announcements-all'),
-      description: `${activeFacultyGroup.facultyName} bünyesindeki tüm bölümlere ait duyuru ve haber akışı.`
-    };
-  }, [activeFacultyGroup, activeDepartment]);
+    return activeFacultyGroup.departments.find(d => d.id === selectedDepartmentId) || activeFacultyGroup.departments[0];
+  }, [activeFacultyGroup, selectedDepartmentId]);
 
   // Combined Department Feed Items (Announcements + News)
   const combinedDepartmentFeed = useMemo(() => {
@@ -475,9 +392,9 @@ export default function News() {
           content: item.content,
           url: item.url,
           imageUrl: item.imageUrl,
-          departmentName: item.departmentName || currentActiveUnit?.name || '',
+          departmentName: item.departmentName || activeDepartment?.name || '',
           facultyName: item.facultyName || activeFacultyGroup?.facultyName || '',
-          departmentId: item.departmentId || currentActiveUnit?.id || '',
+          departmentId: item.departmentId || activeDepartment?.id || '',
           facultyId: item.facultyId || activeFacultyGroup?.facultyId || '',
           sourceUrl: item.sourceUrl
         });
@@ -494,22 +411,22 @@ export default function News() {
           content: item.content,
           url: item.url,
           imageUrl: item.imageUrl,
-          departmentName: item.departmentName || currentActiveUnit?.name || '',
+          departmentName: item.departmentName || activeDepartment?.name || '',
           facultyName: item.facultyName || activeFacultyGroup?.facultyName || '',
-          departmentId: item.departmentId || currentActiveUnit?.id || '',
+          departmentId: item.departmentId || activeDepartment?.id || '',
           facultyId: item.facultyId || activeFacultyGroup?.facultyId || '',
           sourceUrl: item.sourceUrl
         });
       });
     }
 
-    // Filter by department if specific department selected
+    // Filter by department if needed and search
     let filtered = feed;
-    if (activeDepartment) {
+    if (selectedDepartmentId && selectedDepartmentId !== 'all') {
       filtered = filtered.filter(item => {
         if (!item.departmentId) return true;
-        return item.departmentId === activeDepartment.id ||
-               item.departmentName.toLowerCase().includes(activeDepartment.name.toLowerCase());
+        return item.departmentId === selectedDepartmentId ||
+               item.departmentName.toLowerCase().includes(activeDepartment?.name.toLowerCase() || '');
       });
     }
 
@@ -524,7 +441,7 @@ export default function News() {
 
     // Sort by freshest date
     return filtered.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
-  }, [departmentAnnouncements, departmentNews, deptFeedType, currentActiveUnit, activeDepartment, activeFacultyGroup, searchQuery]);
+  }, [departmentAnnouncements, departmentNews, deptFeedType, selectedDepartmentId, activeDepartment, activeFacultyGroup, searchQuery]);
 
   const toggleCategory = (category: string) => {
     setCollapsedCategories((prev) => ({
@@ -640,104 +557,183 @@ export default function News() {
         {/* ================= VIEW 1: ÜNİVERSİTE GÜNDEMİ ================= */}
         {activeTab === 'main' && (
           <div className="space-y-6">
-            {/* Pinned Unit Sleek & Minimalist Ribbon (Faculty or Department) */}
-            {pinnedUnitInfo ? (
-              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 dark:border-amber-500/20 rounded-2xl px-4 py-3 shadow-xs flex flex-wrap items-center justify-between gap-3 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
-                    <Pin className="w-4 h-4 fill-amber-500 text-amber-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.2 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">
-                        {pinnedUnitInfo.type === 'faculty' ? 'Sabitlenen Fakültem / Birimim' : 'Sabitlenen Bölümüm'}
-                      </span>
-                      {pinnedUnitInfo.type === 'department' && (
-                        <span className="text-[11px] text-stone-400 dark:text-white/40 hidden sm:inline truncate">
-                          ({pinnedUnitInfo.facultyName})
-                        </span>
-                      )}
+            {/* Pinned Department Smart Card (If User Pinned A Department) */}
+            {pinnedDepartmentInfo ? (
+              <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 rounded-3xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-500/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-inner">
+                      <Pin className="w-5 h-5 fill-amber-500 text-amber-600" />
                     </div>
-                    <p className="font-display font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate mt-0.5">
-                      {pinnedUnitInfo.name}
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                          Sabitlenen Bölümüm
+                        </span>
+                        <span className="text-xs text-stone-500 dark:text-white/50 font-medium">
+                          {pinnedDepartmentInfo.facultyName}
+                        </span>
+                      </div>
+                      <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white mt-0.5">
+                        {pinnedDepartmentInfo.dept.name}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <button
+                      onClick={() => handleTogglePinDepartment(pinnedDepartmentInfo.dept.id)}
+                      title="Sabitlemeyi Kaldır"
+                      className="p-2 rounded-xl bg-white/80 dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-stone-600 dark:text-stone-300 hover:text-rose-600 transition-colors border border-stone-200/80 dark:border-white/10 text-xs font-medium cursor-pointer"
+                    >
+                      <PinOff className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedFacultyId(pinnedDepartmentInfo.facultyId);
+                        setSelectedDepartmentId(pinnedDepartmentInfo.dept.id);
+                        handleTabChange('department');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <span>Bölüm Masası'nı Aç</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  {/* Segmented quick tab switch */}
-                  <div className="flex items-center p-0.5 bg-white/90 dark:bg-black/20 rounded-xl border border-stone-200/60 dark:border-white/10 text-xs font-semibold shadow-xs">
+                {/* Quick Toggle between Announcements & News of Pinned Department */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 p-1 bg-white/70 dark:bg-black/20 rounded-xl border border-stone-200/60 dark:border-white/10 w-fit">
                     <button
                       onClick={() => setPinnedQuickTab('announcements')}
                       className={cn(
-                        "px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 text-[11px]",
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
                         pinnedQuickTab === 'announcements'
-                          ? "bg-amber-500 text-white font-bold shadow-xs"
+                          ? "bg-amber-500 text-white shadow-xs"
                           : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white"
                       )}
                     >
-                      <Bell className="w-3 h-3" />
+                      <Bell className="w-3.5 h-3.5" />
                       <span>Duyurular</span>
-                      <span className="text-[10px] px-1 py-0.2 rounded-full bg-black/15 font-mono">{pinnedAnnouncements.length}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+                        {pinnedAnnouncements.length}
+                      </span>
                     </button>
                     <button
                       onClick={() => setPinnedQuickTab('news')}
                       className={cn(
-                        "px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 text-[11px]",
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
                         pinnedQuickTab === 'news'
-                          ? "bg-amber-500 text-white font-bold shadow-xs"
+                          ? "bg-amber-500 text-white shadow-xs"
                           : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white"
                       )}
                     >
-                      <Newspaper className="w-3 h-3" />
+                      <Newspaper className="w-3.5 h-3.5" />
                       <span>Haberler</span>
-                      <span className="text-[10px] px-1 py-0.2 rounded-full bg-black/15 font-mono">{pinnedNews.length}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+                        {pinnedNews.length}
+                      </span>
                     </button>
                   </div>
+                  <span className="text-[11px] text-stone-400 dark:text-white/40 hidden sm:inline">
+                    Bölümünüze ait en son paylaşımlar
+                  </span>
+                </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedFacultyId(pinnedUnitInfo.facultyId);
-                      setSelectedDepartmentId(pinnedUnitInfo.type === 'department' ? pinnedUnitInfo.id : 'all');
-                      handleTabChange('department');
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
-                  >
-                    <span>Masada Aç</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => handleTogglePinUnit(pinnedUnitInfo.id)}
-                    title="Sabitlemeyi Kaldır"
-                    className="p-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-stone-400 hover:text-rose-600 transition-colors border border-stone-200/60 dark:border-white/10 cursor-pointer"
-                  >
-                    <PinOff className="w-3.5 h-3.5" />
-                  </button>
+                {/* Quick Items Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {pinnedQuickTab === 'announcements' ? (
+                    pinnedAnnouncements.slice(0, 2).map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setSelectedItem({
+                          title: item.title,
+                          date: item.date,
+                          category: 'Bölüm Duyurusu',
+                          url: item.url,
+                          content: item.content,
+                          sourceName: pinnedDepartmentInfo.dept.name
+                        })}
+                        className="bg-white/90 dark:bg-[#1a3038]/90 border border-stone-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold">
+                              Duyuru
+                            </span>
+                            <span className="text-[11px] text-stone-400 dark:text-white/40 font-mono">
+                              {item.date}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-xs sm:text-sm text-stone-800 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                            {item.title}
+                          </h4>
+                        </div>
+                        <div className="mt-2.5 pt-2 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[11px] text-stone-400 dark:text-white/40">
+                          <span>İncele & Oku</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    pinnedNews.slice(0, 2).map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setSelectedItem({
+                          title: item.title,
+                          date: item.date,
+                          category: 'Bölüm Haberi',
+                          url: item.url,
+                          content: item.content,
+                          imageUrl: item.imageUrl,
+                          sourceName: pinnedDepartmentInfo.dept.name
+                        })}
+                        className="bg-white/90 dark:bg-[#1a3038]/90 border border-stone-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">
+                              Haber
+                            </span>
+                            <span className="text-[11px] text-stone-400 dark:text-white/40 font-mono">
+                              {item.date}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-xs sm:text-sm text-stone-800 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                            {item.title}
+                          </h4>
+                        </div>
+                        <div className="mt-2.5 pt-2 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[11px] text-stone-400 dark:text-white/40">
+                          <span>Detayları Gör</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-emerald-500 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             ) : (
-              /* Non-intrusive banner inviting user to pin faculty or department */
-              <div className="bg-[#fcfbf9] dark:bg-[#1f3741] border border-emerald-500/20 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <Bookmark className="w-4 h-4" />
+              /* Non-intrusive banner inviting user to pin their department */
+              <div className="bg-[#fcfbf9] dark:bg-[#1f3741] border border-emerald-500/20 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Bookmark className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white">
-                      Fakülte veya Bölümünüzün Akışını Sabitleyin
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                      Kendi Bölümünün Duyuru ve Haberlerini Sabitle
                     </h3>
-                    <p className="text-[11px] text-stone-500 dark:text-white/60">
-                      Birim ya da bölümünüzü 1 kez sabitleyerek güncel duyuru ve haberlere tek tıkla ulaşın.
+                    <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                      Fakülte ve bölümünü 1 kez sabitle; her girişte tek tıkla sana özel akışı gör.
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => handleTabChange('department')}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#264653] dark:bg-emerald-600 text-white text-xs font-bold hover:bg-[#1a343f] dark:hover:bg-emerald-700 transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#264653] dark:bg-emerald-600 text-white text-xs font-bold hover:bg-[#1a343f] dark:hover:bg-emerald-700 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
                 >
                   <Pin className="w-3.5 h-3.5" />
-                  <span>Birim / Bölüm Sabitle</span>
+                  <span>Bölüm Seç & Sabitle</span>
                 </button>
               </div>
             )}
@@ -890,21 +886,73 @@ export default function News() {
 
         {/* ================= VIEW 2: BÖLÜM MASASI (DUYURU & HABER TEK MERKEZDE) ================= */}
         {activeTab === 'department' && (
-          <div className="space-y-4">
-            {/* Compact Control Card: Search, Category Filter, and Dual Cascading Selectors */}
-            <div className="p-4 bg-white dark:bg-[#1a3038] border border-stone-200 dark:border-white/10 rounded-2xl shadow-xs space-y-3">
-              {/* Category Switcher Mini-Chips */}
+          <div className="space-y-6">
+            {/* Spotlight Fast Search Bar for 80+ Departments */}
+            <div className="relative">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <input
+                  type="text"
+                  placeholder="Bölüm veya program ara... (örn: Bilgisayar, Türk Dili, Hemşirelik, Aşçılık)"
+                  value={spotlightQuery}
+                  onChange={(e) => setSpotlightQuery(e.target.value)}
+                  className="w-full pl-11 pr-10 py-3.5 bg-white dark:bg-[#1a3038] border-2 border-amber-500/30 rounded-2xl text-stone-900 dark:text-white placeholder-stone-400 text-sm font-medium focus:outline-none focus:border-amber-500 shadow-sm"
+                />
+                {spotlightQuery && (
+                  <button
+                    onClick={() => setSpotlightQuery('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-white p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Spotlight Live Search Dropdown */}
+              {spotlightResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-40 mt-2 bg-white dark:bg-[#1a3038] border border-stone-200 dark:border-white/15 rounded-2xl shadow-xl overflow-hidden divide-y divide-stone-100 dark:divide-white/5">
+                  <div className="px-4 py-2 bg-stone-50 dark:bg-white/5 text-[11px] font-bold text-stone-500 dark:text-white/50 uppercase tracking-wider">
+                    Eşleşen Bölümler & Birimler ({spotlightResults.length})
+                  </div>
+                  {spotlightResults.map((item) => (
+                    <div
+                      key={item.dept.id}
+                      onClick={() => handleSelectFromSpotlight(item)}
+                      className="px-4 py-3 hover:bg-amber-500/10 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                    >
+                      <div>
+                        <h4 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white group-hover:text-amber-600 transition-colors">
+                          {item.dept.name}
+                        </h4>
+                        <p className="text-[11px] text-stone-400 dark:text-white/50 mt-0.5">
+                          {item.facultyName}
+                        </p>
+                      </div>
+                      <span className="text-xs px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 font-semibold group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0">
+                        Bölümü Aç →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Structured Browsing: Category Switcher */}
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-stone-500 dark:text-white/50 uppercase tracking-wider">
+                Birim Türüne Göre Filtrele:
+              </span>
               <HorizontalScrollWrapper>
-                <div className="flex items-center gap-1.5 pb-0.5">
+                <div className="flex items-center gap-2 py-1">
                   {[
                     { key: 'all' as const, label: 'Tümü' },
-                    { key: 'fakulte' as const, label: 'Fakülteler' },
+                    { key: 'fakulte' as const, label: 'Fakülteler (12)' },
                     { key: 'enstitu' as const, label: 'Enstitü' },
                     { key: 'yuksekokul' as const, label: 'Yüksekokul' },
-                    { key: 'myo' as const, label: 'Meslek YO' },
+                    { key: 'myo' as const, label: 'Meslek Yüksekokulları (4)' },
                     { key: 'konservatuvar' as const, label: 'Konservatuvar' },
-                    { key: 'daire' as const, label: 'Daire Bşk.' },
-                    { key: 'koordinatorluk' as const, label: 'Koordinatörlük' },
+                    { key: 'daire' as const, label: 'Daire Başkanlıkları (8)' },
+                    { key: 'koordinatorluk' as const, label: 'Koordinatörlükler (10)' },
                   ].map((chip) => {
                     const isSelected = selectedUnitCategory === chip.key;
                     return (
@@ -912,10 +960,10 @@ export default function News() {
                         key={chip.key}
                         onClick={() => setSelectedUnitCategory(chip.key)}
                         className={cn(
-                          'px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border shrink-0 cursor-pointer',
+                          'px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border shrink-0 cursor-pointer',
                           isSelected
-                            ? 'bg-[#264653] dark:bg-amber-600 text-white border-transparent shadow-xs'
-                            : 'bg-stone-50 dark:bg-white/5 text-stone-600 dark:text-stone-300 border-stone-200/80 dark:border-white/5 hover:bg-stone-100'
+                            ? 'bg-[#264653] dark:bg-amber-600 text-white border-transparent shadow-sm'
+                            : 'bg-white dark:bg-[#1a3038] text-stone-600 dark:text-stone-300 border-stone-200 dark:border-white/10 hover:bg-stone-50'
                         )}
                       >
                         {chip.label}
@@ -924,62 +972,26 @@ export default function News() {
                   })}
                 </div>
               </HorizontalScrollWrapper>
+            </div>
 
-              {/* Spotlight Search + Faculty & Department Selectors */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
-                {/* Spotlight Search (4 cols) */}
-                <div className="md:col-span-4 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                  <input
-                    type="text"
-                    placeholder="Bölüm ara... (örn: Bilgisayar, Aşçılık)"
-                    value={spotlightQuery}
-                    onChange={(e) => setSpotlightQuery(e.target.value)}
-                    className="w-full pl-9 pr-7 py-2 bg-stone-50 dark:bg-black/20 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white placeholder-stone-400 text-xs font-medium focus:outline-none focus:border-amber-500"
-                  />
-                  {spotlightQuery && (
-                    <button
-                      onClick={() => setSpotlightQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-white p-0.5"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
-                  {/* Spotlight Dropdown */}
-                  {spotlightResults.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-40 mt-1 bg-white dark:bg-[#1a3038] border border-stone-200 dark:border-white/15 rounded-xl shadow-xl overflow-hidden divide-y divide-stone-100 dark:divide-white/5">
-                      {spotlightResults.map((item) => (
-                        <div
-                          key={item.dept.id}
-                          onClick={() => handleSelectFromSpotlight(item)}
-                          className="px-3 py-2 hover:bg-amber-500/10 transition-colors cursor-pointer flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-stone-900 dark:text-white truncate">
-                              {item.dept.name}
-                            </h4>
-                            <p className="text-[10px] text-stone-400 dark:text-white/50 truncate">
-                              {item.facultyName}
-                            </p>
-                          </div>
-                          <span className="text-[11px] text-amber-600 font-semibold shrink-0">Seç →</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Faculty Select (4 cols) */}
-                <div className="md:col-span-4 relative">
+            {/* Dual Clean Cascading Selectors: Faculty & Department */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-4 bg-[#fcfbf9] dark:bg-[#1f3741] border border-stone-200 dark:border-white/10 rounded-3xl shadow-xs">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  1. Fakülte / Üst Birim Seçimi:
+                </label>
+                <div className="relative">
                   <select
                     value={selectedFacultyId}
                     onChange={(e) => {
                       const newFacId = e.target.value;
                       setSelectedFacultyId(newFacId);
-                      setSelectedDepartmentId('all'); // Do not force select a sub-department
+                      const targetGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === newFacId);
+                      if (targetGroup && targetGroup.departments.length > 0) {
+                        setSelectedDepartmentId(targetGroup.departments[0].id);
+                      }
                     }}
-                    className="w-full pl-3 pr-8 py-2 bg-stone-50 dark:bg-black/20 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/50 cursor-pointer appearance-none truncate"
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-[#1a3038] border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer appearance-none"
                   >
                     {filteredAcademicUnits.map((g) => (
                       <option key={g.facultyId} value={g.facultyId}>
@@ -987,101 +999,113 @@ export default function News() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                 </div>
+              </div>
 
-                {/* Department Select (4 cols) - Optional! */}
-                <div className="md:col-span-4 relative">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  2. Bölüm / Program Seçimi:
+                </label>
+                <div className="relative">
                   <select
                     value={selectedDepartmentId}
                     onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 bg-stone-50 dark:bg-black/20 border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/50 cursor-pointer appearance-none truncate"
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-white dark:bg-[#1a3038] border border-stone-200 dark:border-white/10 rounded-xl text-stone-900 dark:text-white text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer appearance-none"
                   >
-                    <option value="all">
-                      🏛️ {activeFacultyGroup.shortName || activeFacultyGroup.facultyName} Genel (Bölüm Seçmeden)
-                    </option>
                     {activeFacultyGroup?.departments.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
                 </div>
               </div>
             </div>
 
-            {/* Compact Active Unit Showcase & Control Bar */}
-            {currentActiveUnit && (
-              <div className="bg-gradient-to-r from-amber-500/10 via-stone-100/40 dark:via-white/5 to-transparent border border-amber-500/20 dark:border-white/10 rounded-2xl p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={cn(
-                      "text-[10px] font-bold px-2 py-0.2 rounded-md border",
-                      getUnitCategoryMeta(activeFacultyGroup.category).badgeClass
-                    )}>
-                      {currentActiveUnit.type === 'faculty' ? 'Fakülte / Birim Genel' : activeFacultyGroup.facultyName}
-                    </span>
-                    {pinnedDeptId === currentActiveUnit.id && (
-                      <span className="text-[10px] font-bold px-2 py-0.2 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                        <Pin className="w-3 h-3 fill-amber-500" />
-                        <span>Sabitlendi</span>
+            {/* Active Department Showcase Header Card */}
+            {activeDepartment && (
+              <div className="bg-gradient-to-br from-[#264653]/10 via-[#264653]/5 to-transparent border-2 border-[#264653]/20 dark:border-white/15 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={cn(
+                        "text-[10px] font-bold px-2.5 py-0.5 rounded-full border",
+                        getUnitCategoryMeta(activeFacultyGroup.category).badgeClass
+                      )}>
+                        {activeFacultyGroup.facultyName}
                       </span>
+                      {pinnedDeptId === activeDepartment.id && (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Pin className="w-3 h-3 fill-amber-500" />
+                          <span>Sabitlenmiş Bölümünüz</span>
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg sm:text-2xl font-display font-extrabold text-stone-900 dark:text-white mt-1">
+                      {activeDepartment.name}
+                    </h3>
+                    {activeDepartment.description && (
+                      <p className="text-xs sm:text-sm text-stone-600 dark:text-white/70 mt-1 max-w-2xl">
+                        {activeDepartment.description}
+                      </p>
                     )}
                   </div>
-                  <h3 className="text-sm sm:text-base font-display font-extrabold text-stone-900 dark:text-white truncate mt-0.5">
-                    {currentActiveUnit.name}
-                  </h3>
-                  {currentActiveUnit.description && (
-                    <p className="text-[11px] text-stone-500 dark:text-white/60 truncate max-w-xl">
-                      {currentActiveUnit.description}
-                    </p>
-                  )}
+
+                  {/* Actions: Pin / Web Link / Copy */}
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <button
+                      onClick={() => handleTogglePinDepartment(activeDepartment.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer shadow-xs active:scale-95",
+                        pinnedDeptId === activeDepartment.id
+                          ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                          : "bg-white dark:bg-[#1a3038] text-stone-700 dark:text-white border-stone-200 dark:border-white/10 hover:border-amber-500/50"
+                      )}
+                    >
+                      <Pin className={cn("w-3.5 h-3.5", pinnedDeptId === activeDepartment.id && "fill-white")} />
+                      <span>{pinnedDeptId === activeDepartment.id ? 'Sabitlendi' : 'Bölümümü Sabitle'}</span>
+                    </button>
+
+                    {activeDepartment.websiteUrl && (
+                      <a
+                        href={activeDepartment.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1a3038] hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-white text-xs font-bold transition-all border border-stone-200 dark:border-white/10 shadow-xs"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Resmi Web</span>
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </a>
+                    )}
+
+                    <button
+                      onClick={() => copyDepartmentLink(window.location.href)}
+                      className="p-2 rounded-xl bg-white dark:bg-[#1a3038] hover:bg-stone-100 dark:hover:bg-white/10 text-stone-600 dark:text-white/70 transition-all border border-stone-200 dark:border-white/10 text-xs font-semibold cursor-pointer shadow-xs"
+                      title="Bölüm Bağlantısını Kopyala"
+                    >
+                      {copiedUrl ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Actions & 3-Way Feed Filter */}
-                <div className="flex items-center gap-2 flex-wrap shrink-0">
-                  {/* Pin Unit Button (Faculty or Department) */}
-                  <button
-                    onClick={() => handleTogglePinUnit(currentActiveUnit.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer shadow-xs active:scale-95",
-                      pinnedDeptId === currentActiveUnit.id
-                        ? "bg-amber-500 text-white border-amber-600"
-                        : "bg-white dark:bg-[#1a3038] text-stone-700 dark:text-white border-stone-200 dark:border-white/10 hover:border-amber-500/50"
-                    )}
-                  >
-                    <Pin className={cn("w-3.5 h-3.5", pinnedDeptId === currentActiveUnit.id && "fill-white")} />
-                    <span>{pinnedDeptId === currentActiveUnit.id ? 'Sabitlendi' : currentActiveUnit.type === 'faculty' ? 'Birimi Sabitle' : 'Bölümü Sabitle'}</span>
-                  </button>
-
-                  {/* Official Website */}
-                  {currentActiveUnit.websiteUrl && (
-                    <a
-                      href={currentActiveUnit.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#1a3038] hover:bg-stone-100 dark:hover:bg-white/10 text-stone-700 dark:text-white text-xs font-medium transition-all border border-stone-200 dark:border-white/10 shadow-xs"
-                    >
-                      <Globe className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Web</span>
-                      <ExternalLink className="w-3 h-3 opacity-60" />
-                    </a>
-                  )}
-
-                  {/* 3-Way Feed Toggle */}
-                  <div className="flex items-center p-0.5 bg-white dark:bg-black/20 rounded-xl border border-stone-200/80 dark:border-white/10 text-xs font-semibold shadow-xs">
+                {/* 3-Way Feed Filter: Duyurular vs Haberler vs Tümü */}
+                <div className="pt-3 border-t border-stone-200/60 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-black/20 rounded-2xl border border-stone-200/80 dark:border-white/10 w-fit">
                     <button
                       onClick={() => setDeptFeedType('all')}
                       className={cn(
-                        "px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[11px]",
+                        "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
                         deptFeedType === 'all'
-                          ? "bg-[#264653] dark:bg-emerald-600 text-white font-bold shadow-xs"
+                          ? "bg-[#264653] dark:bg-emerald-600 text-white shadow-xs"
                           : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white"
                       )}
                     >
+                      <Layers className="w-3.5 h-3.5" />
                       <span>Tümü</span>
-                      <span className="ml-1 text-[10px] opacity-80 font-mono">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
                         {departmentAnnouncements.length + departmentNews.length}
                       </span>
                     </button>
@@ -1089,14 +1113,15 @@ export default function News() {
                     <button
                       onClick={() => setDeptFeedType('announcements')}
                       className={cn(
-                        "px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[11px]",
+                        "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
                         deptFeedType === 'announcements'
-                          ? "bg-amber-600 text-white font-bold shadow-xs"
+                          ? "bg-amber-600 text-white shadow-xs"
                           : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white"
                       )}
                     >
-                      <span>Duyurular</span>
-                      <span className="ml-1 text-[10px] opacity-80 font-mono">
+                      <Bell className="w-3.5 h-3.5" />
+                      <span>Bölüm Duyuruları</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
                         {departmentAnnouncements.length}
                       </span>
                     </button>
@@ -1104,33 +1129,38 @@ export default function News() {
                     <button
                       onClick={() => setDeptFeedType('news')}
                       className={cn(
-                        "px-2.5 py-1 rounded-lg transition-all cursor-pointer text-[11px]",
+                        "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
                         deptFeedType === 'news'
-                          ? "bg-emerald-600 text-white font-bold shadow-xs"
+                          ? "bg-emerald-600 text-white shadow-xs"
                           : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white"
                       )}
                     >
-                      <span>Haberler</span>
-                      <span className="ml-1 text-[10px] opacity-80 font-mono">
+                      <Newspaper className="w-3.5 h-3.5" />
+                      <span>Bölüm Haberleri</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
                         {departmentNews.length}
                       </span>
                     </button>
                   </div>
+
+                  <span className="text-xs text-stone-500 dark:text-white/50 font-medium">
+                    {combinedDepartmentFeed.length} içerik listeleniyor
+                  </span>
                 </div>
               </div>
             )}
 
             {/* Department Feed Stream Grid */}
             {deptLoading ? (
-              <LoadingState message="Bölüm Akışı Yükleniyor..." subtitle="Duyuru ve haberler güncelleniyor" />
+              <LoadingState message="Bölüm Akışı Yükleniyor..." subtitle="Bölüm duyuru ve haberleri güncelleniyor" />
             ) : combinedDepartmentFeed.length === 0 ? (
-              <div className="text-center py-10 bg-stone-50 dark:bg-white/5 rounded-2xl border border-stone-200 dark:border-white/10">
-                <Layers className="w-10 h-10 text-stone-400 mx-auto mb-2 opacity-60" />
-                <p className="text-stone-600 dark:text-stone-300 font-semibold text-sm">Bu birim için henüz içerik bulunamadı.</p>
-                <p className="text-stone-400 text-xs mt-0.5">Lütfen diğer sekmeleri kontrol edin veya resmi web sayfasını ziyaret edin.</p>
+              <div className="text-center py-12 bg-stone-50 dark:bg-white/5 rounded-3xl border border-stone-200 dark:border-white/10">
+                <Layers className="w-12 h-12 text-stone-400 mx-auto mb-3 opacity-60" />
+                <p className="text-stone-600 dark:text-stone-300 font-semibold text-base">Bu bölüm için henüz içerik bulunamadı.</p>
+                <p className="text-stone-400 text-xs mt-1">Lütfen diğer sekmeleri kontrol edin veya resmi web sayfasını ziyaret edin.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {combinedDepartmentFeed.map((item) => (
                   <div
                     key={item.id}
@@ -1141,10 +1171,10 @@ export default function News() {
                       url: item.url,
                       content: item.content,
                       imageUrl: item.imageUrl,
-                      sourceName: item.departmentName || currentActiveUnit?.name
+                      sourceName: item.departmentName || activeDepartment?.name
                     })}
                     className={cn(
-                      "group p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between shadow-xs hover:shadow-md",
+                      "group p-5 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between shadow-xs hover:shadow-md",
                       item.type === 'announcement'
                         ? "bg-white dark:bg-[#1a3038] border-amber-500/25 hover:border-amber-500/60"
                         : "bg-white dark:bg-[#1a3038] border-emerald-500/25 hover:border-emerald-500/60"
@@ -1152,7 +1182,7 @@ export default function News() {
                   >
                     <div>
                       {item.imageUrl && (
-                        <div className="w-full h-36 rounded-xl overflow-hidden mb-3 bg-stone-100 dark:bg-black/20">
+                        <div className="w-full h-40 rounded-2xl overflow-hidden mb-3.5 bg-stone-100 dark:bg-black/20">
                           <img
                             src={item.imageUrl}
                             alt={item.title}
@@ -1162,14 +1192,14 @@ export default function News() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
                         <span className={cn(
-                          "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider",
+                          "text-[10px] font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wider",
                           item.type === 'announcement'
                             ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
                             : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
                         )}>
-                          {item.type === 'announcement' ? '📢 Duyuru' : '📰 Haber'}
+                          {item.type === 'announcement' ? '📢 Bölüm Duyurusu' : '📰 Bölüm Haberi'}
                         </span>
                         <span className="text-xs font-mono text-stone-400 dark:text-white/40 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
@@ -1177,18 +1207,18 @@ export default function News() {
                         </span>
                       </div>
 
-                      <h4 className="font-bold text-sm text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
+                      <h4 className="font-bold text-sm sm:text-base text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
                         {item.title}
                       </h4>
 
                       {item.content && (
-                        <p className="text-xs text-stone-500 dark:text-white/60 mt-1.5 line-clamp-2">
+                        <p className="text-xs text-stone-500 dark:text-white/60 mt-2 line-clamp-3">
                           {item.content}
                         </p>
                       )}
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-white/60">
+                    <div className="mt-4 pt-3 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-xs font-bold text-stone-600 dark:text-white/70">
                       <span className="group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                         Detayları İncele
                       </span>
