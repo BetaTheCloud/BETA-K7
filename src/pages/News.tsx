@@ -1,20 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  getNews,
-  getAnnouncements,
-  getDepartmentNews,
-  getDepartmentAnnouncements,
-  getCachedOrFallback,
-  FALLBACK_NEWS,
-  FALLBACK_ANNOUNCEMENTS,
-  FALLBACK_DEPARTMENT_NEWS,
-  FALLBACK_DEPARTMENT_ANNOUNCEMENTS
-} from '../mockData';
-import { Announcement, DepartmentNewsItem, DepartmentAnnouncementItem, StaffUnitCategory } from '../types';
+import { getNews, getDepartmentNews, getCachedOrFallback, FALLBACK_NEWS } from '../mockData';
+import { Announcement, DepartmentNewsItem, StaffUnitCategory } from '../types';
 import {
   ACADEMIC_UNITS_WITH_DEPARTMENTS,
+  FALLBACK_DEPARTMENT_NEWS,
   DepartmentGroup
 } from '../data/departmentNewsData';
 import {
@@ -23,7 +14,6 @@ import {
   ExternalLink,
   ChevronDown,
   Newspaper,
-  Megaphone,
   Filter,
   X,
   Calendar,
@@ -32,418 +22,288 @@ import {
   BookOpen,
   School,
   Layers,
-  Star,
-  Sparkles,
-  Pin,
-  PinOff,
-  ChevronRight,
-  Clock,
-  SlidersHorizontal,
-  Bookmark,
-  Share2,
-  Check
+  Copy,
+  Check,
+  Globe
 } from 'lucide-react';
 import { cn, parseDateToTimestamp } from '../lib/utils';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
-import FeedCardThumbnail from '../components/FeedCardThumbnail';
-import { getFavoriteItems, isFavoriteItem, toggleFavoriteItem, FeedFavoriteItem } from '../lib/feedFavorites';
-
-export type NewsViewTab = 'all' | 'announcements' | 'news' | 'department' | 'favorites';
 
 export default function News() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active view tab from query or state
-  const [activeTab, setActiveTab] = useState<NewsViewTab>(() => {
-    const tab = searchParams.get('tab') || searchParams.get('view');
-    if (tab === 'department' || tab === 'dept') return 'department';
-    if (tab === 'announcements' || tab === 'announcement') return 'announcements';
-    if (tab === 'news') return 'news';
-    if (tab === 'favorites' || tab === 'fav') return 'favorites';
-    return 'all';
+  // Active view tab: 'main' (Üniversite Haberleri) or 'department' (Bölüm & Birim Haberleri)
+  const [activeTab, setActiveTab] = useState<'main' | 'department'>(() => {
+    return searchParams.get('tab') === 'department' ? 'department' : 'main';
   });
 
-  // Pinned Department/Faculty state
-  const [pinnedUnit, setPinnedUnit] = useState<{ id: string; name: string; facultyId: string; type: 'dept' | 'faculty' } | null>(() => {
-    try {
-      const raw = localStorage.getItem('k7_pinned_unit_v2');
-      if (raw) return JSON.parse(raw);
-      // Legacy backward compat
-      const legacyId = localStorage.getItem('k7_pinned_department');
-      if (legacyId) {
-        return { id: legacyId, name: legacyId, facultyId: 'itbf', type: 'dept' };
-      }
-    } catch {}
-    return null;
-  });
-
-  // Feeds state
+  // Main news state
   const [news, setNews] = useState<Announcement[]>(() => {
-    return getCachedOrFallback<Announcement[]>('k7_cached_news_v6', FALLBACK_NEWS);
+    return getCachedOrFallback<Announcement[]>('k7_cached_news', FALLBACK_NEWS);
   });
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    return getCachedOrFallback<Announcement[]>('k7_cached_announcements_v6', FALLBACK_ANNOUNCEMENTS);
-  });
-
+  // Department news state
   const [departmentNews, setDepartmentNews] = useState<DepartmentNewsItem[]>(() => {
     return getCachedOrFallback<DepartmentNewsItem[]>('k7_cached_dept_news_all', FALLBACK_DEPARTMENT_NEWS);
   });
 
-  const [departmentAnnouncements, setDepartmentAnnouncements] = useState<DepartmentAnnouncementItem[]>(() => {
-    return getCachedOrFallback<DepartmentAnnouncementItem[]>('k7_cached_dept_ann_all', FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
-  });
-
-  // Favorites state
-  const [favoritesList, setFavoritesList] = useState<FeedFavoriteItem[]>(() => getFavoriteItems());
-
-  // UI & Loading States
   const [loading, setLoading] = useState(false);
   const [deptLoading, setDeptLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'news' | 'announcements'>('all');
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
-  const [showPinSelector, setShowPinSelector] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
-  // Department & Faculty Navigation filters
-  const [selectedFacultyId, setSelectedFacultyId] = useState<string>('itbf');
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('all'); // 'all' means Tüm Bölümler / Fakülte Geneli!
-  const [deptFeedType, setDeptFeedType] = useState<'all' | 'announcements' | 'news'>('all');
-
-  // Flat list of all units for fast lookup
-  const allFlatDepartments = useMemo(() => {
-    const list: {
-      dept: any;
-      facultyId: string;
-      facultyName: string;
-      category: StaffUnitCategory;
-    }[] = [];
-    ACADEMIC_UNITS_WITH_DEPARTMENTS.forEach(g => {
-      g.departments.forEach(d => {
-        list.push({
-          dept: d,
-          facultyId: g.facultyId,
-          facultyName: g.facultyName,
-          category: g.category
-        });
-      });
-    });
-    return list;
-  }, []);
-
-  // Listen to favorites updates
-  useEffect(() => {
-    const handler = () => {
-      setFavoritesList(getFavoriteItems());
-    };
-    window.addEventListener('k7_favorites_updated', handler);
-    return () => window.removeEventListener('k7_favorites_updated', handler);
-  }, []);
+  // Department navigation filters
+  const [selectedUnitCategory, setSelectedUnitCategory] = useState<StaffUnitCategory | 'all'>('all');
+  const [selectedFacultyId, setSelectedFacultyId] = useState<string>('itbf'); // Default to İnsan ve Toplum Bilimleri
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('turkdili'); // Default to Türk Dili ve Edebiyatı
 
   // Sync state with URL params
   useEffect(() => {
-    const tabParam = searchParams.get('tab') || searchParams.get('view');
-    if (tabParam === 'department') setActiveTab('department');
-    else if (tabParam === 'announcements') setActiveTab('announcements');
-    else if (tabParam === 'news') setActiveTab('news');
-    else if (tabParam === 'favorites') setActiveTab('favorites');
-    else if (tabParam === 'all') setActiveTab('all');
-
-    const deptParam = searchParams.get('dept');
-    const facParam = searchParams.get('faculty') || searchParams.get('fac');
-
-    if (facParam) {
-      setSelectedFacultyId(facParam);
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'department') {
+      setActiveTab('department');
     }
+    const deptParam = searchParams.get('dept');
     if (deptParam) {
       setSelectedDepartmentId(deptParam);
-      if (!facParam) {
-        for (const grp of ACADEMIC_UNITS_WITH_DEPARTMENTS) {
-          if (grp.departments.some(d => d.id === deptParam || d.slug === deptParam)) {
-            setSelectedFacultyId(grp.facultyId);
-            break;
-          }
+      // find faculty for this department
+      for (const grp of ACADEMIC_UNITS_WITH_DEPARTMENTS) {
+        if (grp.departments.some(d => d.id === deptParam || d.slug === deptParam)) {
+          setSelectedFacultyId(grp.facultyId);
+          break;
         }
       }
     }
   }, [searchParams]);
 
-  // Load General University News & Announcements
-  const loadGeneralFeeds = async (force = false) => {
+  // Load Main News
+  const loadMainNews = async (force = false) => {
     if (force) setLoading(true);
-    try {
-      const [newsData, annData] = await Promise.all([
-        getNews(force),
-        getAnnouncements(force)
-      ]);
-      if (newsData && newsData.length > 0) setNews(newsData);
-      if (annData && annData.length > 0) setAnnouncements(annData);
-    } catch (err) {
-      console.warn('Feed load notice:', err);
+    const data = await getNews(force);
+    if (data && data.length > 0) {
+      setNews(data);
     }
     setLoading(false);
   };
 
-  // Load Department / Faculty Feed
-  const loadDeptFeed = async (force = false) => {
+  // Load Department News
+  const loadDeptNews = async (force = false) => {
     if (force) setDeptLoading(true);
     
-    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
-    const isAllDepartments = selectedDepartmentId === 'all' || !selectedDepartmentId;
-    const currentDept = isAllDepartments ? null : currentGroup?.departments.find(d => d.id === selectedDepartmentId);
+    // Find active department
+    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId);
+    const currentDept = currentGroup?.departments.find(d => d.id === selectedDepartmentId);
+    const deptUrl = currentDept?.newsUrl;
 
-    const newsUrl = currentDept?.newsUrl || currentGroup?.facultyNewsUrl;
-    const annUrl = currentDept?.announcementUrl || (currentDept?.websiteUrl ? `${currentDept.websiteUrl}/tr/announcements-all` : undefined) || (currentGroup?.facultyNewsUrl ? currentGroup.facultyNewsUrl.replace('/news-all', '/announcements-all') : undefined);
-
-    const [newsData, annData] = await Promise.all([
-      getDepartmentNews(newsUrl, isAllDepartments ? 'all' : selectedDepartmentId, selectedFacultyId, force),
-      getDepartmentAnnouncements(annUrl, isAllDepartments ? 'all' : selectedDepartmentId, selectedFacultyId, force)
-    ]);
-
-    if (newsData && newsData.length > 0) {
-      setDepartmentNews(newsData);
-    }
-    if (annData && annData.length > 0) {
-      setDepartmentAnnouncements(annData);
+    const data = await getDepartmentNews(deptUrl, selectedDepartmentId, selectedFacultyId, force);
+    if (data && data.length > 0) {
+      setDepartmentNews(data);
     }
     setDeptLoading(false);
   };
 
   useEffect(() => {
-    loadGeneralFeeds(false);
+    loadMainNews();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'department') {
-      loadDeptFeed(false);
+      loadDeptNews(false);
     }
   }, [activeTab, selectedFacultyId, selectedDepartmentId]);
 
   const handleRefresh = async () => {
-    if (activeTab === 'department') {
-      await loadDeptFeed(true);
+    if (activeTab === 'main') {
+      await loadMainNews(true);
     } else {
-      await loadGeneralFeeds(true);
+      await loadDeptNews(true);
     }
   };
 
-  const handleTabChange = (tab: NewsViewTab) => {
+  const handleTabChange = (tab: 'main' | 'department') => {
     setActiveTab(tab);
     setSearchQuery('');
-    setSelectedCategory('all');
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      next.set('view', tab);
+      next.set('tab', tab);
       return next;
     });
   };
 
-  // Active Faculty & Department objects
+  const isMainNewsCategory = (name: string) => {
+    const n = name.toLowerCase().trim();
+    return (
+      n === 'üniversite haberleri' ||
+      n === 'universite haberleri' ||
+      n.startsWith('üniversite haber') ||
+      n.startsWith('universite haber') ||
+      n.includes('üniversite haber') ||
+      n.includes('universite haber') ||
+      n.includes('ana haber') ||
+      n.includes('genel haber') ||
+      n === 'genel'
+    );
+  };
+
+  // Main news sorted filter chips
+  const sortedFilterChips = useMemo(() => {
+    const catStats: Record<string, { latestDate: number; count: number }> = {};
+    
+    news.forEach((a) => {
+      const cat = a.category?.trim() || 'Üniversite Haberleri';
+      const ts = parseDateToTimestamp(a.date);
+      if (!catStats[cat]) {
+        catStats[cat] = { latestDate: ts, count: 1 };
+      } else {
+        if (ts > catStats[cat].latestDate) {
+          catStats[cat].latestDate = ts;
+        }
+        catStats[cat].count += 1;
+      }
+    });
+
+    const sortedCats = Object.keys(catStats).sort((a, b) => {
+      const isMainA = isMainNewsCategory(a);
+      const isMainB = isMainNewsCategory(b);
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+      if (catStats[b].latestDate !== catStats[a].latestDate) {
+        return catStats[b].latestDate - catStats[a].latestDate;
+      }
+      return catStats[b].count - catStats[a].count;
+    });
+
+    const chips: { id: string; name: string }[] = [{ id: 'all', name: 'Tümü' }];
+    sortedCats.forEach((cat) => {
+      chips.push({ id: cat, name: cat });
+    });
+
+    return chips;
+  }, [news]);
+
+  // Filter main news items
+  const filteredMainNews = useMemo(() => {
+    return news.filter((item) => {
+      if (selectedFilter !== 'all') {
+        const itemCat = (item.category || '').toLowerCase().trim();
+        const selFilter = selectedFilter.toLowerCase().trim();
+        if (itemCat !== selFilter && !itemCat.includes(selFilter) && !selFilter.includes(itemCat)) {
+          return false;
+        }
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchTitle = (item.title || '').toLowerCase().includes(q);
+        const matchContent = (item.content || '').toLowerCase().includes(q);
+        const matchCat = (item.category || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchContent && !matchCat) return false;
+      }
+
+      return true;
+    });
+  }, [news, selectedFilter, searchQuery]);
+
+  // Group and sort main categories
+  const sortedGroupedCategories = useMemo(() => {
+    const groups: Record<string, Announcement[]> = {};
+    filteredMainNews.forEach((item) => {
+      const cat = item.category?.trim() || 'Üniversite Haberleri';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+
+    Object.keys(groups).forEach((cat) => {
+      groups[cat].sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
+    });
+
+    const entries = Object.entries(groups) as [string, Announcement[]][];
+    entries.sort((a, b) => {
+      const isMainA = isMainNewsCategory(a[0]);
+      const isMainB = isMainNewsCategory(b[0]);
+      if (isMainA && !isMainB) return -1;
+      if (!isMainA && isMainB) return 1;
+
+      const latestA = a[1].length > 0 ? parseDateToTimestamp(a[1][0].date) : 0;
+      const latestB = b[1].length > 0 ? parseDateToTimestamp(b[1][0].date) : 0;
+      if (latestB !== latestA) {
+        return latestB - latestA;
+      }
+      return b[1].length - a[1].length;
+    });
+
+    return entries;
+  }, [filteredMainNews]);
+
+  // Filter available academic units based on category
+  const filteredAcademicUnits = useMemo(() => {
+    if (selectedUnitCategory === 'all') return ACADEMIC_UNITS_WITH_DEPARTMENTS;
+    return ACADEMIC_UNITS_WITH_DEPARTMENTS.filter(u => u.category === selectedUnitCategory);
+  }, [selectedUnitCategory]);
+
+  // Active faculty group & department object
   const activeFacultyGroup = useMemo(() => {
     return ACADEMIC_UNITS_WITH_DEPARTMENTS.find(u => u.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
   }, [selectedFacultyId]);
 
   const activeDepartment = useMemo(() => {
-    if (selectedDepartmentId === 'all') return null;
-    return activeFacultyGroup?.departments.find(d => d.id === selectedDepartmentId) || null;
+    if (!activeFacultyGroup) return null;
+    return activeFacultyGroup.departments.find(d => d.id === selectedDepartmentId) || activeFacultyGroup.departments[0];
   }, [activeFacultyGroup, selectedDepartmentId]);
 
-  // Toggle Pin for Faculty or Department
-  const handleTogglePin = (id: string, name: string, facultyId: string, type: 'dept' | 'faculty') => {
-    if (pinnedUnit?.id === id) {
-      setPinnedUnit(null);
-      localStorage.removeItem('k7_pinned_unit_v2');
-      localStorage.removeItem('k7_pinned_department');
-    } else {
-      const newPin = { id, name, facultyId, type };
-      setPinnedUnit(newPin);
-      localStorage.setItem('k7_pinned_unit_v2', JSON.stringify(newPin));
-      if (type === 'dept') {
-        localStorage.setItem('k7_pinned_department', id);
+  // Filter department news items
+  const filteredDeptNews = useMemo(() => {
+    return departmentNews.filter((item) => {
+      // If a specific department is chosen and not 'all'
+      if (selectedDepartmentId && selectedDepartmentId !== 'all') {
+        const matchesDept = item.departmentId === selectedDepartmentId || 
+                            (item.departmentName && item.departmentName.toLowerCase().includes(activeDepartment?.name.toLowerCase() || '')) ||
+                            (item.sourceUrl && activeDepartment?.newsUrl && item.sourceUrl === activeDepartment.newsUrl);
+        // If not matching specific department, only filter out if dataset contains multiple departments
+        if (!matchesDept && item.departmentId && item.departmentId !== selectedDepartmentId) {
+          return false;
+        }
       }
-    }
+
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchTitle = (item.title || '').toLowerCase().includes(q);
+        const matchContent = (item.content || '').toLowerCase().includes(q);
+        const matchDept = (item.departmentName || '').toLowerCase().includes(q);
+        const matchFac = (item.facultyName || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchContent && !matchDept && !matchFac) return false;
+      }
+
+      return true;
+    });
+  }, [departmentNews, selectedDepartmentId, activeDepartment, searchQuery]);
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
   };
 
-  // Unified General Stream (Combined News & Announcements)
-  const unifiedGeneralFeed = useMemo(() => {
-    const list: {
-      id: string;
-      type: 'news' | 'announcement';
-      title: string;
-      date: string;
-      category: string;
-      content?: string;
-      url?: string;
-      imageUrl?: string;
-    }[] = [];
+  const copyDepartmentLink = (url: string) => {
+    try {
+      navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setTimeout(() => setCopiedUrl(null), 2500);
+    } catch {}
+  };
 
-    // Add News
-    news.forEach(n => {
-      list.push({
-        id: `news-${n.id}`,
-        type: 'news',
-        title: n.title,
-        date: n.date,
-        category: n.category || 'Üniversite Haberi',
-        content: n.content,
-        url: n.url,
-        imageUrl: (n as any).imageUrl || (n as any).img
-      });
-    });
-
-    // Add Announcements
-    announcements.forEach(a => {
-      list.push({
-        id: `ann-${a.id}`,
-        type: 'announcement',
-        title: a.title,
-        date: a.date,
-        category: a.category || 'Resmi Duyuru',
-        content: a.content,
-        url: a.url,
-        imageUrl: (a as any).imageUrl || (a as any).img
-      });
-    });
-
-    // Sort freshest first
-    return list.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
-  }, [news, announcements]);
-
-  // Scrollable Category Chips
-  const categoryChips = useMemo(() => {
-    const counts: Record<string, number> = {};
-    unifiedGeneralFeed.forEach(item => {
-      const cat = item.category || 'Genel';
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
-
-    const sortedCats = Object.keys(counts).sort((a, b) => {
-      if (a.includes('Ana') || a.includes('Üniversite') || a.includes('Rektörlük')) return -1;
-      if (b.includes('Ana') || b.includes('Üniversite') || b.includes('Rektörlük')) return 1;
-      return counts[b] - counts[a];
-    });
-
-    return [{ id: 'all', name: 'Tümü' }, ...sortedCats.map(c => ({ id: c, name: c }))];
-  }, [unifiedGeneralFeed]);
-
-  // Filtered Items for Main View
-  const filteredFeedItems = useMemo(() => {
-    let source = unifiedGeneralFeed;
-
-    if (activeTab === 'news') {
-      source = source.filter(x => x.type === 'news');
-    } else if (activeTab === 'announcements') {
-      source = source.filter(x => x.type === 'announcement');
-    } else if (activeTab === 'favorites') {
-      return favoritesList.map(fav => ({
-        id: fav.id,
-        type: fav.type,
-        title: fav.title,
-        date: fav.date,
-        category: fav.category || (fav.type === 'news' ? 'Haber' : 'Duyuru'),
-        content: fav.content,
-        url: fav.url,
-        imageUrl: fav.imageUrl
-      })).filter(item => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase().trim();
-        return item.title.toLowerCase().includes(q) || (item.content && item.content.toLowerCase().includes(q));
-      });
-    }
-
-    if (typeFilter === 'news') {
-      source = source.filter(x => x.type === 'news');
-    } else if (typeFilter === 'announcements') {
-      source = source.filter(x => x.type === 'announcement');
-    }
-
-    if (selectedCategory !== 'all') {
-      source = source.filter(x => {
-        const cat = (x.category || '').toLowerCase();
-        const sel = selectedCategory.toLowerCase();
-        return cat === sel || cat.includes(sel) || sel.includes(cat);
-      });
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      source = source.filter(x => {
-        return x.title.toLowerCase().includes(q) ||
-               (x.content && x.content.toLowerCase().includes(q)) ||
-               (x.category && x.category.toLowerCase().includes(q));
-      });
-    }
-
-    return source;
-  }, [unifiedGeneralFeed, activeTab, typeFilter, selectedCategory, searchQuery, favoritesList]);
-
-  // Department / Faculty Feed Items
-  const departmentFeedItems = useMemo(() => {
-    const list: {
-      id: string;
-      type: 'news' | 'announcement';
-      title: string;
-      date: string;
-      category: string;
-      content?: string;
-      url: string;
-      imageUrl?: string;
-      departmentName: string;
-      facultyName: string;
-    }[] = [];
-
-    if (deptFeedType === 'all' || deptFeedType === 'announcements') {
-      departmentAnnouncements.forEach(a => {
-        list.push({
-          id: a.id,
-          type: 'announcement',
-          title: a.title,
-          date: a.date,
-          category: a.category || 'Bölüm Duyurusu',
-          content: a.content,
-          url: a.url,
-          imageUrl: a.imageUrl,
-          departmentName: a.departmentName || activeDepartment?.name || activeFacultyGroup?.facultyName || '',
-          facultyName: a.facultyName || activeFacultyGroup?.facultyName || ''
-        });
-      });
-    }
-
-    if (deptFeedType === 'all' || deptFeedType === 'news') {
-      departmentNews.forEach(n => {
-        list.push({
-          id: n.id,
-          type: 'news',
-          title: n.title,
-          date: n.date,
-          category: n.category || 'Bölüm Haberi',
-          content: n.content,
-          url: n.url,
-          imageUrl: n.imageUrl,
-          departmentName: n.departmentName || activeDepartment?.name || activeFacultyGroup?.facultyName || '',
-          facultyName: n.facultyName || activeFacultyGroup?.facultyName || ''
-        });
-      });
-    }
-
-    let filtered = list;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(x => {
-        return x.title.toLowerCase().includes(q) ||
-               (x.content && x.content.toLowerCase().includes(q)) ||
-               x.departmentName.toLowerCase().includes(q);
-      });
-    }
-
-    return filtered.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
-  }, [departmentAnnouncements, departmentNews, deptFeedType, activeDepartment, activeFacultyGroup, searchQuery]);
+  if (loading && activeTab === 'main') {
+    return <LoadingState message="Haberler Yükleniyor..." subtitle="Üniversite haberleri güncelleniyor" />;
+  }
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -452,7 +312,7 @@ export default function News() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.3 }}
-        className="space-y-6 max-w-5xl mx-auto pb-16 px-1 sm:px-2"
+        className="space-y-6 max-w-5xl mx-auto pb-12"
       >
         {/* Header with Back Button */}
         <header className="border-b border-[#e6e2d6] dark:border-white/10 pb-4">
@@ -461,624 +321,638 @@ export default function News() {
               if (window.history.length > 1) navigate(-1);
               else navigate('/');
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
-            <span>Ana Menüye Dön</span>
+            <span>Geri Menüye Dön</span>
           </button>
-
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight flex items-center gap-2.5">
-                <span>Haberler & Duyurular</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/25">
-                  Canlı
+              <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                <span>Kampüs ve Bölüm Haberleri</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
+                  Canlı Akış
                 </span>
-              </h1>
+              </h2>
               <p className="text-stone-500 dark:text-white/60 text-xs sm:text-sm mt-1 font-medium">
-                Üniversite genel haberleri, resmi duyurular ve tüm fakülte/bölüm akışları tek merkezde.
+                Üniversite ana haberleri, fakülte ve bölümlerimizin (Örn: Türk Dili ve Edebiyatı vb.) tüm güncel duyuru ve haber bültenleri.
               </p>
             </div>
+          </div>
 
-            {/* Quick Favorite Counter Pill */}
-            {favoritesList.length > 0 && (
-              <button
-                onClick={() => handleTabChange('favorites')}
-                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/25 text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                <span>Favorilerim ({favoritesList.length})</span>
-              </button>
-            )}
+          {/* High-level View Switcher Tabs: Genel Haberler vs Bölüm Haberleri */}
+          <div className="grid grid-cols-2 gap-2 mt-4 p-1.5 bg-stone-100 dark:bg-[#1a3038] rounded-2xl border border-stone-200/80 dark:border-white/10">
+            <button
+              onClick={() => handleTabChange('main')}
+              className={cn(
+                "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer",
+                activeTab === 'main'
+                  ? "bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/50 dark:border-white/10"
+                  : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
+              )}
+            >
+              <Newspaper className={cn("w-4 h-4", activeTab === 'main' ? "text-amber-600 dark:text-amber-400" : "text-stone-400")} />
+              <span>Genel Üniversite Haberleri</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('department')}
+              className={cn(
+                "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer relative",
+                activeTab === 'department'
+                  ? "bg-amber-600 text-white shadow-md shadow-amber-600/30 border border-amber-500"
+                  : "text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5"
+              )}
+            >
+              <Building2 className={cn("w-4 h-4", activeTab === 'department' ? "text-white" : "text-amber-600 dark:text-amber-400")} />
+              <span>Fakülte & Bölüm Haberleri</span>
+              <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] bg-amber-400/30 text-white font-black uppercase tracking-wider">
+                Bölüm Web
+              </span>
+            </button>
           </div>
         </header>
 
-        {/* Minimal Compact Pinned Unit Header */}
-        <section className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-2.5 sm:p-3 shadow-sm">
-          {pinnedUnit ? (
-            <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="p-1.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
-                  <Pin className="w-3.5 h-3.5 fill-current" />
-                </span>
-                <div className="min-w-0">
-                  <span className="text-[11px] text-stone-400 dark:text-white/50 block">Sabitlenen Birim:</span>
-                  <span className="font-bold text-stone-900 dark:text-white truncate block">
-                    {pinnedUnit.name}
-                  </span>
+        {/* ======================= TAB 1: MAIN UNIVERSITY NEWS ======================= */}
+        {activeTab === 'main' && (
+          <div className="space-y-6">
+            {/* Search & Customization Bar */}
+            <div className="space-y-3">
+              {/* Live Search Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-stone-400" strokeWidth={2} />
                 </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-10 py-2.5 sm:py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
+                  placeholder="Haber başlığı, fakülte veya konu ara..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Horizontal Scrollable Category Filter Pills */}
+              <div className="pt-1">
+                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-stone-500 dark:text-white/60">
+                  <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Haber Kategorileri (En Yakın Tarihe Göre Sıralı):</span>
+                </div>
+                <HorizontalScrollWrapper>
+                  {sortedFilterChips.map((filter) => {
+                    const isActive = selectedFilter === filter.id;
+                    return (
+                      <button
+                        key={filter.id}
+                        onClick={() => setSelectedFilter(filter.id)}
+                        className={cn(
+                          "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer whitespace-nowrap",
+                          isActive
+                            ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30 font-bold"
+                            : "bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-[#e6e2d6] dark:border-white/10"
+                        )}
+                      >
+                        {filter.name}
+                      </button>
+                    );
+                  })}
+                </HorizontalScrollWrapper>
+              </div>
+            </div>
+
+            {/* Active Filter Clear Info */}
+            {(selectedFilter !== 'all' || searchQuery.trim()) && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-200">
+                <span>
+                  Filtre: <strong>{selectedFilter !== 'all' ? selectedFilter : 'Tümü'}</strong>
+                  {searchQuery && <> • Arama: &quot;<strong>{searchQuery}</strong>&quot;</>}
+                  {' '}({filteredMainNews.length} sonuç bulundu)
+                </span>
                 <button
                   onClick={() => {
-                    setSelectedFacultyId(pinnedUnit.facultyId);
-                    setSelectedDepartmentId(pinnedUnit.type === 'dept' ? pinnedUnit.id : 'all');
-                    handleTabChange('department');
+                    setSelectedFilter('all');
+                    setSearchQuery('');
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-amber-500 text-stone-900 font-bold hover:bg-amber-400 transition-all text-xs flex items-center gap-1 shadow-sm cursor-pointer"
+                  className="text-amber-700 dark:text-amber-300 hover:underline font-bold cursor-pointer"
                 >
-                  <span>Akışa Git</span>
-                  <ChevronRight className="w-3 h-3" />
+                  Filtreleri Temizle
                 </button>
+              </div>
+            )}
+
+            {/* News List Grouped & Sorted by Recency */}
+            {filteredMainNews.length === 0 ? (
+              <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
+                <Newspaper className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
+                <h3 className="font-display font-bold text-stone-800 dark:text-white text-base">
+                  Aramanıza Uygun Haber Bulunamadı
+                </h3>
+                <p className="text-stone-500 dark:text-white/60 text-xs mt-1 max-w-sm mx-auto">
+                  Farklı bir kategori seçebilir veya arama sözcüklerinizi değiştirebilirsiniz.
+                </p>
                 <button
-                  onClick={() => handleTogglePin(pinnedUnit.id, pinnedUnit.name, pinnedUnit.facultyId, pinnedUnit.type)}
-                  className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-white/10 text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"
-                  title="Sabitlemeyi Kaldır"
+                  onClick={() => {
+                    setSelectedFilter('all');
+                    setSearchQuery('');
+                  }}
+                  className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
                 >
-                  <PinOff className="w-3.5 h-3.5" />
+                  Tüm Haberleri Göster
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 text-stone-600 dark:text-white/80">
-                <Pin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="font-medium text-xs sm:text-sm">Kendi fakülteni veya bölümünü sabitle, duyuruları anında takip et.</span>
+            ) : (
+              <div className="space-y-4">
+                {sortedGroupedCategories.map(([category, items]) => {
+                  const isCollapsed = collapsedCategories[category] === true;
+                  const isExpanded = !isCollapsed;
+                  const latestDateStr = items[0]?.date;
+
+                  return (
+                    <div
+                      key={category}
+                      className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden shadow-sm"
+                    >
+                      <button
+                        onClick={() => toggleCategory(category)}
+                        className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <Newspaper className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
+                            {category}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                            {items.length}
+                          </span>
+                          {latestDateStr && (
+                            <span className="text-[10px] text-stone-400 dark:text-white/50 font-normal">
+                              (Son: {latestDateStr})
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown
+                          strokeWidth={2}
+                          className={cn(
+                            "w-4 h-4 text-stone-400 transition-transform duration-300 shrink-0",
+                            isExpanded ? "rotate-180 text-amber-600 dark:text-amber-500" : "rotate-0"
+                          )}
+                        />
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="border-t border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653]"
+                          >
+                            <div className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {items.map((newsItem) => (
+                                <div
+                                  key={newsItem.id}
+                                  className="p-4 bg-white/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 rounded-xl hover:shadow-md transition-all flex flex-col justify-between"
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                        {newsItem.category || category}
+                                      </span>
+                                      {newsItem.date && !newsItem.date.includes('T') && (
+                                        <span className="text-[10px] sm:text-[11px] font-semibold text-stone-400 dark:text-white/50 flex items-center gap-1">
+                                          <Calendar className="w-3 h-3" />
+                                          {newsItem.date}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug mb-2">
+                                      {newsItem.title}
+                                    </h4>
+
+                                    {newsItem.content && (
+                                      <p className="text-xs text-stone-600 dark:text-white/70 line-clamp-3 leading-relaxed mb-3">
+                                        {newsItem.content}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {newsItem.url && (
+                                    <button
+                                      onClick={() =>
+                                        setSelectedItem({
+                                          url: newsItem.url || '',
+                                          title: newsItem.title,
+                                          date: newsItem.date,
+                                          category: newsItem.category || category,
+                                          content: newsItem.content,
+                                          imageUrl: (newsItem as any).img || (newsItem as any).imageUrl,
+                                          images: (newsItem as any).img ? [(newsItem as any).img] : ((newsItem as any).images || [])
+                                        })
+                                      }
+                                      className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors pt-2 border-t border-stone-100 dark:border-white/10 mt-2 cursor-pointer"
+                                    >
+                                      <span>Haberi Oku</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
               </div>
-              <button
-                onClick={() => {
-                  handleTabChange('department');
-                }}
-                className="px-2.5 py-1 rounded-lg bg-stone-200 dark:bg-white/10 hover:bg-amber-500 hover:text-stone-900 dark:hover:bg-amber-500 dark:hover:text-stone-900 font-bold text-stone-700 dark:text-white transition-all text-xs shrink-0 cursor-pointer"
-              >
-                Birim Seç & Sabitle
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Main View Tabs (Tümü / Duyurular / Haberler / Bölüm Masası / Favorilerim) */}
-        <nav className="flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-800/80 rounded-2xl border border-stone-200 dark:border-white/10 overflow-x-auto custom-scrollbar">
-          <button
-            onClick={() => handleTabChange('all')}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer',
-              activeTab === 'all'
-                ? 'bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/60 dark:border-white/10'
-                : 'text-stone-500 dark:text-white/60 hover:text-stone-800 dark:hover:text-white'
             )}
-          >
-            <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>Tümü (Haber & Duyuru)</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('announcements')}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer',
-              activeTab === 'announcements'
-                ? 'bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/60 dark:border-white/10'
-                : 'text-stone-500 dark:text-white/60 hover:text-stone-800 dark:hover:text-white'
-            )}
-          >
-            <Megaphone className="w-4 h-4 text-amber-500" />
-            <span>Duyurular</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('news')}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer',
-              activeTab === 'news'
-                ? 'bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/60 dark:border-white/10'
-                : 'text-stone-500 dark:text-white/60 hover:text-stone-800 dark:hover:text-white'
-            )}
-          >
-            <Newspaper className="w-4 h-4 text-sky-500" />
-            <span>Haberler</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('department')}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer',
-              activeTab === 'department'
-                ? 'bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/60 dark:border-white/10'
-                : 'text-stone-500 dark:text-white/60 hover:text-stone-800 dark:hover:text-white'
-            )}
-          >
-            <Building2 className="w-4 h-4 text-rose-500" />
-            <span>Bölüm & Fakülte Masası</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('favorites')}
-            className={cn(
-              'flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 cursor-pointer ml-auto',
-              activeTab === 'favorites'
-                ? 'bg-white dark:bg-[#264653] text-stone-900 dark:text-white shadow-sm border border-stone-200/60 dark:border-white/10'
-                : 'text-stone-500 dark:text-white/60 hover:text-stone-800 dark:hover:text-white'
-            )}
-          >
-            <Star className={cn('w-4 h-4', favoritesList.length > 0 ? 'fill-amber-500 text-amber-500' : 'text-stone-400')} />
-            <span>Favorilerim ({favoritesList.length})</span>
-          </button>
-        </nav>
-
-        {/* Live Search Bar */}
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-stone-400" />
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-10 py-2.5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-0 outline-none transition-colors text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
-            placeholder={activeTab === 'department' ? 'Bölüm duyurusu, haber veya konu ara...' : 'Tüm duyuru ve haberlerde ara...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* DEPARTMENT / FACULTY HUB CONTROLS (Compact Minimal Toolbar) */}
-        {activeTab === 'department' && (
-          <section className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap border-b border-[#e6e2d6] dark:border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-rose-500" />
-                <h3 className="text-sm font-bold text-stone-900 dark:text-white">Birim Seçimi & Filtreleme</h3>
-              </div>
-
-              {/* Pin Button for Currently Selected Unit */}
-              <button
-                onClick={() => {
-                  const isDept = selectedDepartmentId !== 'all';
-                  const pinId = isDept ? selectedDepartmentId : selectedFacultyId;
-                  const pinName = isDept ? activeDepartment?.name || selectedDepartmentId : activeFacultyGroup?.facultyName || selectedFacultyId;
-                  handleTogglePin(pinId, pinName, selectedFacultyId, isDept ? 'dept' : 'faculty');
-                }}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border',
-                  pinnedUnit?.id === (selectedDepartmentId !== 'all' ? selectedDepartmentId : selectedFacultyId)
-                    ? 'bg-amber-500 text-stone-900 border-amber-600 shadow-sm'
-                    : 'bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-white border-stone-200 dark:border-white/10'
-                )}
-              >
-                <Pin className={cn('w-3.5 h-3.5', pinnedUnit?.id === (selectedDepartmentId !== 'all' ? selectedDepartmentId : selectedFacultyId) ? 'fill-current' : '')} />
-                <span>
-                  {pinnedUnit?.id === (selectedDepartmentId !== 'all' ? selectedDepartmentId : selectedFacultyId)
-                    ? 'Sabitlendi'
-                    : selectedDepartmentId !== 'all'
-                      ? 'Bölümü Sabitle'
-                      : 'Fakülteyi Sabitle'}
-                </span>
-              </button>
-            </div>
-
-            {/* Selectors Grid (Faculty + Department [Optional]) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Faculty Dropdown */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-stone-500 dark:text-white/60">
-                  Fakülte / Üst Birim
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedFacultyId}
-                    onChange={(e) => {
-                      setSelectedFacultyId(e.target.value);
-                      setSelectedDepartmentId('all'); // Reset to all departments automatically!
-                    }}
-                    className="w-full appearance-none pl-3 pr-8 py-2 bg-stone-50 dark:bg-stone-900/60 border border-stone-200 dark:border-white/10 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate"
-                  >
-                    {ACADEMIC_UNITS_WITH_DEPARTMENTS.map((g) => (
-                      <option key={g.facultyId} value={g.facultyId} className="dark:bg-stone-900 text-stone-900 dark:text-white">
-                        {g.facultyName}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Department Dropdown (OPTIONAL: First option is 'Tüm Bölümler / Fakülte Geneli') */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-stone-500 dark:text-white/60">
-                  Bölüm (Opsiyonel)
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedDepartmentId}
-                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                    className="w-full appearance-none pl-3 pr-8 py-2 bg-stone-50 dark:bg-stone-900/60 border border-stone-200 dark:border-white/10 rounded-xl text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate"
-                  >
-                    <option value="all" className="dark:bg-stone-900 text-stone-900 dark:text-white font-bold">
-                      ⭐ Tüm Bölümler / Fakülte Geneli
-                    </option>
-                    {activeFacultyGroup?.departments.map((d) => (
-                      <option key={d.id} value={d.id} className="dark:bg-stone-900 text-stone-900 dark:text-white">
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-stone-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Department Feed Type Selector (Tümü / Duyurular / Haberler) */}
-            <div className="flex items-center gap-1.5 pt-1 overflow-x-auto custom-scrollbar">
-              <span className="text-[11px] font-semibold text-stone-400 shrink-0 mr-1">Akış Türü:</span>
-              <button
-                onClick={() => setDeptFeedType('all')}
-                className={cn(
-                  'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0',
-                  deptFeedType === 'all'
-                    ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30'
-                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                )}
-              >
-                Tümü ({departmentAnnouncements.length + departmentNews.length})
-              </button>
-              <button
-                onClick={() => setDeptFeedType('announcements')}
-                className={cn(
-                  'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1',
-                  deptFeedType === 'announcements'
-                    ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                )}
-              >
-                <Megaphone className="w-3 h-3 text-amber-500" />
-                <span>Duyurular ({departmentAnnouncements.length})</span>
-              </button>
-              <button
-                onClick={() => setDeptFeedType('news')}
-                className={cn(
-                  'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1',
-                  deptFeedType === 'news'
-                    ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30'
-                    : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                )}
-              >
-                <Newspaper className="w-3 h-3 text-sky-500" />
-                <span>Haberler ({departmentNews.length})</span>
-              </button>
-            </div>
-          </section>
         )}
 
-        {/* Scrollable Category Chips for General Views */}
-        {activeTab !== 'department' && activeTab !== 'favorites' && (
-          <div className="space-y-2.5">
-            {/* Type selector toggle */}
-            {activeTab === 'all' && (
-              <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1">
-                <span className="text-[11px] font-semibold text-stone-400 shrink-0 mr-1">Filtre:</span>
-                <button
-                  onClick={() => setTypeFilter('all')}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0',
-                    typeFilter === 'all'
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                      : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                  )}
-                >
-                  Tümü ({unifiedGeneralFeed.length})
-                </button>
-                <button
-                  onClick={() => setTypeFilter('announcements')}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1',
-                    typeFilter === 'announcements'
-                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                      : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                  )}
-                >
-                  <Megaphone className="w-3 h-3 text-amber-500" />
-                  <span>Yalnızca Duyurular ({announcements.length})</span>
-                </button>
-                <button
-                  onClick={() => setTypeFilter('news')}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1',
-                    typeFilter === 'news'
-                      ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30'
-                      : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-200'
-                  )}
-                >
-                  <Newspaper className="w-3 h-3 text-sky-500" />
-                  <span>Yalnızca Haberler ({news.length})</span>
-                </button>
+        {/* ======================= TAB 2: DEPARTMENT & UNIT NEWS ======================= */}
+        {activeTab === 'department' && (
+          <div className="space-y-6">
+            {/* Department Explorer Header & Selector Controls */}
+            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200/70 dark:border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white">
+                      Bölüm Haberleri Gezgini
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-stone-500 dark:text-white/60">
+                      Tüm fakülte, enstitü, MYO ve bölümlerin resmi web haberlerini inceleyin.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 self-start sm:self-auto">
+                  {ACADEMIC_UNITS_WITH_DEPARTMENTS.reduce((acc, u) => acc + u.departments.length, 0)} Aktif Bölüm Sayfası
+                </span>
               </div>
+
+              {/* 1. Category Switcher Pills */}
+              <div>
+                <label className="text-[11px] font-bold text-stone-500 dark:text-white/60 mb-2 block uppercase tracking-wider">
+                  1. Akademik Birim Türü:
+                </label>
+                <HorizontalScrollWrapper>
+                  {[
+                    { key: 'all' as const, label: 'Tümü', icon: Layers },
+                    { key: 'fakulte' as const, label: 'Fakülteler', icon: GraduationCap },
+                    { key: 'enstitu' as const, label: 'Enstitü', icon: BookOpen },
+                    { key: 'myo' as const, label: 'Meslek Yüksekokulları (MYO)', icon: School },
+                    { key: 'yuksekokul' as const, label: 'Yüksekokul & Konservatuvar', icon: Building2 },
+                    { key: 'koordinatorluk' as const, label: 'Daire & Merkezler', icon: Globe }
+                  ].map((cat) => {
+                    const isActive = selectedUnitCategory === cat.key;
+                    const IconComp = cat.icon;
+                    return (
+                      <button
+                        key={cat.key}
+                        onClick={() => {
+                          setSelectedUnitCategory(cat.key);
+                          const firstUnit = cat.key === 'all' 
+                            ? ACADEMIC_UNITS_WITH_DEPARTMENTS[0] 
+                            : ACADEMIC_UNITS_WITH_DEPARTMENTS.find(u => u.category === cat.key) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
+                          if (firstUnit) {
+                            setSelectedFacultyId(firstUnit.facultyId);
+                            if (firstUnit.departments.length > 0) {
+                              setSelectedDepartmentId(firstUnit.departments[0].id);
+                            }
+                          }
+                        }}
+                        className={cn(
+                          "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border cursor-pointer whitespace-nowrap",
+                          isActive
+                            ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/25 font-bold"
+                            : "bg-white dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-stone-200 dark:border-white/10"
+                        )}
+                      >
+                        <IconComp className="w-3.5 h-3.5" />
+                        <span>{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </HorizontalScrollWrapper>
+              </div>
+
+              {/* 2. Faculty / Main Unit Selector Dropdown / Chips */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-[11px] font-bold text-stone-500 dark:text-white/60 mb-1.5 block uppercase tracking-wider">
+                    2. Fakülte / Enstitü / Yüksekokul:
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedFacultyId}
+                      onChange={(e) => {
+                        const facId = e.target.value;
+                        setSelectedFacultyId(facId);
+                        const group = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === facId);
+                        if (group && group.departments.length > 0) {
+                          setSelectedDepartmentId(group.departments[0].id);
+                        }
+                      }}
+                      className="w-full bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer shadow-sm"
+                    >
+                      {filteredAcademicUnits.map((unit) => (
+                        <option key={unit.facultyId} value={unit.facultyId}>
+                          {unit.facultyName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. Department Selector */}
+                <div>
+                  <label className="text-[11px] font-bold text-stone-500 dark:text-white/60 mb-1.5 block uppercase tracking-wider">
+                    3. İlgili Bölüm / Program:
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedDepartmentId}
+                      onChange={(e) => {
+                        setSelectedDepartmentId(e.target.value);
+                      }}
+                      className="w-full bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer shadow-sm"
+                    >
+                      {activeFacultyGroup?.departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Department Shortcut Chips (for fast 1-click switching within selected faculty) */}
+              {activeFacultyGroup && activeFacultyGroup.departments.length > 1 && (
+                <div className="pt-2 border-t border-stone-200/50 dark:border-white/5">
+                  <div className="text-[10px] font-bold text-stone-400 dark:text-white/50 mb-1.5 flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-amber-500" />
+                    <span>{activeFacultyGroup.shortName} Bölümleri Hızlı Seçim:</span>
+                  </div>
+                  <HorizontalScrollWrapper>
+                    {activeFacultyGroup.departments.map((d) => {
+                      const isDeptActive = selectedDepartmentId === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => setSelectedDepartmentId(d.id)}
+                          className={cn(
+                            "shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer whitespace-nowrap",
+                            isDeptActive
+                              ? "bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-500/40 font-bold"
+                              : "bg-white/60 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-stone-200/60 dark:border-white/10"
+                          )}
+                        >
+                          {d.name}
+                        </button>
+                      );
+                    })}
+                  </HorizontalScrollWrapper>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Department Official Portal Banner & URL Link */}
+            {activeDepartment && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-amber-600/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-4 sm:p-5 relative overflow-hidden"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-600 text-white shadow-sm">
+                        {activeFacultyGroup.facultyName}
+                      </span>
+                      <span className="text-[10px] sm:text-xs font-semibold text-stone-500 dark:text-white/60 flex items-center gap-1">
+                        <Building2 className="w-3 h-3" />
+                        {activeDepartment.name}
+                      </span>
+                    </div>
+
+                    <h3 className="font-display font-extrabold text-lg sm:text-xl text-stone-900 dark:text-white">
+                      {activeDepartment.name} Haberleri
+                    </h3>
+
+                    {activeDepartment.description && (
+                      <p className="text-xs text-stone-600 dark:text-white/70 max-w-2xl leading-relaxed">
+                        {activeDepartment.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Direct Link to Official Department News Website (e.g., https://turkdili.kilis.edu.tr/tr/news-all) */}
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <a
+                      href={activeDepartment.newsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Resmi Bölüm Web Sayfası</span>
+                      <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
+                    </a>
+
+                    <button
+                      onClick={() => copyDepartmentLink(activeDepartment.newsUrl)}
+                      title="Bölüm haber bağlantısını kopyala"
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white dark:bg-white/10 hover:bg-stone-100 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 cursor-pointer"
+                    >
+                      {copiedUrl === activeDepartment.newsUrl ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Kopyalandı</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-stone-500" />
+                          <span>Linki Kopyala</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Subdomain address indicator */}
+                <div className="mt-3 pt-2.5 border-t border-amber-500/15 flex items-center gap-2 text-[11px] text-stone-500 dark:text-white/60">
+                  <span className="font-semibold text-amber-700 dark:text-amber-300">Kaynak Portalı:</span>
+                  <code className="px-2 py-0.5 bg-white/80 dark:bg-black/20 rounded font-mono text-[10px] text-stone-700 dark:text-stone-300 border border-amber-500/20 select-all">
+                    {activeDepartment.newsUrl}
+                  </code>
+                </div>
+              </motion.div>
             )}
 
-            {/* Horizontal Scrollable Categories */}
-            <HorizontalScrollWrapper>
-              <div className="flex items-center gap-2 py-1">
-                {categoryChips.map((chip) => (
-                  <button
-                    key={chip.id}
-                    onClick={() => setSelectedCategory(chip.id)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border shrink-0 cursor-pointer',
-                      selectedCategory === chip.id
-                        ? 'bg-amber-500 text-stone-900 border-amber-600 shadow-sm'
-                        : 'bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/40'
-                    )}
+            {/* Department Live Search */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-stone-400" strokeWidth={2} />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-10 py-2.5 sm:py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
+                placeholder={`${activeDepartment?.name || 'Bölüm'} haberlerinde ara...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-600 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Department News Items Feed */}
+            {deptLoading ? (
+              <LoadingState message="Bölüm Haberleri Çekiliyor..." subtitle="Üniversite bölüm sunucusuna bağlanılıyor" />
+            ) : filteredDeptNews.length === 0 ? (
+              <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
+                <Building2 className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
+                <h3 className="font-display font-bold text-stone-800 dark:text-white text-base">
+                  Bu Bölüme Ait Henüz Haber Listelenmedi
+                </h3>
+                <p className="text-stone-500 dark:text-white/60 text-xs mt-1 max-w-md mx-auto">
+                  İlgili bölümün resmi web sayfasını ziyaret edebilir veya farklı bir fakülte ve bölüm seçebilirsiniz.
+                </p>
+                {activeDepartment?.newsUrl && (
+                  <a
+                    href={activeDepartment.newsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
                   >
-                    {chip.name}
-                  </button>
+                    <span>Resmi Web Sayfasını Aç ({activeDepartment.name})</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredDeptNews.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() =>
+                      setSelectedItem({
+                        url: item.url || '',
+                        title: item.title,
+                        imageUrl: item.imageUrl,
+                        images: item.images && item.images.length > 0 ? item.images : (item.imageUrl ? [item.imageUrl] : []),
+                        date: item.date,
+                        category: item.category || 'Bölüm Haberi',
+                        departmentName: item.departmentName || activeDepartment?.name,
+                        facultyName: item.facultyName,
+                        content: item.content
+                      })
+                    }
+                    className="p-4 sm:p-5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div>
+                      {/* Optional Department News Image */}
+                      {item.imageUrl && (
+                        <div className="w-full h-44 rounded-xl overflow-hidden mb-3 bg-stone-100 dark:bg-black/20 border border-stone-200/60 dark:border-white/10 relative">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                            onError={(e) => {
+                              // Hide broken image gracefully
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Header tags: Department & Date */}
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                          {item.departmentName || activeDepartment?.name || 'Bölüm Haberi'}
+                        </span>
+                        {item.date && (
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-stone-400 dark:text-white/50 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {item.date}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                        {item.title}
+                      </h4>
+
+                      {/* Content summary */}
+                      {item.content && (
+                        <p className="text-xs text-stone-600 dark:text-white/70 line-clamp-3 leading-relaxed mb-3">
+                          {item.content}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action buttons: Read Detail In-App or Open in Browser */}
+                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200/60 dark:border-white/10 mt-3">
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors"
+                      >
+                        <span>Detayları Oku</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </span>
+
+                      {item.url && item.url.startsWith('http') && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] font-medium text-stone-400 hover:text-stone-600 dark:hover:text-white flex items-center gap-1 transition-colors z-10"
+                          title="Resmi web sitesinde aç"
+                        >
+                          <span>Webde Gör</span>
+                          <Globe className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </motion.div>
                 ))}
               </div>
-            </HorizontalScrollWrapper>
-          </div>
-        )}
-
-        {/* FEED CONTENT STREAM */}
-        {loading || deptLoading ? (
-          <div className="py-12">
-            <LoadingState message="Akış ve duyurular canlı yükleniyor..." />
-          </div>
-        ) : (
-          <div className="space-y-3.5">
-            {activeTab === 'department' ? (
-              /* Department Stream */
-              departmentFeedItems.length > 0 ? (
-                departmentFeedItems.map((item) => {
-                  const isFav = isFavoriteItem(item.id);
-                  const isNews = item.type === 'news';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="w-full text-left bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3.5 sm:p-4 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-all focus:outline-none shadow-sm relative group"
-                    >
-                      <div className="flex items-start gap-3.5">
-                        {/* Visual Thumbnail (Never empty or broken!) */}
-                        <FeedCardThumbnail
-                          imageUrl={item.imageUrl}
-                          type={item.type}
-                          category={item.category}
-                          title={item.title}
-                          className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl shrink-0"
-                        />
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {/* Type Badge */}
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold border',
-                                  isNews
-                                    ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
-                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
-                                )}
-                              >
-                                {isNews ? <Newspaper className="w-3 h-3 text-sky-500" /> : <Megaphone className="w-3 h-3 text-amber-500" />}
-                                <span>{isNews ? 'Bölüm Haberi' : 'Bölüm Duyurusu'}</span>
-                              </span>
-
-                              {/* Department/Faculty Tag */}
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 border border-stone-200 dark:border-white/10 truncate max-w-[180px]">
-                                <Building2 className="w-3 h-3 text-stone-400" />
-                                <span className="truncate">{item.departmentName}</span>
-                              </span>
-                            </div>
-
-                            {/* Date & Favorite Actions */}
-                            <div className="flex items-center gap-2">
-                              {item.date && (
-                                <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {item.date}
-                                </span>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavoriteItem({
-                                    id: item.id,
-                                    type: item.type,
-                                    title: item.title,
-                                    date: item.date,
-                                    url: item.url,
-                                    category: item.category,
-                                    content: item.content,
-                                    imageUrl: item.imageUrl,
-                                    departmentName: item.departmentName,
-                                    facultyName: item.facultyName
-                                  });
-                                }}
-                                className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-white/20 text-stone-400 transition-colors cursor-pointer"
-                                title={isFav ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
-                              >
-                                <Star className={cn('w-4 h-4', isFav ? 'fill-amber-500 text-amber-500' : 'text-stone-400')} />
-                              </button>
-                            </div>
-                          </div>
-
-                          <h4
-                            onClick={() => setSelectedItem({
-                              url: item.url,
-                              title: item.title,
-                              date: item.date,
-                              category: item.category,
-                              content: item.content,
-                              imageUrl: item.imageUrl,
-                              departmentName: item.departmentName,
-                              facultyName: item.facultyName
-                            })}
-                            className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
-                          >
-                            {item.title}
-                          </h4>
-
-                          {item.content && (
-                            <p className="text-xs text-stone-500 dark:text-white/60 line-clamp-2">
-                              {item.content}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-8 text-center space-y-2">
-                  <Building2 className="w-8 h-8 text-stone-400 mx-auto" />
-                  <p className="font-bold text-stone-800 dark:text-white text-sm">Bu filtreye uygun içerik bulunamadı.</p>
-                  <p className="text-xs text-stone-500 dark:text-white/60">Farklı bir birim seçebilir veya arama kelimenizi değiştirebilirsiniz.</p>
-                </div>
-              )
-            ) : (
-              /* General / Favorites Stream */
-              filteredFeedItems.length > 0 ? (
-                filteredFeedItems.map((item) => {
-                  const isFav = isFavoriteItem(item.id);
-                  const isNews = item.type === 'news';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="w-full text-left bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3.5 sm:p-4 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-all focus:outline-none shadow-sm relative group"
-                    >
-                      <div className="flex items-start gap-3.5">
-                        {/* Visual Thumbnail (Never empty or broken!) */}
-                        <FeedCardThumbnail
-                          imageUrl={item.imageUrl}
-                          type={item.type}
-                          category={item.category}
-                          title={item.title}
-                          className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl shrink-0"
-                        />
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {/* Distinct Type Badge (Haber vs Duyuru) */}
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold border',
-                                  isNews
-                                    ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25'
-                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25'
-                                )}
-                              >
-                                {isNews ? <Newspaper className="w-3 h-3 text-sky-500" /> : <Megaphone className="w-3 h-3 text-amber-500" />}
-                                <span>{isNews ? 'Haber' : 'Duyuru'}</span>
-                              </span>
-
-                              {/* Category tag */}
-                              {item.category && item.category !== 'Haber' && item.category !== 'Duyuru' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 border border-stone-200 dark:border-white/10 truncate max-w-[170px]">
-                                  {item.category}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Date & Favorite Button */}
-                            <div className="flex items-center gap-2">
-                              {item.date && (
-                                <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {item.date}
-                                </span>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavoriteItem({
-                                    id: item.id,
-                                    type: item.type,
-                                    title: item.title,
-                                    date: item.date,
-                                    url: item.url || '',
-                                    category: item.category,
-                                    content: item.content,
-                                    imageUrl: item.imageUrl
-                                  });
-                                }}
-                                className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-white/20 text-stone-400 transition-colors cursor-pointer"
-                                title={isFav ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
-                              >
-                                <Star className={cn('w-4 h-4', isFav ? 'fill-amber-500 text-amber-500' : 'text-stone-400')} />
-                              </button>
-                            </div>
-                          </div>
-
-                          <h4
-                            onClick={() => setSelectedItem({
-                              url: item.url || '',
-                              title: item.title,
-                              date: item.date,
-                              category: item.category,
-                              content: item.content,
-                              imageUrl: item.imageUrl
-                            })}
-                            className={cn(
-                              'font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 transition-colors cursor-pointer',
-                              isNews ? 'hover:text-sky-600 dark:hover:text-sky-400' : 'hover:text-amber-600 dark:hover:text-amber-400'
-                            )}
-                          >
-                            {item.title}
-                          </h4>
-
-                          {item.content && (
-                            <p className="text-xs text-stone-500 dark:text-white/60 line-clamp-2">
-                              {item.content}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-8 text-center space-y-2">
-                  <Megaphone className="w-8 h-8 text-stone-400 mx-auto" />
-                  <p className="font-bold text-stone-800 dark:text-white text-sm">
-                    {activeTab === 'favorites' ? 'Henüz kaydedilmiş favori duyuru veya haberiniz bulunmuyor.' : 'Aramanıza uygun duyuru veya haber bulunamadı.'}
-                  </p>
-                  <p className="text-xs text-stone-500 dark:text-white/60">
-                    {activeTab === 'favorites' ? 'İlgilendiğiniz duyuru veya haberlerdeki yıldız (⭐) butonuna basarak buraya ekleyebilirsiniz.' : 'Farklı bir arama kelimesi deneyebilir veya kategoriyi değiştirebilirsiniz.'}
-                  </p>
-                </div>
-              )
             )}
           </div>
         )}
 
-        {/* Global Detail Modal */}
+        {/* Global Detail Reading Modal */}
         <DetailModal
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
           item={selectedItem}
+          url={selectedItem?.url || ''}
+          title={selectedItem?.title || ''}
         />
       </motion.div>
     </PullToRefresh>

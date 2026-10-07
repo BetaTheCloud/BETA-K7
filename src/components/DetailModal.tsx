@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
-import FeedCardThumbnail from './FeedCardThumbnail';
 
 export interface DetailModalItem {
   url?: string;
@@ -162,8 +161,8 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 {activeTitle}
               </h1>
 
-              {/* Featured Image or Smart Fallback Banner (No empty/broken voids!) */}
-              {featuredImage && !imgError ? (
+              {/* Featured News Image (Prominent & High-Quality) */}
+              {featuredImage && !imgError && (
                 <div className="relative group rounded-2xl overflow-hidden bg-stone-100 dark:bg-black/30 border border-stone-200/80 dark:border-white/10 shadow-md">
                   <img
                     src={featuredImage}
@@ -183,14 +182,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                     <span>Görseli Büyüt</span>
                   </button>
                 </div>
-              ) : (
-                <FeedCardThumbnail
-                  type={item?.category?.toLowerCase().includes('haber') ? 'news' : 'announcement'}
-                  category={item?.category || initialDept || 'Kilis 7 Aralık Üniversitesi'}
-                  title={activeTitle}
-                  aspectRatio="wide"
-                  className="rounded-2xl h-36 sm:h-44 shadow-md"
-                />
               )}
 
               {/* Loading State for Additional Scraped Content */}
