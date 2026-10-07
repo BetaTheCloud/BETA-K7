@@ -13,7 +13,6 @@ import {
   Flame,
   Info,
   CheckCircle2,
-  Sparkles,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';

@@ -12,7 +12,7 @@ import {
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem, CampusEvent } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';

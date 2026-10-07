@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Search,
   X,
-  Sparkles,
   Layers,
   Calendar
 } from 'lucide-react';

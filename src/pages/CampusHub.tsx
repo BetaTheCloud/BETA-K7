@@ -44,7 +44,6 @@ import {
   Maximize2,
   Newspaper,
   CheckCircle2,
-  Sparkles,
   QrCode,
   Utensils,
   HelpCircle,

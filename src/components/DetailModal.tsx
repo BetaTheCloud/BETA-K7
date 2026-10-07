@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn, Image as ImageIcon } from 'lucide-react';
+import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 
@@ -29,14 +29,12 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const activeTitle = item?.title || title || '';
   const activeUrl = item?.url || url || '';
   const initialImageUrl = item?.imageUrl || '';
-  const initialImages = item?.images && item.images.length > 0 ? item.images : (item?.imageUrl ? [item.imageUrl] : []);
   const initialContent = item?.content || '';
   const initialDate = item?.date || '';
   const initialDept = item?.departmentName || item?.facultyName || item?.category || '';
 
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [featuredImage, setFeaturedImage] = useState<string>(initialImageUrl);
-  const [galleryImages, setGalleryImages] = useState<string[]>(initialImages);
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -45,9 +43,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   useEffect(() => {
     if (isOpen) {
       const img = item?.imageUrl || initialImageUrl || '';
-      const imgs = item?.images && item.images.length > 0 ? item.images : (img ? [img] : []);
       setFeaturedImage(img);
-      setGalleryImages(imgs);
       setImgError(false);
       setContentHtml(null);
       setError(false);
@@ -67,9 +63,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
             if (data.imageUrl && !img) {
               setFeaturedImage(data.imageUrl);
               setImgError(false);
-            }
-            if (data.images && Array.isArray(data.images) && data.images.length > 0) {
-              setGalleryImages(prev => Array.from(new Set([...prev, ...data.images])));
             }
             setLoading(false);
           })
@@ -234,46 +227,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   <p>{initialContent}</p>
                 </div>
               ) : null}
-
-              {/* Additional Gallery Images if Available */}
-              {galleryImages && galleryImages.length > 1 && (
-                <div className="pt-4 border-t border-stone-200/70 dark:border-white/10 space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-white">
-                    <ImageIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    <span>Haber Fotoğraf Galerisi ({galleryImages.length} Görsel)</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {galleryImages.map((gImg, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          setFeaturedImage(gImg);
-                          setActiveLightboxImg(gImg);
-                        }}
-                        className={cn(
-                          "relative rounded-xl overflow-hidden h-24 bg-stone-100 dark:bg-white/5 border transition-all cursor-pointer group",
-                          featuredImage === gImg
-                            ? "border-amber-500 ring-2 ring-amber-500/40"
-                            : "border-stone-200 dark:border-white/10 hover:border-amber-500/60"
-                        )}
-                      >
-                        <img
-                          src={gImg}
-                          alt={`Fotoğraf ${idx + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <ZoomIn className="w-4 h-4 text-white" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Footer */}

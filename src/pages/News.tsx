@@ -21,7 +21,6 @@ import {
   GraduationCap,
   BookOpen,
   School,
-  Sparkles,
   Layers,
   Copy,
   Check,
@@ -706,7 +705,7 @@ export default function News() {
               {activeFacultyGroup && activeFacultyGroup.departments.length > 1 && (
                 <div className="pt-2 border-t border-stone-200/50 dark:border-white/5">
                   <div className="text-[10px] font-bold text-stone-400 dark:text-white/50 mb-1.5 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <Layers className="w-3 h-3 text-amber-500" />
                     <span>{activeFacultyGroup.shortName} Bölümleri Hızlı Seçim:</span>
                   </div>
                   <HorizontalScrollWrapper>
