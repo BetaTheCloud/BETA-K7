@@ -14,7 +14,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { cn, parseDateToTimestamp } from '../lib/utils';
-import DetailModal from '../components/DetailModal';
+import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
@@ -28,7 +28,7 @@ export default function Announcements() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-  const [selectedItem, setSelectedItem] = useState<{ url: string; title: string } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
 
   const load = async (force = false) => {
     if (force) setLoading(true);
@@ -379,7 +379,10 @@ export default function Announcements() {
                                   onClick={() =>
                                     setSelectedItem({
                                       url: announcement.url || '',
-                                      title: announcement.title
+                                      title: announcement.title,
+                                      date: announcement.date,
+                                      category: announcement.category || category,
+                                      content: announcement.content
                                     })
                                   }
                                   className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors focus:outline-none cursor-pointer"
@@ -403,6 +406,7 @@ export default function Announcements() {
         <DetailModal
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
+          item={selectedItem}
           url={selectedItem?.url || ''}
           title={selectedItem?.title || ''}
         />

@@ -871,13 +871,70 @@ app.get('/api/detail', async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
     
-    const response = await axiosInstance.get(targetUrl);
+    const response = await axiosInstance.get(targetUrl, { timeout: 7000 });
     const $ = cheerio.load(response.data);
     
-    let title = $('h1.title').text().trim() || 
-                $('.announcement-detail-title').text().trim() || 
-                $('.news-detail-title').text().trim() || 
-                $('h1').text().trim();
+    let title = $('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1').first().text().trim();
+    
+    const urlObj = new URL(targetUrl);
+    const baseUrl = urlObj.origin;
+
+    // Extract images (Cover + Gallery)
+    let imageUrl = '';
+    const images: string[] = [];
+
+    // 1. Check meta tags
+    const ogImg = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content');
+    if (ogImg && !ogImg.includes('logo') && !ogImg.includes('default')) {
+      imageUrl = ogImg.startsWith('http') ? ogImg : `${baseUrl}${ogImg.startsWith('/') ? '' : '/'}${ogImg}`;
+    }
+
+    // 2. Check prominent news detail image containers
+    const imgSelectors = [
+      '.news-detail-image img',
+      '.detail-image img',
+      '.announcement-detail-image img',
+      '.inner-page__image img',
+      '.news-img img',
+      '.featured-image img',
+      '.slider img',
+      '.fotorama img',
+      '.content-block img',
+      'article img',
+      '.inner-page__content img'
+    ];
+
+    for (const sel of imgSelectors) {
+      $(sel).each((_, el) => {
+        let src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-large');
+        if (src) {
+          if (!src.startsWith('http')) {
+            src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+          }
+          const isNoise = src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
+          if (!isNoise && !images.includes(src)) {
+            images.push(src);
+            if (!imageUrl) imageUrl = src;
+          }
+        }
+      });
+    }
+
+    // 3. Fallback to all page images with news pattern
+    if (!imageUrl) {
+      $('img').each((_, el) => {
+        let src = $(el).attr('src') || $(el).attr('data-src');
+        if (src && (src.includes('/news/') || src.includes('/haber') || src.includes('/duyuru') || src.includes('/upload/'))) {
+          if (!src.startsWith('http')) {
+            src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+          }
+          if (!images.includes(src)) {
+            images.push(src);
+            if (!imageUrl) imageUrl = src;
+          }
+        }
+      });
+    }
     
     let contentHtml = '';
     
@@ -887,7 +944,9 @@ app.get('/api/detail', async (req, res) => {
       '.news-detail-text',
       '.inner-page__content',
       '.news-content-body',
-      '.content-block'
+      '.content-block',
+      'article',
+      '.detail-content'
     ];
     
     for (const selector of contentSelectors) {
@@ -906,18 +965,18 @@ app.get('/api/detail', async (req, res) => {
     }
     
     if (!contentHtml) {
-      contentHtml = `<p>İçerik okunamadı veya sayfa yapısı farklı. (<a href="${targetUrl}" target="_blank" style="color:blue;text-decoration:underline;">Orijinal sayfaya git</a>)</p>`;
+      const ps = $('p');
+      if (ps.length > 0) {
+        contentHtml = ps.map((_, p) => `<p>${$(p).html()}</p>`).get().join('');
+      }
     }
-    
-    const urlObj = new URL(targetUrl);
-    const baseUrl = urlObj.origin;
     
     if (contentHtml) {
       contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
       contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
     }
     
-    res.json({ title, contentHtml });
+    res.json({ title, contentHtml, imageUrl, images });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch detail content' });
   }

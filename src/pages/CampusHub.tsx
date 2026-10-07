@@ -81,7 +81,7 @@ import {
 } from '../mockData';
 import { PhonebookEntry, AcademicStaffMember, StaffUnitCategory, CampusEvent, CampusForm, CampusBuilding } from '../types';
 import LoadingState from '../components/LoadingState';
-import DetailModal from '../components/DetailModal';
+import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
 import toast from 'react-hot-toast';
 import { cn } from '../lib/utils';
@@ -234,7 +234,7 @@ export default function CampusHub() {
   }, [selectedStaffPhoto]);
 
   // Detail Modal for events
-  const [selectedDetail, setSelectedDetail] = useState<{ url: string; title: string } | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<DetailModalItem | null>(null);
 
   useEffect(() => {
     setActiveTab(getTabFromLocation());
@@ -1333,7 +1333,15 @@ export default function CampusHub() {
               {events.map((ev) => (
                 <div
                   key={ev.id}
-                  onClick={() => ev.url && setSelectedDetail({ url: ev.url, title: ev.title })}
+                  onClick={() => ev.url && setSelectedDetail({
+                    url: ev.url,
+                    title: ev.title,
+                    imageUrl: ev.img,
+                    images: ev.img ? [ev.img] : [],
+                    date: ev.date,
+                    category: ev.category || 'Etkinlik',
+                    content: ev.content
+                  })}
                   className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg transition-all"
                 >
                   {ev.img && (
@@ -2397,6 +2405,7 @@ export default function CampusHub() {
       <DetailModal
         isOpen={!!selectedDetail}
         onClose={() => setSelectedDetail(null)}
+        item={selectedDetail}
         url={selectedDetail?.url || ''}
         title={selectedDetail?.title || ''}
       />

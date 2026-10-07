@@ -28,7 +28,7 @@ import {
   Globe
 } from 'lucide-react';
 import { cn, parseDateToTimestamp } from '../lib/utils';
-import DetailModal from '../components/DetailModal';
+import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
@@ -57,7 +57,7 @@ export default function News() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-  const [selectedItem, setSelectedItem] = useState<{ url: string; title: string } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   // Department navigation filters
@@ -552,7 +552,12 @@ export default function News() {
                                       onClick={() =>
                                         setSelectedItem({
                                           url: newsItem.url || '',
-                                          title: newsItem.title
+                                          title: newsItem.title,
+                                          date: newsItem.date,
+                                          category: newsItem.category || category,
+                                          content: newsItem.content,
+                                          imageUrl: (newsItem as any).img || (newsItem as any).imageUrl,
+                                          images: (newsItem as any).img ? [(newsItem as any).img] : ((newsItem as any).images || [])
                                         })
                                       }
                                       className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors pt-2 border-t border-stone-100 dark:border-white/10 mt-2 cursor-pointer"
@@ -854,12 +859,25 @@ export default function News() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="p-4 sm:p-5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl hover:shadow-md transition-all flex flex-col justify-between group"
+                    onClick={() =>
+                      setSelectedItem({
+                        url: item.url || '',
+                        title: item.title,
+                        imageUrl: item.imageUrl,
+                        images: item.images && item.images.length > 0 ? item.images : (item.imageUrl ? [item.imageUrl] : []),
+                        date: item.date,
+                        category: item.category || 'Bölüm Haberi',
+                        departmentName: item.departmentName || activeDepartment?.name,
+                        facultyName: item.facultyName,
+                        content: item.content
+                      })
+                    }
+                    className="p-4 sm:p-5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                   >
                     <div>
                       {/* Optional Department News Image */}
                       {item.imageUrl && (
-                        <div className="w-full h-40 rounded-xl overflow-hidden mb-3 bg-stone-100 dark:bg-black/20 border border-stone-200/60 dark:border-white/10">
+                        <div className="w-full h-44 rounded-xl overflow-hidden mb-3 bg-stone-100 dark:bg-black/20 border border-stone-200/60 dark:border-white/10 relative">
                           <img
                             src={item.imageUrl}
                             alt={item.title}
@@ -901,25 +919,20 @@ export default function News() {
 
                     {/* Action buttons: Read Detail In-App or Open in Browser */}
                     <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200/60 dark:border-white/10 mt-3">
-                      <button
-                        onClick={() =>
-                          setSelectedItem({
-                            url: item.url || '',
-                            title: item.title
-                          })
-                        }
-                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors"
                       >
                         <span>Detayları Oku</span>
                         <ExternalLink className="w-3 h-3" />
-                      </button>
+                      </span>
 
                       {item.url && item.url.startsWith('http') && (
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[11px] font-medium text-stone-400 hover:text-stone-600 dark:hover:text-white flex items-center gap-1 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] font-medium text-stone-400 hover:text-stone-600 dark:hover:text-white flex items-center gap-1 transition-colors z-10"
                           title="Resmi web sitesinde aç"
                         >
                           <span>Webde Gör</span>
@@ -938,6 +951,7 @@ export default function News() {
         <DetailModal
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
+          item={selectedItem}
           url={selectedItem?.url || ''}
           title={selectedItem?.title || ''}
         />

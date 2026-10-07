@@ -12,9 +12,9 @@ import {
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem, CampusEvent } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin, Bus } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Sparkles, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import DetailModal from '../components/DetailModal';
+import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
@@ -42,7 +42,7 @@ export default function Home() {
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
 
   // Modal State
-  const [selectedItem, setSelectedItem] = useState<{url: string, title: string} | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
 
   const handleRefresh = async () => {
     try {
@@ -193,18 +193,7 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
-          <Link
-            to="/campus?tab=transport"
-            className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-blue-500/50 hover:shadow-md transition-all active:scale-95"
-          >
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
-              <Bus className="w-5 h-5" />
-            </div>
-            <span className="text-xs font-semibold text-stone-800 dark:text-white text-center">Ulaşım</span>
-            <span className="text-[10px] text-stone-400 dark:text-white/40">Hat & Saatler</span>
-          </Link>
-
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
           <Link
             to="/campus?tab=directory"
             className="group flex flex-col items-center justify-center p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-emerald-500/50 hover:shadow-md transition-all active:scale-95"
@@ -294,8 +283,15 @@ export default function Home() {
           {filteredNews.map((n) => (
             <button 
               key={n.id} 
-              onClick={() => setSelectedItem({ url: n.url || '', title: n.title })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
+              onClick={() => setSelectedItem({
+                url: n.url || '',
+                title: n.title,
+                date: n.date,
+                category: n.category,
+                content: n.content,
+                imageUrl: (n as any).imageUrl || (n as any).img
+              })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
@@ -334,8 +330,14 @@ export default function Home() {
           {filteredAnnouncements.map((announcement) => (
             <button 
               key={announcement.id} 
-              onClick={() => setSelectedItem({ url: announcement.url || '', title: announcement.title })}
-              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none"
+              onClick={() => setSelectedItem({
+                url: announcement.url || '',
+                title: announcement.title,
+                date: announcement.date,
+                category: announcement.category,
+                content: announcement.content
+              })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
@@ -374,7 +376,14 @@ export default function Home() {
           {filteredEvents.map((ev) => (
             <button
               key={ev.id}
-              onClick={() => setSelectedItem({ url: ev.url || '', title: ev.title })}
+              onClick={() => setSelectedItem({
+                url: ev.url || '',
+                title: ev.title,
+                date: ev.date,
+                category: ev.category,
+                content: ev.content,
+                imageUrl: ev.img
+              })}
               className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-md hover:border-rose-500/40 transition-all focus:outline-none group cursor-pointer"
             >
               {ev.img && (
@@ -502,8 +511,7 @@ export default function Home() {
       <DetailModal
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
-        url={selectedItem?.url || ''}
-        title={selectedItem?.title || ''}
+        item={selectedItem}
       />
       </motion.div>
     </PullToRefresh>
