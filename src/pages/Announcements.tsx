@@ -1,8 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { getAnnouncements, getCachedOrFallback, FALLBACK_ANNOUNCEMENTS } from '../mockData';
-import { Announcement } from '../types';
+import {
+  getAnnouncements,
+  getDepartmentAnnouncements,
+  getCachedOrFallback,
+  FALLBACK_ANNOUNCEMENTS,
+  FALLBACK_DEPARTMENT_ANNOUNCEMENTS
+} from '../mockData';
+import { Announcement, DepartmentAnnouncementItem } from '../types';
+import { ACADEMIC_UNITS_WITH_DEPARTMENTS } from '../data/departmentNewsData';
 import {
   Search,
   ArrowLeft,
@@ -11,7 +18,13 @@ import {
   Building2,
   Filter,
   X,
-  Calendar
+  Calendar,
+  Pin,
+  PinOff,
+  GraduationCap,
+  ChevronRight,
+  Bookmark,
+  Bell
 } from 'lucide-react';
 import { cn, parseDateToTimestamp } from '../lib/utils';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
@@ -22,13 +35,44 @@ import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
 export default function Announcements() {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    return getCachedOrFallback<Announcement[]>('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
+    return getCachedOrFallback<Announcement[]>('k7_cached_announcements_v6', FALLBACK_ANNOUNCEMENTS);
   });
+
+  // Pinned Department state
+  const [pinnedDeptId, setPinnedDeptId] = useState<string | null>(() => {
+    return localStorage.getItem('k7_pinned_department') || null;
+  });
+  const [pinnedDeptAnnouncements, setPinnedDeptAnnouncements] = useState<DepartmentAnnouncementItem[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
+
+  // All flat departments list
+  const allFlatDepartments = useMemo(() => {
+    const list: {
+      dept: any;
+      facultyId: string;
+      facultyName: string;
+    }[] = [];
+    ACADEMIC_UNITS_WITH_DEPARTMENTS.forEach(g => {
+      g.departments.forEach(d => {
+        list.push({
+          dept: d,
+          facultyId: g.facultyId,
+          facultyName: g.facultyName
+        });
+      });
+    });
+    return list;
+  }, []);
+
+  const pinnedDepartmentInfo = useMemo(() => {
+    if (!pinnedDeptId) return null;
+    return allFlatDepartments.find(item => item.dept.id === pinnedDeptId || item.dept.slug === pinnedDeptId) || null;
+  }, [pinnedDeptId, allFlatDepartments]);
 
   const load = async (force = false) => {
     if (force) setLoading(true);
@@ -43,8 +87,29 @@ export default function Announcements() {
     load();
   }, []);
 
+  // Fetch pinned department announcements
+  useEffect(() => {
+    if (pinnedDepartmentInfo) {
+      const pDept = pinnedDepartmentInfo.dept;
+      const annUrl = pDept.announcementUrl || (pDept.websiteUrl ? `${pDept.websiteUrl}/tr/announcements-all` : undefined);
+      getDepartmentAnnouncements(annUrl, pDept.id, pinnedDepartmentInfo.facultyId, false).then(res => {
+        if (res) setPinnedDeptAnnouncements(res);
+      });
+    }
+  }, [pinnedDeptId, pinnedDepartmentInfo]);
+
   const handleRefresh = async () => {
     await load(true);
+  };
+
+  const handleTogglePin = (deptId: string) => {
+    if (pinnedDeptId === deptId) {
+      setPinnedDeptId(null);
+      localStorage.removeItem('k7_pinned_department');
+    } else {
+      setPinnedDeptId(deptId);
+      localStorage.setItem('k7_pinned_department', deptId);
+    }
   };
 
   const isMainAnnouncementCategory = (name: string) => {
@@ -195,17 +260,131 @@ export default function Announcements() {
           </button>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight">
-                Üniversite Duyuruları
+              <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                <span>Üniversite Duyuruları</span>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
+                  Canlı Akış
+                </span>
               </h2>
               <p className="text-stone-500 dark:text-white/60 text-xs sm:text-sm mt-1 font-medium">
-                Rektörlük, fakülteler, enstitüler ve idari birimlerden resmi duyurular.
+                Rektörlük, fakülteler, enstitüler, meslek yüksekokulları ve idari birimlerden resmi duyurular.
               </p>
             </div>
+
+            <button
+              onClick={() => navigate('/news?tab=department')}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#264653] hover:bg-[#1a343f] text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+            >
+              <GraduationCap className="w-4 h-4 text-amber-400" />
+              <span>Bölüm Masası'na Git</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </header>
 
-        {/* Search & Customization Bar */}
+        {/* Pinned Department Smart Card (If User Pinned A Department) */}
+        {pinnedDepartmentInfo ? (
+          <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 rounded-3xl p-5 shadow-sm space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-inner">
+                  <Pin className="w-5 h-5 fill-amber-500 text-amber-600" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                      Sabitlenen Bölümüm
+                    </span>
+                    <span className="text-xs text-stone-500 dark:text-white/50 font-medium">
+                      {pinnedDepartmentInfo.facultyName}
+                    </span>
+                  </div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white mt-0.5">
+                    {pinnedDepartmentInfo.dept.name}
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  onClick={() => handleTogglePin(pinnedDepartmentInfo.dept.id)}
+                  title="Sabitlemeyi Kaldır"
+                  className="p-2 rounded-xl bg-white/80 dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-stone-600 dark:text-stone-300 hover:text-rose-600 transition-colors border border-stone-200/80 dark:border-white/10 text-xs font-medium cursor-pointer"
+                >
+                  <PinOff className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigate(`/news?tab=department&dept=${pinnedDepartmentInfo.dept.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Bölüm Akışını Aç</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Preview of Pinned Department Announcements */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {pinnedDeptAnnouncements.slice(0, 2).map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItem({
+                    title: item.title,
+                    date: item.date,
+                    category: 'Bölüm Duyurusu',
+                    url: item.url,
+                    content: item.content,
+                    sourceName: pinnedDepartmentInfo.dept.name
+                  })}
+                  className="bg-white/90 dark:bg-[#1a3038]/90 border border-stone-200/80 dark:border-white/10 rounded-2xl p-3.5 hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold">
+                        Bölüm Duyurusu
+                      </span>
+                      <span className="text-[11px] text-stone-400 dark:text-white/40 font-mono">
+                        {item.date}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-xs sm:text-sm text-stone-800 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                      {item.title}
+                    </h4>
+                  </div>
+                  <div className="mt-2.5 pt-2 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-[11px] text-stone-400 dark:text-white/40">
+                    <span>Detayları İncele</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-[#fcfbf9] dark:bg-[#1f3741] border border-amber-500/20 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Bookmark className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                  Kendi Bölümünün Duyurularını Sabitle
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                  Fakülte ve bölümünü sabitleyerek sınav, ders ve staj duyurularına anında ulaşabilirsin.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/news?tab=department')}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+            >
+              <Pin className="w-3.5 h-3.5" />
+              <span>Bölüm Seç & Sabitle</span>
+            </button>
+          </div>
+        )}
+
+        {/* Search & Category Filter Section */}
         <div className="space-y-3">
           {/* Live Search Input */}
           <div className="relative">
@@ -229,15 +408,16 @@ export default function Announcements() {
             )}
           </div>
 
-          {/* Horizontal Scrollable Faculty & Unit Filter Pills (Sorted by latest announcement date) */}
+          {/* Horizontal Scrollable Faculty & Unit Filter Pills */}
           <div className="pt-1">
             <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-stone-500 dark:text-white/60">
               <Filter className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Kategori & Birimler (En Yakın Tarihe Göre Sıralı):</span>
+              <span>Kategori & Birimler (Tarihe Göre Sıralı):</span>
             </div>
             <HorizontalScrollWrapper>
               {sortedFilterChips.map((filter) => {
                 const isActive = selectedFilter === filter.id;
+                const isMain = isMainAnnouncementCategory(filter.name);
                 return (
                   <button
                     key={filter.id}
@@ -246,6 +426,8 @@ export default function Announcements() {
                       "shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 border cursor-pointer whitespace-nowrap",
                       isActive
                         ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/30 font-bold"
+                        : isMain
+                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800/60 hover:bg-amber-100"
                         : "bg-[#fcfbf9] dark:bg-[#264653] text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-[#e6e2d6] dark:border-white/10"
                     )}
                   >
@@ -257,158 +439,107 @@ export default function Announcements() {
           </div>
         </div>
 
-        {/* Active Filter Clear Info */}
-        {(selectedFilter !== 'all' || searchQuery.trim()) && (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-200">
-            <span>
-              Filtre: <strong>{selectedFilter !== 'all' ? selectedFilter : 'Tümü'}</strong>
-              {searchQuery && <> • Arama: &quot;<strong>{searchQuery}</strong>&quot;</>}
-              {' '}({filteredAnnouncements.length} sonuç bulundu)
-            </span>
-            <button
-              onClick={() => {
-                setSelectedFilter('all');
-                setSearchQuery('');
-              }}
-              className="text-amber-700 dark:text-amber-300 hover:underline font-bold cursor-pointer"
-            >
-              Filtreleri Temizle
-            </button>
-          </div>
-        )}
-
-        {/* Announcements List Grouped & Sorted by Recency */}
-        {filteredAnnouncements.length === 0 ? (
-          <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
-            <Building2 className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
-            <h3 className="font-display font-bold text-stone-800 dark:text-white text-base">
-              Aramanıza Uygun Duyuru Bulunamadı
-            </h3>
-            <p className="text-stone-500 dark:text-white/60 text-xs mt-1 max-w-sm mx-auto">
-              Farklı bir kategori seçebilir veya arama teriminizi değiştirerek tekrar deneyebilirsiniz.
-            </p>
-            <button
-              onClick={() => {
-                setSelectedFilter('all');
-                setSearchQuery('');
-              }}
-              className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
-            >
-              Tüm Duyuruları Göster
-            </button>
+        {/* Categories / Announcements List */}
+        {sortedGroupedCategories.length === 0 ? (
+          <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] rounded-2xl border border-[#e6e2d6] dark:border-white/10">
+            <Building2 className="w-12 h-12 text-stone-300 dark:text-white/20 mx-auto mb-3" />
+            <p className="text-stone-600 dark:text-white/70 font-medium">Aramanıza uygun duyuru bulunamadı.</p>
+            <p className="text-stone-400 dark:text-white/40 text-xs mt-1">Filtreyi temizleyebilir veya başka bir kelime deneyebilirsiniz.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {sortedGroupedCategories.map(([category, items]) => {
-              const isCollapsed = collapsedCategories[category] === true;
-              const isExpanded = !isCollapsed;
-              const latestDateStr = items[0]?.date;
-
+              const isCollapsed = collapsedCategories[category];
+              const isMain = isMainAnnouncementCategory(category);
               return (
                 <div
                   key={category}
-                  className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden shadow-sm"
+                  className={cn(
+                    "border rounded-2xl overflow-hidden transition-all duration-300 shadow-sm",
+                    isMain
+                      ? "bg-white dark:bg-[#264653] border-amber-500/40"
+                      : "bg-[#fcfbf9] dark:bg-[#264653] border-[#e6e2d6] dark:border-white/10"
+                  )}
                 >
-                  <button
+                  {/* Category Header */}
+                  <div
                     onClick={() => toggleCategory(category)}
-                    className="w-full flex items-center justify-between p-4 sm:p-5 bg-[#f4f1ea]/60 dark:bg-[#264653]/60 hover:bg-stone-100 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+                    className="p-4 flex items-center justify-between cursor-pointer select-none bg-stone-50/50 dark:bg-white/5 border-b border-stone-100 dark:border-white/5"
                   >
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <span className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn(
+                        "w-2.5 h-2.5 rounded-full",
+                        isMain ? "bg-amber-500" : "bg-emerald-500"
+                      )} />
+                      <h3 className="font-display font-bold text-stone-900 dark:text-white text-sm sm:text-base">
                         {category}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      </h3>
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-stone-200 dark:bg-white/10 text-stone-700 dark:text-white/80">
                         {items.length}
                       </span>
-                      {latestDateStr && (
-                        <span className="text-[10px] text-stone-400 dark:text-white/50 font-normal">
-                          (Son: {latestDateStr})
-                        </span>
-                      )}
                     </div>
-                    <ChevronDown
-                      strokeWidth={2}
-                      className={cn(
-                        "w-4 h-4 text-stone-400 transition-transform duration-300 shrink-0",
-                        isExpanded ? "rotate-180 text-amber-600 dark:text-amber-500" : "rotate-0"
-                      )}
-                    />
-                  </button>
+                    <ChevronDown className={cn(
+                      "w-4 h-4 text-stone-400 transition-transform duration-300",
+                      isCollapsed ? "-rotate-90" : "rotate-0"
+                    )} />
+                  </div>
 
-                  <AnimatePresence initial={false}>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="border-t border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653]"
-                      >
-                        <div className="p-4 sm:p-5 space-y-4 divide-y divide-stone-100 dark:divide-white/10">
-                          {items.map((announcement) => (
-                            <div
-                              key={announcement.id}
-                              className="pt-4 first:pt-0 group hover:bg-stone-50/50 dark:hover:bg-white/5 rounded-xl transition-all"
-                            >
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                {/* Faculty / Category Badge */}
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                                  {announcement.category || category}
+                  {/* Items Grid */}
+                  {!isCollapsed && (
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => setSelectedItem({
+                            title: item.title,
+                            date: item.date,
+                            category: item.category || category,
+                            url: item.url,
+                            content: item.content,
+                            sourceName: category
+                          })}
+                          className="group p-4 rounded-xl bg-white dark:bg-[#1a3038] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/40 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-[11px] font-mono text-stone-400 dark:text-white/40 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {item.date}
+                              </span>
+                              {isMain && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold">
+                                  Ana Duyuru
                                 </span>
-                                {announcement.date && !announcement.date.includes('T') && (
-                                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {announcement.date}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h4 className="font-display font-bold text-[0.95rem] sm:text-[1.05rem] leading-snug text-stone-800 dark:text-white/90 mb-2">
-                                {announcement.title}
-                              </h4>
-
-                              {announcement.content && (
-                                <p className="text-xs sm:text-sm text-stone-600 dark:text-white/70 line-clamp-2 leading-relaxed mb-3">
-                                  {announcement.content}
-                                </p>
-                              )}
-
-                              {announcement.url && (
-                                <button
-                                  onClick={() =>
-                                    setSelectedItem({
-                                      url: announcement.url || '',
-                                      title: announcement.title,
-                                      date: announcement.date,
-                                      category: announcement.category || category,
-                                      content: announcement.content
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors focus:outline-none cursor-pointer"
-                                >
-                                  <span>Duyuru Detayını Görüntüle</span>
-                                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
-                                </button>
                               )}
                             </div>
-                          ))}
+                            <h4 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
+                              {item.title}
+                            </h4>
+                            {item.content && (
+                              <p className="text-xs text-stone-500 dark:text-white/60 mt-2 line-clamp-2">
+                                {item.content}
+                              </p>
+                            )}
+                          </div>
+                          <div className="mt-3 pt-2.5 border-t border-stone-100 dark:border-white/5 flex items-center justify-between text-xs font-semibold text-amber-600 dark:text-amber-400">
+                            <span>Duyuruyu İncele</span>
+                            <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+                          </div>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
+        {/* Detail Modal */}
         <DetailModal
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
           item={selectedItem}
-          url={selectedItem?.url || ''}
-          title={selectedItem?.title || ''}
         />
       </motion.div>
     </PullToRefresh>
