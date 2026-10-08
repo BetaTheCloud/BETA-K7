@@ -21,18 +21,13 @@ const TURKISH_MONTHS: Record<string, number> = {
 };
 
 /**
- * Robust date parser converting any date string (DD.MM.YYYY, YYYY-MM-DD, ISO, "30 Eylül 2026", "07 Ekim")
+ * Robust date parser converting any date string (DD.MM.YYYY, YYYY-MM-DD, ISO, "30 Eylül 2026")
  * into a comparable epoch millisecond timestamp.
  */
 export function parseDateToTimestamp(dateStr?: string | null): number {
   if (!dateStr) return 0;
   const str = dateStr.trim();
   if (!str) return 0;
-
-  // 'Güncel' means freshly published or live, treat as recent
-  if (str.toLowerCase() === 'güncel' || str.toLowerCase() === 'guncel') {
-    return Date.now() - 3600000;
-  }
 
   // 1. ISO format with 'T' (e.g. 2026-10-04T12:00:00Z)
   if (str.includes('T')) {
@@ -62,11 +57,11 @@ export function parseDateToTimestamp(dateStr?: string | null): number {
     return new Date(year, month, day, hour, min).getTime();
   }
 
-  // 4. Format with Turkish month name and year: "30 Eylül 2026" or "2 Ekim 2026"
-  const trWithYear = str.match(/^(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/i);
-  if (trWithYear) {
-    const day = parseInt(trWithYear[1], 10);
-    const rawMonth = trWithYear[2].toLowerCase();
+  // 4. Format with Turkish month name: "30 Eylül 2026" or "2 Ekim 2026"
+  const trMatch = str.match(/^(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/i);
+  if (trMatch) {
+    const day = parseInt(trMatch[1], 10);
+    const rawMonth = trMatch[2].toLowerCase();
     const cleanMonth = rawMonth
       .replace(/ı/g, 'i')
       .replace(/ş/g, 's')
@@ -75,158 +70,14 @@ export function parseDateToTimestamp(dateStr?: string | null): number {
       .replace(/ö/g, 'o')
       .replace(/ç/g, 'c');
     const month = TURKISH_MONTHS[cleanMonth] ?? TURKISH_MONTHS[rawMonth] ?? 0;
-    const year = parseInt(trWithYear[3], 10);
-    const hour = trWithYear[4] ? parseInt(trWithYear[4], 10) : 12;
-    const min = trWithYear[5] ? parseInt(trWithYear[5], 10) : 0;
+    const year = parseInt(trMatch[3], 10);
+    const hour = trMatch[4] ? parseInt(trMatch[4], 10) : 12;
+    const min = trMatch[5] ? parseInt(trMatch[5], 10) : 0;
     return new Date(year, month, day, hour, min).getTime();
-  }
-
-  // 5. Format with Turkish month WITHOUT year: "07 Ekim", "6 Ekim", "27 Eylül" -> defaults to 2026
-  const trNoYear = str.match(/^(\d{1,2})\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)/i);
-  if (trNoYear) {
-    const day = parseInt(trNoYear[1], 10);
-    const rawMonth = trNoYear[2].toLowerCase();
-    const cleanMonth = rawMonth
-      .replace(/ı/g, 'i')
-      .replace(/ş/g, 's')
-      .replace(/ğ/g, 'g')
-      .replace(/ü/g, 'u')
-      .replace(/ö/g, 'o')
-      .replace(/ç/g, 'c');
-    const month = TURKISH_MONTHS[cleanMonth] ?? TURKISH_MONTHS[rawMonth];
-    if (month !== undefined) {
-      const year = 2026;
-      return new Date(year, month, day, 12, 0).getTime();
-    }
   }
 
   const parsed = Date.parse(str);
   return isNaN(parsed) ? 0 : parsed;
-}
-
-/**
- * Cleans messy scraped feed headlines:
- * - Strips leading category badges ('HABER', 'DUYURU')
- * - Strips trailing attached dates ('... 01.10.2026')
- * - Detects repeated phrases/sentences (where headline was printed repeatedly)
- * - Collapses repeated n-grams and removes appended excerpt snippets
- */
-export function cleanFeedTitle(rawTitle?: string | null): string {
-  if (!rawTitle) return '';
-  let str = rawTitle.replace(/\s+/g, ' ').trim();
-
-  // 1. Remove leading category badges
-  str = str.replace(/^(HABER|DUYURU|Haber|Duyuru|ETKİNLİK|Etkinlik)\s*[:\-–—]?\s*/i, '');
-
-  // 2. Remove trailing attached dates like ' 01.10.2026' or ' 30.09.2026'
-  str = str.replace(/\s+\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/, '');
-
-  // 3. Handle cases where snippet had ' ... ' followed by repeating full title
-  const ellIndex = str.indexOf(' ... ');
-  if (ellIndex > 8) {
-    const beforeEll = str.slice(0, ellIndex).trim();
-    const afterEll = str.slice(ellIndex + 5).trim();
-    const beforeWords = beforeEll.split(' ');
-    if (beforeWords.length >= 2) {
-      const matchPrefix = beforeWords.slice(0, 2).join(' ').toLowerCase();
-      if (afterEll.toLowerCase().startsWith(matchPrefix)) {
-        str = afterEll;
-      }
-    }
-  }
-
-  // 4. Word repetition: check if initial sequence of N words repeats immediately (N >= 3)
-  const words = str.split(' ');
-  for (let n = 3; n <= Math.floor(words.length / 2); n++) {
-    const chunk1 = words.slice(0, n).join(' ').toLowerCase();
-    const chunk2 = words.slice(n, 2 * n).join(' ').toLowerCase();
-    if (chunk1 === chunk2) {
-      str = words.slice(0, n).join(' ').trim();
-      break;
-    }
-  }
-
-  // 5. Character substring repetition (e.g. 'Abc Def Abc Def')
-  const half = Math.floor(str.length / 2);
-  for (let len = 10; len <= half; len++) {
-    const sub1 = str.slice(0, len).trim().toLowerCase();
-    const sub2 = str.slice(len, 2 * len).trim().toLowerCase();
-    if (sub1 === sub2 && sub1.length >= 10) {
-      str = str.slice(0, len).trim();
-      break;
-    }
-  }
-
-  // 6. Strip excerpt if appended after title with rector / official credentials
-  const profMatch = str.match(/(.*?)\s+(Rektörümüz\s+Prof\.\s+Dr\..*)/i);
-  if (profMatch && profMatch[1].trim().length > 15) {
-    str = profMatch[1].trim();
-  }
-
-  // 7. Clean trailing ellipses, dashes or whitespace
-  str = str.replace(/\s*[\-–—\.]*\.{2,}\s*$/, '').trim();
-  return str;
-}
-
-/**
- * Normalizes date string:
- * - If date was empty or 'Güncel' but title had a date, extracts it
- * - Appends year '2026' if date was '07 Ekim'
- */
-export function normalizeFeedDate(rawDate?: string | null, title?: string | null): string {
-  let date = (rawDate || '').trim();
-  if ((!date || date.toLowerCase() === 'güncel') && title) {
-    const dMatch = title.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-    if (dMatch) date = dMatch[1];
-  }
-  if (!date || date.toLowerCase() === 'güncel') {
-    date = '07 Ekim 2026';
-  }
-  // Append 2026 if missing year: e.g. '07 Ekim' -> '07 Ekim 2026'
-  if (date.match(/^\d{1,2}\s+[a-zA-ZçğıöşüÇĞİÖŞÜ]+$/)) {
-    date = `${date} 2026`;
-  }
-  return date;
-}
-
-/**
- * Normalizes feed item attributes
- */
-export function normalizeFeedItem<T extends { id?: string; title?: string; url?: string; date?: string; content?: string; category?: string }>(item: T): T | null {
-  if (!item || !item.title) return null;
-  const cleanTitle = cleanFeedTitle(item.title);
-  if (!cleanTitle || cleanTitle.length < 3) return null;
-  const normDate = normalizeFeedDate(item.date, item.title);
-  return {
-    ...item,
-    title: cleanTitle,
-    date: normDate
-  };
-}
-
-/**
- * Deduplicates and sorts feed items by clean headline title and real chronological date.
- * Guarantees no repeating headlines and newest items appear on top.
- */
-export function deduplicateFeedList<T extends { id?: string; title?: string; url?: string; date?: string; content?: string; category?: string }>(items: T[]): T[] {
-  if (!Array.isArray(items)) return [];
-  const seenTitles = new Set<string>();
-  const result: T[] = [];
-
-  for (const rawItem of items) {
-    const item = normalizeFeedItem(rawItem);
-    if (!item || !item.title) continue;
-
-    // Simplified comparison key: lowercase alphanumeric only
-    const key = item.title.toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, '');
-    if (seenTitles.has(key)) continue;
-    seenTitles.add(key);
-    result.push(item);
-  }
-
-  // Sort descending: newest dates first
-  result.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
-  return result;
 }
 
 export interface GenericMenuItem {

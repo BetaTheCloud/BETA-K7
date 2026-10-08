@@ -1,5 +1,3 @@
-import { Capacitor } from '@capacitor/core';
-
 /**
  * Application & API Configuration
  * 
@@ -61,10 +59,10 @@ function onFetchStart() {
       let stage: ServerConnectionState['stage'] = 'connecting';
       let isColdStart = false;
 
-      if (currentSecondsElapsed >= 25) {
+      if (currentSecondsElapsed >= 30) {
         stage = 'extended_delay';
         isColdStart = true;
-      } else if (currentSecondsElapsed >= 5) {
+      } else if (currentSecondsElapsed >= 7) {
         stage = 'waking';
         isColdStart = true;
       }
@@ -129,30 +127,14 @@ function onFetchEnd(success: boolean) {
 export function isMobileAppEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   
-  // 1. Official Capacitor native platform check
-  try {
-    if (Capacitor.isNativePlatform()) return true;
-    const platform = Capacitor.getPlatform();
-    if (platform === 'android' || platform === 'ios') return true;
-  } catch {}
-
-  const isCapacitorGlobal = !!(window as any).Capacitor;
+  const isCapacitor = !!(window as any).Capacitor;
   const isCordova = !!(window as any).cordova;
   const isFileProtocol = window.location.protocol === 'file:';
-  
-  // 2. Android WebView origin patterns (Capacitor default with androidScheme: 'https')
-  const origin = window.location.origin || '';
   const isCapacitorOrigin = 
-    origin === 'capacitor://localhost' || 
-    origin === 'ionic://localhost' ||
-    (origin === 'https://localhost' && (!window.location.port || window.location.port === '443')) ||
-    (origin === 'http://localhost' && (!window.location.port || window.location.port === '80'));
+    window.location.origin === 'capacitor://localhost' || 
+    window.location.origin === 'ionic://localhost';
 
-  // 3. User agent inspection for Android embedded WebView
-  const userAgent = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
-  const isAndroidWebView = /Android.*Version\/[0-9.]+/i.test(userAgent) || /wv/i.test(userAgent);
-
-  return isCapacitorGlobal || isCordova || isFileProtocol || isCapacitorOrigin || isAndroidWebView;
+  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin;
 }
 
 export function getEffectiveApiBase(): string {
@@ -164,15 +146,15 @@ export function getEffectiveApiBase(): string {
     }
   }
 
-  // 2. Auto-detection for Mobile APK / WebView: If running inside an APK, use default backend
-  if (isMobileAppEnvironment()) {
-    return DEFAULT_REMOTE_API_BASE;
-  }
-
-  // 3. Build-time environment variable (from .env)
+  // 2. Build-time environment variable (from .env)
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
   if (envUrl) {
     return envUrl;
+  }
+
+  // 3. Auto-detection for Mobile APK / WebView: If running inside an APK, use default backend
+  if (isMobileAppEnvironment()) {
+    return DEFAULT_REMOTE_API_BASE;
   }
 
   // 4. Default for Web development / Unified proxy
@@ -201,10 +183,10 @@ export function getApiUrl(path: string): string {
 
 /**
  * Robust fetch wrapper for mobile / cloud cold starts
- * Retries on failure and sets a realistic timeout (45s) for Render free tier container awakening.
+ * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
  */
-export async function safeFetch(url: string, options: RequestInit = {}, retries = 2): Promise<Response> {
-  const timeoutMs = 45000; // 45 seconds to accommodate Render container cold boot
+export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
+  const timeoutMs = 10000; // 10s per attempt
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -226,23 +208,23 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         onFetchEnd(true);
         return response;
       }
-      // If 5xx error or 502/503 during Render spin-up, retry
-      if ((response.status >= 500 || response.status === 404) && attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 2500));
+      // If 5xx error on cold start, retry
+      if (response.status >= 500 && attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
         continue;
       }
       onFetchEnd(true);
       return response;
     } catch (error: any) {
       clearTimeout(timer);
-      console.warn(`Fetch attempt ${attempt + 1}/${retries + 1} failed for ${url}:`, error?.message || error);
+      console.warn(`Fetch attempt ${attempt + 1} failed for ${url}:`, error?.message || error);
       
       if (attempt === retries) {
         onFetchEnd(false);
         throw error;
       }
-      // Wait 2.5s before retry
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      // Wait 1.5s before retry
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   

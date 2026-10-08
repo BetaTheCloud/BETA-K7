@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
+import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
 import qs from 'qs';
 import * as cheerio from 'cheerio';
@@ -13,25 +13,14 @@ import { FALLBACK_DEPARTMENT_NEWS } from './src/data/departmentNewsData';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Enable permissive CORS for mobile APK / WebView and remote clients
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
-}));
-app.options('*', cors());
-
+// Enable CORS for all routes (necessary when frontend runs in APK or different origin)
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint for Render / mobile monitoring
+// Health check endpoint for Render / monitoring
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    environment: process.env.NODE_ENV || 'production',
-    uptime: Math.round(process.uptime()),
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const axiosInstance = axios.create({
@@ -43,60 +32,41 @@ const axiosInstance = axios.create({
   timeout: 10000
 });
 
-const ALL_UNIVERSITY_UNITS = [
-  // 12 Fakülte
-  { name: 'İnsan ve Toplum Bilimleri Fakültesi', url: 'https://itbf.kilis.edu.tr' },
+const FACULTIES = [
+  // Fakülteler
   { name: 'Fen Fakültesi', url: 'https://fen.kilis.edu.tr' },
+  { name: 'Güzel Sanatlar ve Tasarım Fakültesi', url: 'https://gstf.kilis.edu.tr' },
   { name: 'İktisadi ve İdari Bilimler Fakültesi', url: 'https://iibf.kilis.edu.tr' },
   { name: 'İlahiyat Fakültesi', url: 'https://ilahiyat.kilis.edu.tr' },
+  { name: 'İletişim Fakültesi', url: 'https://iletisim.kilis.edu.tr' },
+  { name: 'İnsan ve Toplum Bilimleri Fakültesi', url: 'https://itbf.kilis.edu.tr' },
   { name: 'Kilisli Muallim Rıfat Eğitim Fakültesi', url: 'https://egitim.kilis.edu.tr' },
   { name: 'Mühendislik - Mimarlık Fakültesi', url: 'https://mmf.kilis.edu.tr' },
   { name: 'Spor Bilimleri Fakültesi', url: 'https://sporbilimleri.kilis.edu.tr' },
+  { name: 'Uygulamalı Bilimler Fakültesi', url: 'https://ubf.kilis.edu.tr' },
   { name: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi', url: 'https://sbf.kilis.edu.tr' },
   { name: 'Ziraat Fakültesi', url: 'https://ziraat.kilis.edu.tr' },
-  { name: 'Uygulamalı Bilimler Fakültesi', url: 'https://ubf.kilis.edu.tr' },
-  { name: 'İletişim Fakültesi', url: 'https://iletisim.kilis.edu.tr' },
-  { name: 'Güzel Sanatlar ve Tasarım Fakültesi', url: 'https://gstf.kilis.edu.tr' },
 
-  // Lisansüstü Enstitü
+  // Enstitü
   { name: 'Lisansüstü Eğitim Enstitüsü', url: 'https://enstitu.kilis.edu.tr' },
 
   // Yüksekokul
   { name: 'Yabancı Diller Yüksekokulu', url: 'https://yadyo.kilis.edu.tr' },
 
-  // 4 Meslek Yüksekokulu (MYO)
-  { name: 'Teknik Bilimler Meslek Yüksekokulu', url: 'https://tbmyo.kilis.edu.tr' },
-  { name: 'Sosyal Bilimler Meslek Yüksekokulu', url: 'https://sbmyo.kilis.edu.tr' },
-  { name: 'Sağlık Hizmetleri Meslek Yüksekokulu', url: 'https://shmyo.kilis.edu.tr' },
-  { name: 'Turizm ve Otelcilik Meslek Yüksekokulu', url: 'https://tomyo.kilis.edu.tr' },
+  // Meslek Yüksekokulları
+  { name: 'Sosyal Bilimler MYO', url: 'https://sbmyo.kilis.edu.tr' },
+  { name: 'Sağlık Hizmetleri MYO', url: 'https://shmyo.kilis.edu.tr' },
+  { name: 'Teknik Bilimler MYO', url: 'https://tbmyo.kilis.edu.tr' },
+  { name: 'Turizm ve Otelcilik MYO', url: 'https://tomyo.kilis.edu.tr' },
 
   // Konservatuvar
   { name: 'Alaeddin Yavaşca Devlet Konservatuvarı', url: 'https://konservatuvar.kilis.edu.tr' },
 
-  // 8 Daire Başkanlığı
-  { name: 'Öğrenci İşleri Daire Başkanlığı', url: 'https://ogrenciisleri.kilis.edu.tr' },
-  { name: 'Sağlık, Kültür ve Spor Daire Başkanlığı', url: 'https://sks.kilis.edu.tr' },
-  { name: 'Kütüphane ve Dokümantasyon Daire Başkanlığı', url: 'https://kutuphane.kilis.edu.tr' },
-  { name: 'Bilgi İşlem Daire Başkanlığı', url: 'https://bilgiislem.kilis.edu.tr' },
-  { name: 'Personel Daire Başkanlığı', url: 'https://personel.kilis.edu.tr' },
-  { name: 'İdari ve Mali İşler Daire Başkanlığı', url: 'https://imidb.kilis.edu.tr' },
-  { name: 'Yapı İşleri ve Teknik Daire Başkanlığı', url: 'https://yitdb.kilis.edu.tr' },
-  { name: 'Strateji Geliştirme Daire Başkanlığı', url: 'https://sgdb.kilis.edu.tr' },
-
-  // Koordinatörlükler & Merkezler
-  { name: 'Uluslararası İlişkiler & Erasmus', url: 'https://uluslararasi.kilis.edu.tr' },
-  { name: 'Proje Destek Ofisi & BAP', url: 'https://projeler.kilis.edu.tr' },
-  { name: 'Kariyer Planlama Merkezi (KARMER)', url: 'https://karmer.kilis.edu.tr' },
-  { name: 'Kurumsal İletişim Koordinatörlüğü', url: 'https://kurumsaliletisim.kilis.edu.tr' },
-  { name: 'Sürdürülebilirlik & Büyük Veri Koordinatörlüğü', url: 'https://surdurulebilirlik.kilis.edu.tr' },
-  { name: 'Uzaktan Eğitim Merkezi (UZEM)', url: 'https://uzem.kilis.edu.tr' },
-  { name: 'Kalite ve Akreditasyon Koordinatörlüğü', url: 'https://kalite.kilis.edu.tr' },
-  { name: 'Engelsiz Üniversite Koordinatörlüğü', url: 'https://engelsiz.kilis.edu.tr' },
-  { name: 'Sürekli Eğitim Merkezi (KÜSEM)', url: 'https://kusem.kilis.edu.tr' },
-  { name: 'Türkçe Öğretimi Merkezi (TÖMER)', url: 'https://tomer.kilis.edu.tr' }
+  // Koordinatörlükler
+  { name: 'Erasmus Koordinatörlüğü', url: 'https://erasmus.kilis.edu.tr' },
+  { name: 'Kalite Koordinatörlüğü', url: 'https://kalite.kilis.edu.tr' },
+  { name: 'Uluslararası Öğrenci Koordinatörlüğü', url: 'https://uluslararasi.kilis.edu.tr' }
 ];
-
-const FACULTIES = ALL_UNIVERSITY_UNITS;
 
 // Cache setup
 let cachedAnnouncements: any[] = [];
@@ -329,290 +299,49 @@ app.get('/api/bologna/courseDetail', async (req, res) => {
 });
 
 const DEFAULT_ANNOUNCEMENTS = [
-  // Ana Duyurular
   {
     id: 'ann-fb-1',
     title: '2026-2027 Eğitim-Öğretim Yılı Güz Yarıyılı Ders Kayıt ve Kayıt Yenileme Duyurusu',
-    date: '06.10.2026',
-    content: 'Öğrencilerimizin ders kayıt ve katkı payı işlemlerini akademik takvimde belirtilen tarihler arasında OBS üzerinden tamamlamaları gerekmektedir.',
+    date: '30.09.2026',
+    content: 'Öğrencilerimizin ders kayıt ve katkı payı işlemlerini akademik takvimde belirtilen tarihler arasında tamamlamaları gerekmektedir.',
     category: 'Ana Duyurular',
     url: 'https://www.kilis.edu.tr/tr/duyurular'
   },
-  // 12 Fakülte Duyuruları
   {
-    id: 'ann-fb-fac-itbf',
-    title: 'İnsan ve Toplum Bilimleri Fakültesi Ders Ekle-Bırak ve Danışman Onayları',
-    date: '05.10.2026',
-    content: 'Türk Dili, Tarih, Coğrafya, Felsefe ve Sosyoloji bölümleri ders intibak ve danışman onay takvimi ilan edilmiştir.',
-    category: 'İnsan ve Toplum Bilimleri Fakültesi',
-    url: 'https://itbf.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-fen',
-    title: 'Fen Fakültesi Laboratuvar Güvenliği ve Lisans Bitirme Tezi Esasları',
-    date: '05.10.2026',
-    content: 'Kimya, Matematik ve Biyoloji laboratuvarları çalışma yönergesi ve güvenlik talimatnamesi duyurulmuştur.',
-    category: 'Fen Fakültesi',
-    url: 'https://fen.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-iibf',
-    title: 'İktisadi ve İdari Bilimler Fakültesi Çift Anadal (ÇAP) ve Yandal Kontenjanları',
-    date: '04.10.2026',
-    content: 'İşletme, İktisat, Siyaset Bilimi ve Uluslararası Ticaret bölümleri 2026 Güz kontenjanları açıklanmıştır.',
-    category: 'İktisadi ve İdari Bilimler Fakültesi',
-    url: 'https://iibf.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-ilahiyat',
-    title: 'İlahiyat Fakültesi Zorunlu Arapça Hazırlık Muafiyet Sınav Sonuçları',
-    date: '04.10.2026',
-    content: 'Temel İslam Bilimleri ve Felsefe-Din Bilimleri hazırlık sınıfları yeterlilik sınavı kesin sonuç listesi yayınlanmıştır.',
-    category: 'İlahiyat Fakültesi',
-    url: 'https://ilahiyat.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-egitim',
-    title: 'Kilisli Muallim Rıfat Eğitim Fakültesi Öğretmenlik Uygulaması Okul Dağılımları',
-    date: '04.10.2026',
-    content: 'Temel Eğitim ve Türkçe-Sosyal Bilimler son sınıf öğrencilerinin MEB staj uygulama okulları ve danışman listeleri açıklandı.',
-    category: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
-    url: 'https://egitim.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-mmf',
-    title: 'Mühendislik - Mimarlık Fakültesi Staj Defteri Teslim ve Savunma Takvimi',
-    date: '03.10.2026',
-    content: 'Elektrik-Elektronik, İnşaat, Makine ve Mimarlık bölümleri yaz stajı sözlü değerlendirme takvimi ilan edilmiştir.',
-    category: 'Mühendislik - Mimarlık Fakültesi',
-    url: 'https://mmf.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-spor',
-    title: 'Spor Bilimleri Fakültesi Özel Yetenek Sınavı Ek Yerleştirme Kayıtları',
-    date: '03.10.2026',
-    content: 'Antrenörlük Eğitimi ve Beden Eğitimi ve Spor bölümleri yedek aday kayıt işlemleri başlamıştır.',
-    category: 'Spor Bilimleri Fakültesi',
-    url: 'https://sporbilimleri.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-sbf',
-    title: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi Klinik Staj ve Aşı Kartı Teslimi',
-    date: '03.10.2026',
-    content: 'Hemşirelik ve Beslenme-Diyetetik bölümleri hastane oryantasyon programı ve klinik staj yönergesi duyuruldu.',
-    category: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
-    url: 'https://sbf.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-ziraat',
-    title: 'Ziraat Fakültesi Bahçe Bitkileri ve Bitki Koruma Arazi Uygulamaları',
-    date: '02.10.2026',
-    content: 'Tarımsal araştırma parsellerinde yapılacak uygulamalı ders programı ve teknik saha takvimi açıklandı.',
-    category: 'Ziraat Fakültesi',
-    url: 'https://ziraat.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-ubf',
-    title: 'Uygulamalı Bilimler Fakültesi Gastronomi ve Sigortacılık Oryantasyon Programı',
-    date: '02.10.2026',
-    content: 'Gastronomi ve Mutfak Sanatları ile Sigortacılık ve Aktüerya 1. sınıf öğrencileri dönem başı bilgilendirme toplantısı.',
-    category: 'Uygulamalı Bilimler Fakültesi',
-    url: 'https://ubf.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-iletisim',
-    title: 'İletişim Fakültesi Yeni Medya ve Gazetecilik Atölye Çalışma Başvuruları',
-    date: '01.10.2026',
-    content: 'Kurgu, kamera çekimi, podcast ve grafik tasarım stüdyoları serbest çalışma saatleri belirlenmiştir.',
-    category: 'İletişim Fakültesi',
-    url: 'https://iletisim.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-fac-gstf',
-    title: 'Güzel Sanatlar ve Tasarım Fakültesi Resim ve Türk Sanatları Atölye Düzenlemesi',
-    date: '01.10.2026',
-    content: 'Geleneksel Türk Sanatları ve Resim atölyelerinin ders dışı serbest kullanım saatleri ilan edilmiştir.',
-    category: 'Güzel Sanatlar ve Tasarım Fakültesi',
-    url: 'https://gstf.kilis.edu.tr'
-  },
-  // Lisansüstü Enstitü
-  {
-    id: 'ann-fb-enstitu',
-    title: 'Lisansüstü Eğitim Enstitüsü Tez Önerisi ve Doktora Yeterlik Sınav Tarihleri',
-    date: '05.10.2026',
-    content: 'Tezli yüksek lisans tez izleme ve doktora yeterlik başvuru evrakları enstitü kurulu kararıyla kesinleşmiştir.',
-    category: 'Lisansüstü Eğitim Enstitüsü',
-    url: 'https://enstitu.kilis.edu.tr'
-  },
-  // Yüksekokul
-  {
-    id: 'ann-fb-yadyo',
-    title: 'Yabancı Diller Yüksekokulu İngilizce ve Arapça Muafiyet Sınav Sonuçları',
-    date: '04.10.2026',
-    content: 'İsteğe bağlı ve zorunlu yabancı dil hazırlık sınıfı seviye tespit sınavı neticeleri OBS sistemine işlenmiştir.',
-    category: 'Yabancı Diller Yüksekokulu',
-    url: 'https://yadyo.kilis.edu.tr'
-  },
-  // Meslek Yüksekokulları
-  {
-    id: 'ann-fb-myo-tbmyo',
-    title: 'Teknik Bilimler Meslek Yüksekokulu Laboratuvar ve Şantiye Güvenliği Yönergesi',
-    date: '04.10.2026',
-    content: 'Bilgisayar, Elektrik, İnşaat, Makine ve Mekatronik teknik atölye çalışma kuralları ilan edilmiştir.',
-    category: 'Teknik Bilimler Meslek Yüksekokulu',
-    url: 'https://tbmyo.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-myo-sbmyo',
-    title: 'Sosyal Bilimler Meslek Yüksekokulu Mesleki Staj Mülakat ve Teslim Günleri',
-    date: '03.10.2026',
-    content: 'Dış Ticaret, Muhasebe, Büro Yönetimi ve Adalet programları zorunlu staj defteri değerlendirme takvimi.',
-    category: 'Sosyal Bilimler Meslek Yüksekokulu',
-    url: 'https://sbmyo.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-myo-shmyo',
-    title: 'Sağlık Hizmetleri Meslek Yüksekokulu Hastane Klinik Yerleşim Listeleri',
-    date: '03.10.2026',
-    content: 'İlk ve Acil Yardım, Optisyenlik, Tıbbi Dokümantasyon ve Çocuk Gelişimi hastane staj grupları belirlenmiştir.',
-    category: 'Sağlık Hizmetleri Meslek Yüksekokulu',
-    url: 'https://shmyo.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-myo-tomyo',
-    title: 'Turizm ve Otelcilik Meslek Yüksekokulu Otel İşletmeciliği & Aşçılık Uygulamaları',
-    date: '02.10.2026',
-    content: 'Uygulama mutfağı ve otel odası simülasyon dersleri önlük-üniforma temini ve staj yönergesi açıklanmıştır.',
-    category: 'Turizm ve Otelcilik Meslek Yüksekokulu',
-    url: 'https://tomyo.kilis.edu.tr'
-  },
-  // Konservatuvar
-  {
-    id: 'ann-fb-konservatuvar',
-    title: 'Alaeddin Yavaşca Devlet Konservatuvarı Bireysel Çalgı ve Solfej Çizelgesi',
-    date: '02.10.2026',
-    content: 'Türk Müziği Bölümü enstrüman, ses eğitimi ve Türk Sanat Müziği koro provası haftalık saatleri açıklandı.',
-    category: 'Alaeddin Yavaşca Devlet Konservatuvarı',
-    url: 'https://konservatuvar.kilis.edu.tr'
-  },
-  // Daire Başkanlıkları
-  {
-    id: 'ann-fb-db-oidb',
-    title: 'Öğrenci İşleri Daire Başkanlığı Mazeretli Ders Kayıt ve Katkı Payı Esasları',
-    date: '05.10.2026',
-    content: 'Mazereti sebebiyle kayıt yenileyemeyen lisans ve önlisans öğrencilerinin mazeret dilekçeleri ve harç süreci.',
-    category: 'Öğrenci İşleri Daire Başkanlığı',
+    id: 'ann-fb-2',
+    title: 'Mazeret Sınavı Başvuruları ve İlgili Esaslar Hakkında',
+    date: '28.09.2026',
+    content: 'Haklı ve geçerli mazereti sebebiyle vize sınavlarına katılamayan öğrencilerin dekanlık ve müdürlüklere başvuru süreci başlamıştır.',
+    category: 'Öğrenci İşleri',
     url: 'https://ogrenciisleri.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-db-sks',
-    title: 'Sağlık, Kültür ve Spor Daire Başkanlığı Yemekhane Bursu ve Topluluk Stantları',
-    date: '04.10.2026',
-    content: 'İhtiyaç sahibi öğrencilerimiz için ücretsiz yemekhane bursu ve spor salonları indirimli üyelik kayıtları.',
-    category: 'Sağlık, Kültür ve Spor Daire Başkanlığı',
-    url: 'https://sks.kilis.edu.tr'
+    id: 'ann-fb-3',
+    title: 'Erasmus+ Öğrenim ve Staj Hareketliliği Başvuru Takvimi',
+    date: '25.09.2026',
+    content: 'Avrupa üniversitelerinde öğrenim görmek isteyen öğrencilerimiz için yabancı dil sınavı ve başvuru süreci açılmıştır.',
+    category: 'Dış İlişkiler',
+    url: 'https://erasmus.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-db-kutuphane',
-    title: 'Kütüphane ve Dokümantasyon Daire Başkanlığı TÜBİTAK EKUAL Veritabanları Erişimi',
-    date: '03.10.2026',
-    content: 'Merkez Kütüphanede 7/24 çalışma salonları ve kampüs dışı uzaktan veri tabanı erişim rehberi güncellendi.',
-    category: 'Kütüphane ve Dokümantasyon Daire Başkanlığı',
+    id: 'ann-fb-4',
+    title: 'Merkez Kütüphane Çalışma Saatleri ve Gece Etüt Salonu Düzenlemesi',
+    date: '20.09.2026',
+    content: 'Öğrencilerimizin yoğun talebi doğrultusunda sınav dönemlerinde kütüphanemiz 7/24 kesintisiz hizmet vermektedir.',
+    category: 'Kütüphane',
     url: 'https://kutuphane.kilis.edu.tr'
   },
   {
-    id: 'ann-fb-db-bidb',
-    title: 'Bilgi İşlem Daire Başkanlığı Eduroam Wi-Fi ve Kurumsal E-Posta Kılavuzu',
-    date: '02.10.2026',
-    content: 'Kampüs içi güvenli Eduroam kablosuz ağ bağlantısı ve öğrenci e-posta parolası yenileme adımları.',
-    category: 'Bilgi İşlem Daire Başkanlığı',
-    url: 'https://bilgiislem.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-db-personel',
-    title: 'Personel Daire Başkanlığı 2026 Güz Dönemi Hizmet İçi Eğitim Programı',
-    date: '01.10.2026',
-    content: 'Akademik ve idari personelin katılımına açık dijital yetkinlikler ve mevzuat eğitimi takvimi.',
-    category: 'Personel Daire Başkanlığı',
-    url: 'https://personel.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-db-imidb',
-    title: 'İdari ve Mali İşler Daire Başkanlığı Kampüs Ring Seferleri ve Güvenlik Düzenlemesi',
-    date: '30.09.2026',
-    content: 'Merkez Kampüs ile Karataş ve Mercidabık kampüsleri arası ücretsiz ring servis güzergahları belirlendi.',
-    category: 'İdari ve Mali İşler Daire Başkanlığı',
-    url: 'https://imidb.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-db-yitdb',
-    title: 'Yapı İşleri ve Teknik Daire Başkanlığı Kampüs Isıtma ve Aydınlatma Bakım Çalışması',
-    date: '29.09.2026',
-    content: 'Kış mevsimine hazırlık kapsamında merkezi kazan daireleri ve trafo bakım çalışmaları tamamlanmıştır.',
-    category: 'Yapı İşleri ve Teknik Daire Başkanlığı',
-    url: 'https://yitdb.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-db-sgdb',
-    title: 'Strateji Geliştirme Daire Başkanlığı 2026 Yılı Bütçe Performans Raporu İlanı',
-    date: '28.09.2026',
-    content: 'Üniversitemizin stratejik hedefleri ve harcama birimleri performans göstergeleri bülteni yayınlanmıştır.',
-    category: 'Strateji Geliştirme Daire Başkanlığı',
-    url: 'https://sgdb.kilis.edu.tr'
-  },
-  // Koordinatörlükler
-  {
-    id: 'ann-fb-koord-erasmus',
-    title: 'Uluslararası İlişkiler & Erasmus+ 2026-2027 Öğrenim ve Staj Başvuru Çağrısı',
-    date: '05.10.2026',
-    content: 'Avrupa üniversitelerinde hibeli eğitim ve staj hareketliliği yabancı dil sınavı başvuruları başlamıştır.',
-    category: 'Uluslararası İlişkiler & Erasmus',
-    url: 'https://uluslararasi.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-koord-projeler',
-    title: 'Proje Destek Ofisi & BAP TÜBİTAK 2209-A Öğrenci Projeleri Danışmanlık Desteği',
-    date: '04.10.2026',
-    content: 'Lisans ve ön lisans öğrencilerine yönelik araştırma projeleri hazırlama ve yazım atölyesi duyurusu.',
-    category: 'Proje Destek Ofisi & BAP',
-    url: 'https://projeler.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-koord-karmem',
-    title: 'Kariyer Planlama Merkezi (KARMER) Yetenek Kapısı ve Staj Kayıtları',
-    date: '03.10.2026',
-    content: 'Cumhurbaşkanlığı İnsan Kaynakları Ofisi Ulusal Staj Programı ve Kariyer Fuarı hazırlık oturumları.',
-    category: 'Kariyer Planlama Merkezi (KARMER)',
-    url: 'https://karmer.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-koord-uzem',
-    title: 'Uzaktan Eğitim Merkezi (UZEM) 5i Ortak Zorunlu Dersler ve ALMS Giriş Rehberi',
-    date: '02.10.2026',
-    content: 'Atatürk İlkeleri, Türk Dili ve Yabancı Dil dersleri canlı ders programı ve sınav takvimi yayınlandı.',
-    category: 'Uzaktan Eğitim Merkezi (UZEM)',
-    url: 'https://uzem.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-koord-kalite',
-    title: 'Kalite ve Akreditasyon Koordinatörlüğü YÖKAK İç Değerlendirme Süreci',
-    date: '01.10.2026',
-    content: 'Birim kalite komisyonları yıllık faaliyet değerlendirme raporu hazırlık toplantısı ilan edilmiştir.',
-    category: 'Kalite ve Akreditasyon Koordinatörlüğü',
-    url: 'https://kalite.kilis.edu.tr'
-  },
-  {
-    id: 'ann-fb-koord-engelsiz',
-    title: 'Engelsiz Üniversite Koordinatörlüğü Kampüs Mekanda Erişilebilirlik Başvuruları',
-    date: '30.09.2026',
-    content: 'Özel gereksinimli öğrencilere yönelik ders materyali uyarlama ve rehberlik hizmeti duyurusu.',
-    category: 'Engelsiz Üniversite Koordinatörlüğü',
-    url: 'https://engelsiz.kilis.edu.tr'
+    id: 'ann-fb-5',
+    title: 'Yemekhane Bursu ve Kısmi Zamanlı Öğrenci Başvuruları',
+    date: '18.09.2026',
+    content: 'Sağlık Kültür ve Spor Daire Başkanlığı burs başvuruları online form üzerinden alınmaya başlamıştır.',
+    category: 'SKS',
+    url: 'https://sks.kilis.edu.tr'
   }
 ];
 
 const DEFAULT_NEWS = [
-  // Üniversite Genel
   {
     id: 'news-fb-1',
     title: 'Kilis 7 Aralık Üniversitesi 2026-2027 Akademik Yılı Açılış Töreni Coşkuyla Gerçekleşti',
@@ -629,292 +358,21 @@ const DEFAULT_NEWS = [
     category: 'Kültür & Sanat',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   },
-  // 12 Fakülte Haberleri
   {
-    id: 'news-fb-itbf',
-    title: 'İnsan ve Toplum Bilimleri Fakültesinden Uluslararası İpek Yolu Tarih ve Kültür Sempozyumu',
-    date: '04.10.2026',
-    content: 'Tarih, Coğrafya ve Türk Dili bölümlerinin ortaklaşa düzenlediği sempozyumda Orta Doğu ve Anadolu kültürü ele alındı.',
-    category: 'İnsan ve Toplum Bilimleri Fakültesi',
-    url: 'https://itbf.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-fen',
-    title: 'Fen Fakültesi Araştırmacılarından Biyoteknoloji Alanında Yeni TÜBİTAK Projesi Başarısı',
-    date: '03.10.2026',
-    content: 'Kimya ve Moleküler Biyoloji laboratuvarlarında geliştirilen yeni nesil nano-kaplama materyali onaylandı.',
-    category: 'Fen Fakültesi',
-    url: 'https://fen.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-iibf',
-    title: 'İİBF Öğrencileri Türkiye Finans Zirvesinde Üniversitemizi Başarıyla Temsil Etti',
-    date: '02.10.2026',
-    content: 'İktisat ve İşletme Kulübü öğrencileri hazırladıkları bölgesel ekonomik kalkınma raporuyla ödül kazandı.',
-    category: 'İktisadi ve İdari Bilimler Fakültesi',
-    url: 'https://iibf.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-ilahiyat',
-    title: 'İlahiyat Fakültesinde Klasik İslam Düşüncesi ve Ahlak Felsefesi Paneli Düzenlendi',
-    date: '01.10.2026',
-    content: 'Fakülte konferans salonunda gerçekleşen panelde kadim metinlerin günümüze yansımaları tartışıldı.',
-    category: 'İlahiyat Fakültesi',
-    url: 'https://ilahiyat.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-egitim',
-    title: 'Eğitim Fakültesi Öğretim Üyelerinden Köy Okullarına Bilim ve Sanat Materyali Desteği',
-    date: '01.10.2026',
-    content: 'Geleceğin öğretmen adayları geliştirdikleri eğitici materyalleri çevre köy ilkokullarına ulaştırdı.',
-    category: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
-    url: 'https://egitim.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-mmf',
-    title: 'Mühendislik - Mimarlık Fakültesi TEKNOFEST İnsansız Hava Aracı Takımı Finallere Kaldı',
-    date: '30.09.2026',
-    content: 'Elektrik-Elektronik ve Bilgisayar Mühendisliği öğrencilerimizin tasarladığı otonom İHA projesi büyük beğeni topladı.',
-    category: 'Mühendislik - Mimarlık Fakültesi',
+    id: 'news-fb-3',
+    title: 'Mühendislik Fakültesi Öğrencilerimizden TEKNOFEST Başarısı',
+    date: '24.09.2026',
+    content: 'Elektrik ve Bilgisayar Mühendisliği öğrencilerimizin geliştirdiği insansız hava aracı projesi finallere kaldı.',
+    category: 'Başarılar',
     url: 'https://mmf.kilis.edu.tr'
   },
   {
-    id: 'news-fb-spor',
-    title: 'Spor Bilimleri Fakültesi Öğrencileri Üniversiteler Arası Judo ve Güreş Şampiyonasında Madalyalar Kazandı',
-    date: '29.09.2026',
-    content: 'Türkiye Üniversite Sporları Federasyonu turnuvasında sporcularımız 2 altın ve 3 gümüş madalya ile döndü.',
-    category: 'Spor Bilimleri Fakültesi',
-    url: 'https://sporbilimleri.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-sbf',
-    title: 'Sağlık Bilimleri Fakültesinden Toplum Sağlığı ve Erken Teşhis Farkındalık Etkinliği',
-    date: '28.09.2026',
-    content: 'Hemşirelik ve Beslenme bölümlerimiz Cumhuriyet Meydanında halka yönelik ücretsiz sağlık taraması gerçekleştirdi.',
-    category: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
-    url: 'https://sbf.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-ziraat',
-    title: 'Ziraat Fakültesi Zeytincilik Araştırma Merkezinde Hasat Şenliği ve Zeytinyağı Üretimi Başladı',
-    date: '27.09.2026',
-    content: 'Yöreye özgü Kilis Yağlık Zeytin çeşidinin soğuk sıkım ilk hasadı fakülte uygulama tesislerinde yapıldı.',
-    category: 'Ziraat Fakültesi',
-    url: 'https://ziraat.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-ubf',
-    title: 'Uygulamalı Bilimler Fakültesi Gastronomi Bölümünden Geleneksel Kilis Mutfağı Atölyesi',
-    date: '26.09.2026',
-    content: 'Coğrafi işaretli Kilis Tava ve Cennet Çamuru tatlısı yapımı gastronomi mutfağında uygulamalı olarak sergilendi.',
-    category: 'Uygulamalı Bilimler Fakültesi',
-    url: 'https://ubf.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-iletisim',
-    title: 'İletişim Fakültesi Kısa Film Atölyesi Öğrencilerinden Ulusal Festival Başarısı',
-    date: '25.09.2026',
-    content: 'Yeni Medya ve Gazetecilik öğrencilerinin çektiği belgesel film Altın Koza Öğrenci Filmleri seçkisinde yer aldı.',
-    category: 'İletişim Fakültesi',
-    url: 'https://iletisim.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-gstf',
-    title: 'Güzel Sanatlar ve Tasarım Fakültesi Yıl Sonu Karma Resim ve Ebru Sergisi Açıldı',
-    date: '24.09.2026',
-    content: 'Geleneksel Türk Sanatları ve Resim Bölümü öğrencilerinin hazırladığı 80 eser sanatseverlerin beğenisine sunuldu.',
-    category: 'Güzel Sanatlar ve Tasarım Fakültesi',
-    url: 'https://gstf.kilis.edu.tr'
-  },
-  // Lisansüstü Enstitü
-  {
-    id: 'news-fb-enstitu',
-    title: 'Lisansüstü Eğitim Enstitüsünde Disiplinlerarası Doktora Tez Savunmaları Tamamlandı',
-    date: '04.10.2026',
-    content: 'Fen ve Sosyal Bilimler alanlarında hazırlanan doktora tezleri jüri heyetleri huzurunda başarıyla savunuldu.',
-    category: 'Lisansüstü Eğitim Enstitüsü',
-    url: 'https://enstitu.kilis.edu.tr'
-  },
-  // Yüksekokul
-  {
-    id: 'news-fb-yadyo',
-    title: 'Yabancı Diller Yüksekokulunda Konuşma Kulübü (Speaking Club) Etkinlikleri Başladı',
-    date: '03.10.2026',
-    content: 'Öğrencilerin yabancı dil pratiklerini geliştirmeleri amacıyla yabancı uyruklu hocalar eşliğinde haftalık sohbetler başladı.',
-    category: 'Yabancı Diller Yüksekokulu',
-    url: 'https://yadyo.kilis.edu.tr'
-  },
-  // Meslek Yüksekokulları
-  {
-    id: 'news-fb-tbmyo',
-    title: 'Teknik Bilimler MYO Öğrencilerinden Sanayi Odaklı Otomasyon ve Robotik Projeleri',
-    date: '02.10.2026',
-    content: 'Mekatronik ve Elektrik programı öğrencileri sanayi işletmelerinde kullanılabilecek akıllı taşıma robotu üretti.',
-    category: 'Teknik Bilimler Meslek Yüksekokulu',
-    url: 'https://tbmyo.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-sbmyo',
-    title: 'Sosyal Bilimler MYO Dış Ticaret Bölümü İhracat ve Gümrükleme Semineri Gerçekleştirdi',
-    date: '01.10.2026',
-    content: 'Gümrük müşavirleri ve dış ticaret uzmanları öğrencilere güncel e-ihracat trendlerini aktardı.',
-    category: 'Sosyal Bilimler Meslek Yüksekokulu',
-    url: 'https://sbmyo.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-shmyo',
-    title: 'Sağlık Hizmetleri MYO İlk ve Acil Yardım (Paramedik) Triyaj Tatbikatı Düzenledi',
-    date: '30.09.2026',
-    content: 'Gerçeği aratmayan acil kurtarma ve olay yeri ilk müdahale tatbikatı başarıyla icra edildi.',
-    category: 'Sağlık Hizmetleri Meslek Yüksekokulu',
-    url: 'https://shmyo.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-tomyo',
-    title: 'Turizm ve Otelcilik MYO Aşçılık Öğrencileri Uluslararası Gastronomi Festivalinde',
-    date: '29.09.2026',
-    content: 'Geleneksel Türk ve Akdeniz mutfağı kategorisinde yarışan öğrencilerimiz gümüş madalya kazandı.',
-    category: 'Turizm ve Otelcilik Meslek Yüksekokulu',
-    url: 'https://tomyo.kilis.edu.tr'
-  },
-  // Konservatuvar
-  {
-    id: 'news-fb-konservatuvar',
-    title: 'Alaeddin Yavaşca Devlet Konservatuvarından Türk Sanat Müziği Sonbahar Dinletisi',
-    date: '28.09.2026',
-    content: 'Merhum Prof. Dr. Alaeddin Yavaşca anısına düzenlenen anma konserinde seçkin besteler seslendirildi.',
-    category: 'Alaeddin Yavaşca Devlet Konservatuvarı',
-    url: 'https://konservatuvar.kilis.edu.tr'
-  },
-  // Daire Başkanlıkları
-  {
-    id: 'news-fb-db-oidb',
-    title: 'Öğrenci İşleri Daire Başkanlığı Dijital Belge ve E-Devlet Entegrasyonunu Genişletti',
-    date: '04.10.2026',
-    content: 'Öğrenci belgesi, transkript ve mezuniyet belgeleri karekodlu olarak anında e-Devlet üzerinden alınabilmektedir.',
-    category: 'Öğrenci İşleri Daire Başkanlığı',
-    url: 'https://ogrenciisleri.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-sks',
-    title: 'Sağlık, Kültür ve Spor Daire Başkanlığı Spor Tesisleri ve Yarı Olimpik Havuz Sezonu Açıldı',
-    date: '03.10.2026',
-    content: 'Modern fitness salonu, halı saha ve yüzme havuzu kadın/erkek seans saatleri ve online rezervasyon sistemi devrede.',
-    category: 'Sağlık, Kültür ve Spor Daire Başkanlığı',
-    url: 'https://sks.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-kutuphane',
-    title: 'Kütüphane Daire Başkanlığından Yeni Nesil Dijital Kitap ve Makale Veritabanı Lansmanı',
-    date: '02.10.2026',
-    content: 'Milyonlarca uluslararası e-kitap ve bilimsel makaleye tek tıkla uzaktan erişim imkanı sağlandı.',
-    category: 'Kütüphane ve Dokümantasyon Daire Başkanlığı',
-    url: 'https://kutuphane.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-bidb',
-    title: 'Bilgi İşlem Daire Başkanlığı Kampüs Fiber Optik Ağ Hızını 10 Katına Çıkardı',
-    date: '01.10.2026',
-    content: 'Öğrenci yurtları, fakülteler ve açık alanlarda Eduroam kablosuz erişim noktaları güçlendirildi.',
-    category: 'Bilgi İşlem Daire Başkanlığı',
-    url: 'https://bilgiislem.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-personel',
-    title: 'Personel Daire Başkanlığından Akademik Yükseltilme ve Atama Tebrik Töreni',
-    date: '30.09.2026',
-    content: 'Profesörlük ve Doçentlik kadrosuna atanan öğretim üyelerimize cübbeleri törenle takdim edildi.',
-    category: 'Personel Daire Başkanlığı',
-    url: 'https://personel.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-imidb',
-    title: 'İdari ve Mali İşler Daire Başkanlığı Kampüs Çevre Düzenlemesi ve Yeşil Alan Projesi',
-    date: '29.09.2026',
-    content: 'Merkez Kampüs rekreasyon alanları, bisiklet yolları ve oturma alanları yenilendi.',
-    category: 'İdari ve Mali İşler Daire Başkanlığı',
-    url: 'https://imidb.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-yitdb',
-    title: 'Yapı İşleri ve Teknik Daire Başkanlığı Güneş Enerjisi Santrali (GES) Projesini Başlattı',
-    date: '28.09.2026',
-    content: 'Kampüs binalarının çatılarına kurulan GES panelleriyle üniversitemiz kendi yeşil enerjisini üretiyor.',
-    category: 'Yapı İşleri ve Teknik Daire Başkanlığı',
-    url: 'https://yitdb.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-db-sgdb',
-    title: 'Strateji Geliştirme Daire Başkanlığı 2026-2030 Stratejik Plan Çalıştayı Gerçekleştirildi',
-    date: '27.09.2026',
-    content: 'Üniversitenin gelecek vizyonu, AR-GE hedefleri ve sürdürülebilir büyüme politikaları değerlendirildi.',
-    category: 'Strateji Geliştirme Daire Başkanlığı',
-    url: 'https://sgdb.kilis.edu.tr'
-  },
-  // Koordinatörlükler
-  {
-    id: 'news-fb-koord-erasmus',
-    title: 'Erasmus Koordinatörlüğü İtalya ve Polonya Üniversiteleri ile Yeni Ortaklıklar Kurdu',
-    date: '04.10.2026',
-    content: 'Öğrenci ve personel değişim anlaşmaları kapsamında 15 yeni kontenjan daha sağlandı.',
-    category: 'Uluslararası İlişkiler & Erasmus',
-    url: 'https://uluslararasi.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-projeler',
-    title: 'Proje Destek Ofisi ve BAP Koordinatörlüğünden 25 Yeni Bilimsel Araştırma Projesine Fon',
-    date: '03.10.2026',
-    content: 'Akademisyenlerimizin sanayi ve tarım alanlarındaki yenilikçi projeleri destek kapsamına alındı.',
-    category: 'Proje Destek Ofisi & BAP',
-    url: 'https://projeler.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-karmem',
-    title: 'Kariyer Merkezi (KARMER) Sektör Buluşmaları ve CV Hazırlama Simülasyonu Düzenledi',
-    date: '02.10.2026',
-    content: 'Önde gelen şirketlerin insan kaynakları yöneticileri öğrencilerle birebir mülakat pratikleri yaptı.',
-    category: 'Kariyer Planlama Merkezi (KARMER)',
-    url: 'https://karmer.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-kurumsal',
-    title: 'Kurumsal İletişim Koordinatörlüğü K7AÜ Dijital Kampüs Bülteninin Yeni Sayısını Yayınladı',
-    date: '01.10.2026',
-    content: 'Üniversitenin aylık bilim, sanat ve öğrenci başarılarının yer aldığı bülten erişime açıldı.',
-    category: 'Kurumsal İletişim Koordinatörlüğü',
-    url: 'https://kurumsaliletisim.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-surdurulebilirlik',
-    title: 'Sürdürülebilirlik Koordinatörlüğü Yeşil Kampüs Sıfır Atık Ödülünü Kazandı',
-    date: '30.09.2026',
-    content: 'Geri dönüşüm ve enerji tasarrufu uygulamalarıyla çevre dostu üniversiteler sıralamasında üst sıralara yükselindi.',
-    category: 'Sürdürülebilirlik & Büyük Veri Koordinatörlüğü',
-    url: 'https://surdurulebilirlik.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-uzem',
-    title: 'UZEM Dijital İçerik Stüdyosu Yeni Etkileşimli Ders Videolarını Yayına Aldı',
-    date: '29.09.2026',
-    content: 'Uzaktan eğitim derslerinde animasyonlu ve etkileşimli modern öğrenme modülleri hazırlandı.',
-    category: 'Uzaktan Eğitim Merkezi (UZEM)',
-    url: 'https://uzem.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-kalite',
-    title: 'Kalite Koordinatörlüğü ISO 9001 ve Kurumsal Akreditasyon Denetimini Başarıyla Geçti',
-    date: '28.09.2026',
-    content: 'Eğitim-öğretim ve idari süreçlerin uluslararası kalite standartlarına uygunluğu tescillendi.',
-    category: 'Kalite ve Akreditasyon Koordinatörlüğü',
-    url: 'https://kalite.kilis.edu.tr'
-  },
-  {
-    id: 'news-fb-koord-engelsiz',
-    title: 'Engelsiz Üniversite Birimi YÖK Turuncu ve Yeşil Bayrak Ödüllerini Kampüse Kazandırdı',
-    date: '27.09.2026',
-    content: 'Mekanda ve eğitimde erişilebilirlik standartlarında Türkiye genelinde örnek üniversiteler arasına girildi.',
-    category: 'Engelsiz Üniversite Koordinatörlüğü',
-    url: 'https://engelsiz.kilis.edu.tr'
+    id: 'news-fb-4',
+    title: 'Üniversitemiz ile Kilis Sanayi ve Ticaret Odası Arasında İş Birliği Protokolü İmzalandı',
+    date: '19.09.2026',
+    content: 'Öğrencilerimize staj, istihdam ve AR-GE projelerinde geniş imkanlar sağlayacak protokol imzalandı.',
+    category: 'İş Birlikleri',
+    url: 'https://www.kilis.edu.tr/tr/haberler'
   }
 ];
 
@@ -976,18 +434,19 @@ app.get('/api/announcements', async (req, res) => {
       });
     } catch(e) { console.error('Main ann fetch error'); }
 
-    // All Academic & Administrative Units Announcements (parallel with fast timeout)
-    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
+    // Faculty Announcements (parallel with fast individual timeout)
+    const activeFaculties = FACULTIES.slice(0, 10);
+    await processInChunks(activeFaculties, 5, async (fac, index) => {
       try {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
         const $ = cheerio.load(facRes.data);
-        $('.announcement-item, a[href*="announcement-detail"], .full-link-item').each((i, el) => {
-          let title = $(el).find('.announcement-title, .title-wrapper .text, .title, h3, h4').text().trim();
-          let dateStr = $(el).find('.announcement-date, .link-footer .date .text, .date').text().trim();
-          let url = $(el).attr('href') || $(el).find('a').attr('href');
-          if (title && title.length > 4) {
+        $('.announcement-item').each((i, el) => {
+          let title = $(el).find('.announcement-title').text().trim();
+          let dateStr = $(el).find('.announcement-date').text().trim();
+          let url = $(el).attr('href');
+          if (title) {
             announcements.push({
-              id: `ann-unit-${index}-${i}`,
+              id: `ann-fac-${index}-${i}`,
               title: title,
               date: dateStr || new Date().toISOString(),
               content: '',
@@ -1048,18 +507,19 @@ app.get('/api/news', async (req, res) => {
       });
     } catch(e) { console.error('Main news fetch error'); }
 
-    // All Academic & Administrative Units News (parallel with fast timeout)
-    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
+    // Faculty News
+    const activeFaculties = FACULTIES.slice(0, 10);
+    await processInChunks(activeFaculties, 5, async (fac, index) => {
       try {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
         const $ = cheerio.load(facRes.data);
-        $('.news-item, a[href*="news-detail"], .news-all-item, .full-link-item').each((i, el) => {
-          let title = $(el).find('.news-title, .title-wrapper .text, .news-item-title, .title, h3, h4').text().trim();
-          let dateStr = $(el).find('.news-date, .link-footer .date .text, .news-item-date, .date').text().trim();
-          let url = $(el).attr('href') || $(el).find('a').attr('href');
-          if (title && title.length > 4) {
+        $('.news-item').each((i, el) => {
+          let title = $(el).find('.news-title').text().trim();
+          let dateStr = $(el).find('.news-date').text().trim();
+          let url = $(el).attr('href');
+          if (title) {
             news.push({
-              id: `news-unit-${index}-${i}`,
+              id: `news-fac-${index}-${i}`,
               title: title,
               date: dateStr || new Date().toISOString(),
               content: '',
@@ -1853,97 +1313,38 @@ app.get('/api/library', (req, res) => {
 
 app.get('/api/sports', (req, res) => {
   res.json({
-    sksOfficialUrl: 'https://sks.kilis.edu.tr/tr/page/5063',
-    reservationUrl: 'https://rezervasyon.kilis.edu.tr/',
-    surveyUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfzlMmVodJScaaNNWPxzZWvZc5_pfOlYJlZ-UwTHA-DbAZmuw/viewform',
-    contactPhone: '0348 814 26 66 (Dahili: 5053 - Spor Şube Müdürlüğü)',
     facilities: [
       {
-        id: 'sp-havuz',
-        name: 'Yarı Olimpik Kapalı Yüzme Havuzu',
-        category: 'Su Sporları & Yüzme',
-        coverImage: 'https://sks.kilis.edu.tr/contentFiles/176665950530.havuz.jpg',
-        specs: '25m Yarı Olimpik, 5 kulvarlı, modern filtrasyon ve hijyen sistemi, duş ve soyunma kabinleri',
-        hours: 'Kadın ve Erkek ayrı seans gün ve saatleri uygulanmaktadır',
-        bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
-        info: 'Öğrenci, üniversite personeli ve misafirler için serbest yüzme seansları, dönemlik üyelikler ve yüzme kursları sunulmaktadır.',
-        images: [
-          {
-            id: 'havuz-seans',
-            type: 'schedule',
-            title: 'Yüzme Havuzu Kadın - Erkek Seans Saatleri',
-            subtitle: 'Haftalık kadın ve erkek seans günleri ve saat dağılım tablosu',
-            badge: 'Kadın / Erkek Seansları',
-            url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.23.jpeg'
-          },
-          {
-            id: 'havuz-ucret',
-            type: 'price',
-            title: 'Yüzme Havuzu Seans ve Ücret Tarifesi',
-            subtitle: 'Öğrenci, personel, mezun ve sivil misafir seans ve abonelik ücretleri',
-            badge: 'Güncel Ücret Listesi',
-            url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.22.jpeg'
-          }
-        ]
-      },
-      {
-        id: 'sp-fitness',
-        name: 'Fitness & Kondisyon Merkezi (Spor Salonu)',
-        category: 'Kondisyon & Vücut Geliştirme',
-        coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659505658.38.jpg',
-        specs: 'Profesyonel kardiyo bantları, eliptik aletler, serbest ağırlık istasyonları ve klima donanımı',
-        hours: 'Kadın ve Erkek ayrı seans saatleri mevcuttur',
-        bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
-        info: 'Öğrenci ve üniversite personeli için tek girişlik veya avantajlı aylık/dönemlik fitness üyelikleri mevcuttur.',
-        images: [
-          {
-            id: 'fitness-seans-ucret',
-            type: 'both',
-            title: 'Spor Salonu (Fitness) Kadın / Erkek Seansları & Fiyat Listesi',
-            subtitle: 'Kadın - erkek seans saatleri ve güncel abonelik ücret tablosu',
-            badge: 'Seans & Fiyat Tablosu',
-            url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/G%C3%9CNCEL%20F%C4%B0YATLAR%20F%C4%B0TNES.png'
-          }
-        ]
-      },
-      {
-        id: 'sp-halisaha',
+        id: 'sp-1',
         name: 'Sentetik Çim Halı Saha',
-        category: 'Açık Spor Alanı',
-        coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659505280.Hal%C4%B1%20Saha.jpg',
-        specs: 'Standart ölçülerde, gece aydınlatmalı, tel örgülü ve seyirci tribünlü',
+        specs: 'Standart ölçülerde, gece aydınlatmalı, tribünlü',
         hours: '10:00 – 23:00 (Haftanın 7 günü)',
-        bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
-        info: 'Öğrenci, akademik ve idari personel ile sivil takımlar için online randevulu seans hizmeti verilmektedir.',
-        images: [
-          {
-            id: 'halisaha-ucret',
-            type: 'price',
-            title: 'Halı Saha Seans ve Ücret Listesi',
-            subtitle: 'Gündüz ve gece seans tarifeleri ve saatlik ücretler',
-            badge: 'Ücret Listesi',
-            url: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/sks%20hal%C4%B1%20saha%20(1)%20(1).pdf.jpg'
-          }
-        ]
+        bookingUrl: 'https://rezervasyon.kilis.edu.tr/SporRezervasyon/Rezervasyon',
+        info: 'Öğrenci ve personele uygun seans ücreti ile randevulu hizmet verir.'
       },
       {
-        id: 'sp-salon',
-        name: 'Kapalı Spor Salonu & Açık Sahalar',
-        category: 'Takım & Kort Sporları',
-        coverImage: 'https://sks.kilis.edu.tr/contentFiles/1766659506521.Tenis%20Kortu.jpg',
-        specs: 'FİBA standartlarında parke zeminli 1.000 seyircili salon ve açık tenis kortu / basketbol sahaları',
-        hours: '08:30 – 21:00 (Turnuva, antrenman ve serbest kullanım)',
-        branches: ['Tenis Kortu', 'Basketbol', 'Voleybol', 'Futsal', 'Hentbol', 'Badminton', 'Masa Tenisi'],
-        bookingUrl: 'https://rezervasyon.kilis.edu.tr/',
-        info: 'Fakülte turnuvaları, öğrenci toplulukları, spor kulüpleri ve bireysel spor faaliyetleri için tahsis edilir.'
+        id: 'sp-2',
+        name: 'Kapalı Spor Salonu',
+        specs: 'FİBA standartlarında parke zemin, 1.000 seyirci kapasitesi',
+        hours: '08:30 – 21:00',
+        branches: ['Basketbol', 'Voleybol', 'Futsal', 'Hentbol', 'Badminton'],
+        info: 'Öğrenci toplulukları ve fakülte turnuvaları için tahsis edilebilir.'
+      },
+      {
+        id: 'sp-3',
+        name: 'Fitness & Ağırlık Merkezi',
+        specs: 'Profesyonel kardiyo ve ağırlık istasyonları, soyunma odaları',
+        hours: 'Hafta içi: 09:00 – 20:00 (Kadın/Erkek seans saatleri mevcuttur)',
+        info: 'Dönemlik veya aylık öğrenci aboneliği SKS üzerinden yapılır.'
       }
     ],
     reservationSteps: [
-      '1. rezervasyon.kilis.edu.tr adresine gidin veya tesis kartlarındaki "Online Rezervasyon Yap" butonuna tıklayın.',
-      '2. Spor Alanı seçeneğinden Sentetik Halı Saha, Havuz veya Salonu belirleyin.',
-      '3. Uygun seans saatini ve kullanıcı grubunuzu (Öğrenci / Personel / Misafir) seçin.',
-      '4. İletişim bilgilerinizi girip SMS / E-posta onayını tamamlayın.'
-    ]
+      '1. rezervasyon.kilis.edu.tr adresine gidin.',
+      '2. Spor Alanı seçeneğinden Sentetik Halı Saha veya Salonu belirleyin.',
+      '3. Uygun seans saatini ve müşteri grubunuzu (Öğrenci/Personel) seçin.',
+      '4. İletişim bilgilerinizi girip SMS/E-posta onayını tamamlayın.'
+    ],
+    contactPhone: '0348 814 26 66 (Dahili: 5053)'
   });
 });
 
@@ -2127,35 +1528,21 @@ app.get('/api/campus-map', (req, res) => {
 });
 
 async function startServer() {
-  const distPath = path.join(process.cwd(), 'dist');
-  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
-  const isProduction = process.env.NODE_ENV === 'production' || (hasDist && process.env.NODE_ENV !== 'development');
-
-  if (!isProduction) {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (err) {
-      console.warn('Vite middleware could not be loaded, falling back to static files:', err);
-      if (hasDist) {
-        app.use(express.static(distPath));
-        app.get('*', (req, res) => {
-          res.sendFile(path.join(distPath, 'index.html'));
-        });
-      }
-    }
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
   } else {
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT} (${isProduction ? 'production' : 'development'})`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

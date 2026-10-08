@@ -282,19 +282,6 @@ export const STAFF_FACULTIES_LIST: StaffFacultyOption[] = [
     ]
   },
   {
-    "id": "tomyo",
-    "name": "Turizm ve Otelcilik Meslek Yüksekokulu",
-    "shortName": "Turizm ve Otelcilik MYO",
-    "category": "myo",
-    "sourceUrl": "https://tomyo.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Otel, Lokanta ve İkram Hizmetleri Bölümü",
-      "Seyahat-Turizm ve Eğlence Hizmetleri Bölümü",
-      "Aşçılık Programı"
-    ]
-  },
-  {
     "id": "konservatuvar",
     "name": "Alaeddin Yavaşca Devlet Konservatuvarı",
     "shortName": "Devlet Konservatuvarı",
@@ -353,112 +340,6 @@ export const STAFF_FACULTIES_LIST: StaffFacultyOption[] = [
       "Tümü",
       "Sürdürülebilirlik Ofisi",
       "Büyük Veri Yönetim Ofisi"
-    ]
-  },
-  {
-    "id": "oidb",
-    "name": "Öğrenci İşleri Daire Başkanlığı",
-    "shortName": "Öğrenci İşleri DB",
-    "category": "daire",
-    "sourceUrl": "https://ogrenciisleri.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Kayıt ve Kabul Şube Müdürlüğü",
-      "Mezuniyet ve Diploma Şube Müdürlüğü"
-    ]
-  },
-  {
-    "id": "sks",
-    "name": "Sağlık, Kültür ve Spor Daire Başkanlığı",
-    "shortName": "SKS Daire Bşk.",
-    "category": "daire",
-    "sourceUrl": "https://sks.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Spor Şube Müdürlüğü",
-      "Kültür ve Sanat Şube Müdürlüğü",
-      "Beslenme ve Barınma Şube Müdürlüğü"
-    ]
-  },
-  {
-    "id": "kutuphane",
-    "name": "Kütüphane ve Dokümantasyon Daire Başkanlığı",
-    "shortName": "Kütüphane DB",
-    "category": "daire",
-    "sourceUrl": "https://kutuphane.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Kütüphane Hizmetleri",
-      "Süreli Yayınlar ve Veritabanları"
-    ]
-  },
-  {
-    "id": "bidb",
-    "name": "Bilgi İşlem Daire Başkanlığı",
-    "shortName": "Bilgi İşlem DB",
-    "category": "daire",
-    "sourceUrl": "https://bilgiislem.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Ağ ve Sistem Yönetimi",
-      "Yazılım ve Web Geliştirme",
-      "Teknik Destek"
-    ]
-  },
-  {
-    "id": "pdb",
-    "name": "Personel Daire Başkanlığı",
-    "shortName": "Personel DB",
-    "category": "daire",
-    "sourceUrl": "https://personel.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Akademik Personel Şube Müdürlüğü",
-      "İdari Personel Şube Müdürlüğü"
-    ]
-  },
-  {
-    "id": "imidb",
-    "name": "İdari ve Mali İşler Daire Başkanlığı",
-    "shortName": "İdari ve Mali İşler",
-    "category": "daire",
-    "sourceUrl": "https://imidb.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Satın Alma Şube Müdürlüğü",
-      "Taşınır Kayıt ve Kontrol"
-    ]
-  },
-  {
-    "id": "yitdb",
-    "name": "Yapı İşleri ve Teknik Daire Başkanlığı",
-    "shortName": "Yapı İşleri DB",
-    "category": "daire",
-    "sourceUrl": "https://yitdb.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Proje ve Etüt Şube Müdürlüğü",
-      "Bakım ve Onarım Şube Müdürlüğü"
-    ]
-  },
-  {
-    "id": "sgdb",
-    "name": "Strateji Geliştirme Daire Başkanlığı",
-    "shortName": "Strateji Geliştirme",
-    "category": "daire",
-    "sourceUrl": "https://sgdb.kilis.edu.tr/tr/academic-staffs",
-    "departments": [
-      "Tümü",
-      "Daire Başkanı",
-      "Bütçe ve Performans Programı",
-      "Stratejik Planlama"
     ]
   }
 ];
