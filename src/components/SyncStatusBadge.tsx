@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle2, Database, ShieldCheck, X, ArrowUpRight, Clock, Activity, CloudSun, Megaphone, Newspaper, Smartphone, Globe } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle2, Database, ShieldCheck, X, ArrowUpRight, Clock, Activity, CloudSun, Megaphone, Newspaper } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getEffectiveApiBase, getApiUrl, isMobileAppEnvironment } from '../config';
+import { getEffectiveApiBase, getApiUrl } from '../config';
 import { getAnnouncements, getNews, getMenu, getEvents, getCalendarEvents } from '../mockData';
 
 export type SyncState = 'live' | 'cached' | 'syncing' | 'offline';
@@ -50,7 +50,7 @@ export default function SyncStatusBadge() {
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      const timer = setTimeout(() => controller.abort(), 12000);
       const primaryUrl = getApiUrl('/api/health');
       const res = await fetch(primaryUrl, { signal: controller.signal });
       clearTimeout(timer);
@@ -66,8 +66,8 @@ export default function SyncStatusBadge() {
           localStorage.setItem('k7_last_live_sync_time', String(now));
         } catch {}
       } else {
-        // If remote returned non-200 and NOT running in mobile APK container, check local
-        if (!isMobileAppEnvironment() && primaryUrl !== '/api/health') {
+        // If custom/remote returned non-200, check if local endpoint responds
+        if (primaryUrl !== '/api/health') {
           try {
             const localRes = await fetch('/api/health');
             if (localRes.ok) {
@@ -80,17 +80,15 @@ export default function SyncStatusBadge() {
         setSyncState('cached');
       }
     } catch {
-      // Fallback check only for web environment (never on mobile APK)
-      if (!isMobileAppEnvironment()) {
-        try {
-          const localRes = await fetch('/api/health');
-          if (localRes.ok) {
-            setLatencyMs(Math.round(performance.now() - startTime));
-            setSyncState('live');
-            return;
-          }
-        } catch {}
-      }
+      // Fallback check to local /api/health in case remote was sleeping
+      try {
+        const localRes = await fetch('/api/health');
+        if (localRes.ok) {
+          setLatencyMs(Math.round(performance.now() - startTime));
+          setSyncState('live');
+          return;
+        }
+      } catch {}
       setSyncState('cached');
     }
   }, []);
@@ -355,19 +353,9 @@ export default function SyncStatusBadge() {
                     <p>• <strong>Etkinlik Takvimi:</strong> Kampüs etkinlikleri canlı</p>
                   </div>
 
-                  <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[11px]">
-                    <span className="text-stone-500 dark:text-white/50 flex items-center gap-1">
-                      {isMobileAppEnvironment() ? <Smartphone className="w-3 h-3 text-amber-500" /> : <Globe className="w-3 h-3 text-blue-500" />}
-                      Çalışma Ortamı:
-                    </span>
-                    <span className="font-semibold text-stone-800 dark:text-white">
-                      {isMobileAppEnvironment() ? 'Android Native / APK' : 'Web Uygulaması'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-stone-400 dark:text-white/40">
-                    <span className="truncate max-w-[200px]">API: {getEffectiveApiBase() || 'Yerel Sunucu (Port 3000)'}</span>
-                    <span className="text-emerald-500 font-semibold">Aktif</span>
+                  <div className="pt-1 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between text-[10px] text-stone-400 dark:text-white/40">
+                    <span>Statik Veriler (Yemekhane, Bologna, Takvim)</span>
+                    <span className="text-amber-500 font-semibold">⚡ Hızlı Önbellek</span>
                   </div>
                 </div>
               </div>

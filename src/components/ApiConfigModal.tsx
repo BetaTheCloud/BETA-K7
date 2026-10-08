@@ -71,20 +71,17 @@ export default function ApiConfigModal({ isOpen, onClose, onSaved }: ApiConfigMo
     setTestResult(null);
     
     const targetBase = urlInput.trim().replace(/\/+$/, '');
-    const testUrl = targetBase ? `${targetBase}/api/health` : '/api/health';
+    const testUrl = targetBase ? `${targetBase}/api/announcements` : '/api/announcements';
 
     try {
       const startTime = Date.now();
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(testUrl, { mode: 'cors', signal: controller.signal });
-      clearTimeout(timer);
+      const res = await fetch(testUrl, { mode: 'cors' });
       const duration = Date.now() - startTime;
 
       if (res.ok) {
         setTestResult({
           success: true,
-          message: `Bağlantı Başarılı! (HTTP ${res.status} OK - ${duration}ms)`
+          message: `Bağlantı Başarılı! (${res.status} OK - ${duration}ms)`
         });
       } else {
         setTestResult({

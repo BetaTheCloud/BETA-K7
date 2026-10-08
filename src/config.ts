@@ -1,9 +1,7 @@
-import { Capacitor } from '@capacitor/core';
-
 /**
  * Application & API Configuration
  * 
- * Default Remote Backend (Production API hosted on Render):
+ * Default Remote Backend (Production API):
  * https://beta-k7.onrender.com
  */
 
@@ -125,57 +123,22 @@ function onFetchEnd(success: boolean) {
 
 /**
  * Determines whether the app is running in a mobile APK / WebView / Hybrid container.
- * Accurately detects Capacitor Native Android, iOS, and Android WebView schemes.
  */
 export function isMobileAppEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   
-  // 1. Capacitor native platform detection (Capacitor 3+)
-  try {
-    if (Capacitor.isNativePlatform()) return true;
-    const plat = Capacitor.getPlatform();
-    if (plat === 'android' || plat === 'ios') return true;
-  } catch {}
+  const isCapacitor = !!(window as any).Capacitor;
+  const isCordova = !!(window as any).cordova;
+  const isFileProtocol = window.location.protocol === 'file:';
+  const isCapacitorOrigin = 
+    window.location.origin === 'capacitor://localhost' || 
+    window.location.origin === 'ionic://localhost';
 
-  // 2. Global Capacitor / Cordova window objects
-  const win = window as any;
-  if (win?.Capacitor?.isNativePlatform?.() || win?.Capacitor?.platform === 'android' || win?.cordova) {
-    return true;
-  }
-
-  // 3. Mobile WebView origins and protocols
-  const origin = window.location.origin;
-  const hostname = window.location.hostname;
-  const port = window.location.port;
-  const protocol = window.location.protocol;
-
-  if (
-    protocol === 'file:' ||
-    protocol === 'capacitor:' ||
-    protocol === 'ionic:' ||
-    origin === 'capacitor://localhost' ||
-    origin === 'ionic://localhost'
-  ) {
-    return true;
-  }
-
-  // Capacitor Android with androidScheme: 'https' or 'http' loads from localhost with NO port
-  // In contrast, local development web servers always use an explicit port (e.g. :3000, :5173)
-  if ((hostname === 'localhost' || hostname === '127.0.0.1') && (!port || port === '80' || port === '443')) {
-    return true;
-  }
-
-  // 4. Android WebView user agent detection
-  const ua = navigator.userAgent || '';
-  if (/Android/i.test(ua) && (/wv/i.test(ua) || /Version\/[0-9.]+/i.test(ua))) {
-    return true;
-  }
-
-  return false;
+  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin;
 }
 
 export function getEffectiveApiBase(): string {
-  // 1. User manual override stored in localStorage (set via Admin/API config modal)
+  // 1. User manual override stored in localStorage
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
     if (custom && custom.trim().length > 0) {
@@ -189,27 +152,12 @@ export function getEffectiveApiBase(): string {
     return envUrl;
   }
 
-  // 3. Auto-detection for Mobile APK / Android Capacitor / WebView: ALWAYS use Render backend
+  // 3. Auto-detection for Mobile APK / WebView: If running inside an APK, use default backend
   if (isMobileAppEnvironment()) {
     return DEFAULT_REMOTE_API_BASE;
   }
 
-  // 4. If loaded directly from Render in a web browser (e.g. beta-k7.onrender.com)
-  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
-    return window.location.origin;
-  }
-
-  // 5. If deployed on external static host (e.g. GitHub Pages, Vercel, Netlify) where /api doesn't exist locally
-  if (
-    typeof window !== 'undefined' &&
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1' &&
-    !window.location.hostname.includes('run.app')
-  ) {
-    return DEFAULT_REMOTE_API_BASE;
-  }
-
-  // 6. Default for Web development / unified server proxy on port 3000
+  // 4. Default for Web development / Unified proxy
   return '';
 }
 
@@ -234,40 +182,11 @@ export function getApiUrl(path: string): string {
 }
 
 /**
- * Silently warm up the remote Render server on app launch
- * This eliminates cold-start waiting when users navigate to live sections.
- */
-let hasWarmedUp = false;
-export function warmupBackendServer(): void {
-  if (hasWarmedUp || typeof window === 'undefined') return;
-  hasWarmedUp = true;
-  
-  const healthUrl = getApiUrl('/api/health');
-  // Only ping if target is remote or mobile
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
-  
-  fetch(healthUrl, { signal: controller.signal })
-    .then((res) => {
-      clearTimeout(timer);
-      if (res.ok) {
-        console.log('[K7AÜ] Remote server is warm & operational.');
-      }
-    })
-    .catch(() => {
-      clearTimeout(timer);
-    });
-}
-
-/**
  * Robust fetch wrapper for mobile / cloud cold starts
- * Retries on failure and sets an adaptive timeout (25s) allowing Render sleeping instances to wake up.
+ * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
  */
-export async function safeFetch(url: string, options: RequestInit = {}, retries = 2): Promise<Response> {
-  // Allow up to 25 seconds per attempt on remote Render endpoints (Render spin-up takes ~20s)
-  const isRemote = url.startsWith('http://') || url.startsWith('https://');
-  const timeoutMs = isRemote ? 25000 : 12000;
-  
+export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
+  const timeoutMs = 10000; // 10s per attempt
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -280,7 +199,6 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         signal: controller.signal
       });
       clearTimeout(timer);
-      
       if (response.ok) {
         // Detect HTML responses disguised as 200 (such as SPA catch-all fallbacks)
         const contentType = response.headers.get('content-type') || '';
@@ -290,25 +208,23 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         onFetchEnd(true);
         return response;
       }
-      
-      // If 5xx error on cold start / server wake-up, wait and retry
+      // If 5xx error on cold start, retry
       if (response.status >= 500 && attempt < retries) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         continue;
       }
-      
       onFetchEnd(true);
       return response;
     } catch (error: any) {
       clearTimeout(timer);
-      console.warn(`[K7AÜ Fetch] Deneme ${attempt + 1}/${retries + 1} başarısız (${url}):`, error?.message || error);
+      console.warn(`Fetch attempt ${attempt + 1} failed for ${url}:`, error?.message || error);
       
       if (attempt === retries) {
         onFetchEnd(false);
         throw error;
       }
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait 1.5s before retry
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   

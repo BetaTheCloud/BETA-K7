@@ -6,14 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true,
-    allowNavigation: [
-      '*.onrender.com',
-      'beta-k7.onrender.com',
-      '*.kilis.edu.tr',
-      'kilis.edu.tr',
-      'api.open-meteo.com'
-    ]
+    cleartext: true
   },
   android: {
     allowMixedContent: true,
