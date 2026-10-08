@@ -19,8 +19,10 @@ import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
 import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/utils';
+import { getPinnedUnit } from '../lib/pinnedStorage';
 
 export default function Home() {
+  const [pinnedUnit, setPinnedUnit] = useState<string | null>(() => getPinnedUnit());
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
     return getCachedOrFallback<Announcement[]>('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
   });
@@ -92,6 +94,16 @@ export default function Home() {
     return () => { 
       isMounted = false; 
       window.removeEventListener('k7_force_refreshed', onGlobalRefresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onPinnedChange = () => {
+      setPinnedUnit(getPinnedUnit());
+    };
+    window.addEventListener('k7_pinned_unit_changed', onPinnedChange);
+    return () => {
+      window.removeEventListener('k7_pinned_unit_changed', onPinnedChange);
     };
   }, []);
 

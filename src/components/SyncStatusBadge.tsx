@@ -50,7 +50,7 @@ export default function SyncStatusBadge() {
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
+      const timer = setTimeout(() => controller.abort(), 35000); // 35s timeout for Render cold start
       const primaryUrl = getApiUrl('/api/health');
       const res = await fetch(primaryUrl, { signal: controller.signal });
       clearTimeout(timer);

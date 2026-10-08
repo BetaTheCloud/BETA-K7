@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
+import fs from 'fs';
 import axios from 'axios';
 import qs from 'qs';
 import * as cheerio from 'cheerio';
@@ -13,14 +13,25 @@ import { FALLBACK_DEPARTMENT_NEWS } from './src/data/departmentNewsData';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Enable CORS for all routes (necessary when frontend runs in APK or different origin)
-app.use(cors());
+// Enable permissive CORS for mobile APK / WebView and remote clients
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+}));
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint for Render / monitoring
+// Health check endpoint for Render / mobile monitoring
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    environment: process.env.NODE_ENV || 'production',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
 });
 
 const axiosInstance = axios.create({
@@ -2116,21 +2127,35 @@ app.get('/api/campus-map', (req, res) => {
 });
 
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+  const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
+  const isProduction = process.env.NODE_ENV === 'production' || (hasDist && process.env.NODE_ENV !== 'development');
+
+  if (!isProduction) {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.warn('Vite middleware could not be loaded, falling back to static files:', err);
+      if (hasDist) {
+        app.use(express.static(distPath));
+        app.get('*', (req, res) => {
+          res.sendFile(path.join(distPath, 'index.html'));
+        });
+      }
+    }
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT} (${isProduction ? 'production' : 'development'})`);
   });
 }
 

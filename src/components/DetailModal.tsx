@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn } from 'lucide-react';
+import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn, Newspaper, Megaphone } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 
@@ -161,8 +161,8 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 {activeTitle}
               </h1>
 
-              {/* Featured News Image (Prominent & High-Quality) */}
-              {featuredImage && !imgError && (
+              {/* Featured Image or Smart Fallback Banner (No empty/broken voids!) */}
+              {featuredImage && !imgError ? (
                 <div className="relative group rounded-2xl overflow-hidden bg-stone-100 dark:bg-black/30 border border-stone-200/80 dark:border-white/10 shadow-md">
                   <img
                     src={featuredImage}
@@ -181,6 +181,24 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                     <ZoomIn className="w-3.5 h-3.5" />
                     <span>Görseli Büyüt</span>
                   </button>
+                </div>
+              ) : (
+                <div className="rounded-2xl h-36 sm:h-44 shadow-md bg-gradient-to-br from-[#264653] to-[#1e3842] p-5 flex flex-col justify-between text-white relative overflow-hidden">
+                  <div className="flex items-center gap-2 text-xs font-medium text-amber-300">
+                    {item?.category?.toLowerCase().includes('haber') ? (
+                      <Newspaper className="w-4 h-4" />
+                    ) : (
+                      <Megaphone className="w-4 h-4" />
+                    )}
+                    <span>{item?.category || initialDept || 'Kilis 7 Aralık Üniversitesi'}</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold line-clamp-2 text-white">
+                    {activeTitle}
+                  </h3>
+                  <div className="text-[11px] text-stone-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{initialDate || 'Güncel'}</span>
+                  </div>
                 </div>
               )}
 
