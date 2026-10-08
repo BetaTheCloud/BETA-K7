@@ -13,14 +13,38 @@ import { FALLBACK_DEPARTMENT_NEWS } from './src/data/departmentNewsData';
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Enable CORS for all routes (necessary when frontend runs in APK or different origin)
-app.use(cors());
+// Enable robust CORS for all routes (crucial for Capacitor Android APK, iOS, and Render)
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: false
+}));
+app.options('*', cors());
+
+// Explicit CORS headers middleware for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint for Render / monitoring
+// Health check endpoint for Render / monitoring / Android wake-up
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    service: 'K7AÜ Live API Server',
+    renderReady: true
+  });
 });
 
 const axiosInstance = axios.create({
@@ -931,51 +955,33 @@ const DEFAULT_MENU = [
   { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
-app.get('/api/announcements', async (req, res) => {
-  try {
-    if (req.query.force !== 'true' && Date.now() - cachedAnnouncementsTime < CACHE_TTL && cachedAnnouncements.length > 0) {
-      return res.json(cachedAnnouncements);
-    }
-    
-    const announcements: any[] = [];
-    
-    // Main Announcements
-    try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 6000 });
-      const $ = cheerio.load(response.data);
-      $('a.full-link-item').each((i, el) => {
-        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
-        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
-        let href = $(el).attr('href') || '';
-        if (href && !href.startsWith('http')) {
-          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-        
-        if (title) {
-          announcements.push({
-            id: `ann-main-${i}`,
-            title: title,
-            date: dateStr || new Date().toISOString(),
-            content: '',
-            category: 'Ana Duyurular',
-            url: href
-          });
-        }
-      });
-    } catch(e) { console.error('Main ann fetch error'); }
+// Pre-seed caches with verified university data so responses are never blank or delayed on cold start
+cachedAnnouncements = DEFAULT_ANNOUNCEMENTS;
+cachedAnnouncementsTime = Date.now();
+let isScrapingAnnouncements = false;
 
-    // All Academic & Administrative Units Announcements (parallel with fast timeout)
-    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
+cachedNews = DEFAULT_NEWS;
+cachedNewsTime = Date.now();
+let isScrapingNews = false;
+
+// Background updater for unit announcements (asynchronous, never blocks client HTTP requests)
+async function refreshUnitAnnouncementsInBackground() {
+  if (isScrapingAnnouncements) return;
+  isScrapingAnnouncements = true;
+
+  try {
+    const unitItems: any[] = [];
+    // Process units in small batches of 3 to avoid Render CPU/memory spikes
+    await processInChunks(ALL_UNIVERSITY_UNITS, 3, async (fac, index) => {
       try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 2500 });
         const $ = cheerio.load(facRes.data);
         $('.announcement-item, a[href*="announcement-detail"], .full-link-item').each((i, el) => {
           let title = $(el).find('.announcement-title, .title-wrapper .text, .title, h3, h4').text().trim();
           let dateStr = $(el).find('.announcement-date, .link-footer .date .text, .date').text().trim();
           let url = $(el).attr('href') || $(el).find('a').attr('href');
           if (title && title.length > 4) {
-            announcements.push({
+            unitItems.push({
               id: `ann-unit-${index}-${i}`,
               title: title,
               date: dateStr || new Date().toISOString(),
@@ -985,35 +991,79 @@ app.get('/api/announcements', async (req, res) => {
             });
           }
         });
-      } catch (e) {
-        // Silently handle
+      } catch {
+        // Individual unit timeouts are non-fatal
       }
     });
 
-    if (announcements.length > 0) {
-      cachedAnnouncements = announcements;
+    if (unitItems.length > 0) {
+      const mainAnnouncements = cachedAnnouncements.filter(item => item.category === 'Ana Duyurular');
+      cachedAnnouncements = [...mainAnnouncements, ...unitItems];
       cachedAnnouncementsTime = Date.now();
-      return res.json(announcements);
     }
-
-    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
-  } catch (error) {
-    console.error('Announcements error, returning default data:', error);
-    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+  } catch (err) {
+    console.warn('[Announcements Background Scraper Error]', err);
+  } finally {
+    isScrapingAnnouncements = false;
   }
-});
+}
 
-app.get('/api/news', async (req, res) => {
+// Background updater for unit news (asynchronous, never blocks client HTTP requests)
+async function refreshUnitNewsInBackground() {
+  if (isScrapingNews) return;
+  isScrapingNews = true;
+
   try {
-    if (req.query.force !== 'true' && Date.now() - cachedNewsTime < CACHE_TTL && cachedNews.length > 0) {
-      return res.json(cachedNews);
+    const unitNewsItems: any[] = [];
+    await processInChunks(ALL_UNIVERSITY_UNITS, 3, async (fac, index) => {
+      try {
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 2500 });
+        const $ = cheerio.load(facRes.data);
+        $('.news-item, a[href*="news-detail"], .news-all-item, .full-link-item').each((i, el) => {
+          let title = $(el).find('.news-title, .title-wrapper .text, .news-item-title, .title, h3, h4').text().trim();
+          let dateStr = $(el).find('.news-date, .link-footer .date .text, .news-item-date, .date').text().trim();
+          let url = $(el).attr('href') || $(el).find('a').attr('href');
+          if (title && title.length > 4) {
+            unitNewsItems.push({
+              id: `news-unit-${index}-${i}`,
+              title: title,
+              date: dateStr || new Date().toISOString(),
+              content: '',
+              category: fac.name,
+              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
+            });
+          }
+        });
+      } catch {
+        // Individual unit timeouts are non-fatal
+      }
+    });
+
+    if (unitNewsItems.length > 0) {
+      const mainNews = cachedNews.filter(item => item.category === 'Üniversite Haberleri');
+      cachedNews = [...mainNews, ...unitNewsItems];
+      cachedNewsTime = Date.now();
     }
-    
-    const news: any[] = [];
-    
-    // Main News
+  } catch (err) {
+    console.warn('[News Background Scraper Error]', err);
+  } finally {
+    isScrapingNews = false;
+  }
+}
+
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    const isCacheFresh = (Date.now() - cachedAnnouncementsTime < CACHE_TTL) && cachedAnnouncements.length > 0;
+
+    if (!force && isCacheFresh) {
+      return res.json(cachedAnnouncements);
+    }
+
+    // Scrape main announcements first (fast ~1 second response)
+    let freshMain: any[] = [];
     try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 6000 });
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 4500 });
       const $ = cheerio.load(response.data);
       $('a.full-link-item').each((i, el) => {
         let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
@@ -1025,7 +1075,65 @@ app.get('/api/news', async (req, res) => {
         }
         
         if (title) {
-          news.push({
+          freshMain.push({
+            id: `ann-main-${i}`,
+            title: title,
+            date: dateStr || new Date().toISOString(),
+            content: '',
+            category: 'Ana Duyurular',
+            url: href
+          });
+        }
+      });
+    } catch (e) {
+      // Main site transient issue, keep existing cache
+    }
+
+    if (freshMain.length > 0) {
+      // Keep existing unit announcements, prepend fresh main announcements
+      const existingUnits = cachedAnnouncements.filter(item => item.category !== 'Ana Duyurular');
+      cachedAnnouncements = [...freshMain, ...existingUnits];
+      cachedAnnouncementsTime = Date.now();
+    }
+
+    // Launch unit scraping in background if not already running
+    if (!isScrapingAnnouncements) {
+      refreshUnitAnnouncementsInBackground().catch(() => {});
+    }
+
+    // Send fast merged response immediately
+    return res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+  } catch (error) {
+    console.error('Announcements error:', error);
+    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+  }
+});
+
+app.get('/api/news', async (req, res) => {
+  try {
+    const force = req.query.force === 'true';
+    const isCacheFresh = (Date.now() - cachedNewsTime < CACHE_TTL) && cachedNews.length > 0;
+
+    if (!force && isCacheFresh) {
+      return res.json(cachedNews);
+    }
+
+    // Scrape main news first (fast ~1 second response)
+    let freshMain: any[] = [];
+    try {
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 4500 });
+      const $ = cheerio.load(response.data);
+      $('a.full-link-item').each((i, el) => {
+        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
+        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
+        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
+        let href = $(el).attr('href') || '';
+        if (href && !href.startsWith('http')) {
+          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+        }
+        
+        if (title) {
+          freshMain.push({
             id: `news-main-${i}`,
             title: title,
             date: dateStr || new Date().toISOString(),
@@ -1035,42 +1143,24 @@ app.get('/api/news', async (req, res) => {
           });
         }
       });
-    } catch(e) { console.error('Main news fetch error'); }
-
-    // All Academic & Administrative Units News (parallel with fast timeout)
-    await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
-      try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        const $ = cheerio.load(facRes.data);
-        $('.news-item, a[href*="news-detail"], .news-all-item, .full-link-item').each((i, el) => {
-          let title = $(el).find('.news-title, .title-wrapper .text, .news-item-title, .title, h3, h4').text().trim();
-          let dateStr = $(el).find('.news-date, .link-footer .date .text, .news-item-date, .date').text().trim();
-          let url = $(el).attr('href') || $(el).find('a').attr('href');
-          if (title && title.length > 4) {
-            news.push({
-              id: `news-unit-${index}-${i}`,
-              title: title,
-              date: dateStr || new Date().toISOString(),
-              content: '',
-              category: fac.name,
-              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
-            });
-          }
-        });
-      } catch (e) {
-        // Silently handle
-      }
-    });
-
-    if (news.length > 0) {
-      cachedNews = news;
-      cachedNewsTime = Date.now();
-      return res.json(news);
+    } catch (e) {
+      // Main site transient issue, keep existing cache
     }
 
-    res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
+    if (freshMain.length > 0) {
+      const existingUnits = cachedNews.filter(item => item.category !== 'Üniversite Haberleri');
+      cachedNews = [...freshMain, ...existingUnits];
+      cachedNewsTime = Date.now();
+    }
+
+    // Launch unit scraping in background if not already running
+    if (!isScrapingNews) {
+      refreshUnitNewsInBackground().catch(() => {});
+    }
+
+    return res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   } catch (error) {
-    console.error('News error, returning default data:', error);
+    console.error('News error:', error);
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   }
 });
@@ -1158,9 +1248,18 @@ app.get('/api/department-news', async (req, res) => {
   }
 });
 
+let cachedMenu: any[] = DEFAULT_MENU;
+let cachedMenuTime = Date.now();
+const MENU_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 app.get('/api/menu', async (req, res) => {
   try {
-    const response = await axiosInstance.get('https://sks.kilis.edu.tr/tr/page/5088', { timeout: 7000 });
+    const force = req.query.force === 'true';
+    if (!force && Date.now() - cachedMenuTime < MENU_CACHE_TTL && cachedMenu.length > 0) {
+      return res.json(cachedMenu);
+    }
+
+    const response = await axiosInstance.get('https://sks.kilis.edu.tr/tr/page/5088', { timeout: 6000 });
     const $ = cheerio.load(response.data);
     const menuItems: any[] = [];
     
@@ -1200,13 +1299,15 @@ app.get('/api/menu', async (req, res) => {
     });
     
     if (menuItems.length > 0) {
+      cachedMenu = menuItems;
+      cachedMenuTime = Date.now();
       return res.json(menuItems);
     }
 
-    res.json(DEFAULT_MENU);
+    res.json(cachedMenu.length > 0 ? cachedMenu : DEFAULT_MENU);
   } catch (error) {
-    console.error('Menu error, returning fallback menu:', error);
-    res.json(DEFAULT_MENU);
+    console.warn('Menu live fetch failed, serving cached/default:', error);
+    res.json(cachedMenu.length > 0 ? cachedMenu : DEFAULT_MENU);
   }
 });
 
