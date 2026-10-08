@@ -62,7 +62,7 @@ export default function News() {
   // Department navigation filters
   const [selectedUnitCategory, setSelectedUnitCategory] = useState<StaffUnitCategory | 'all'>('all');
   const [selectedFacultyId, setSelectedFacultyId] = useState<string>('itbf'); // Default to İnsan ve Toplum Bilimleri
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('turkdili'); // Default to Türk Dili ve Edebiyatı
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('all'); // Default to 'all' (bölüm seçme zorunluluğu yok)
 
   // Sync state with URL params
   useEffect(() => {
@@ -81,6 +81,10 @@ export default function News() {
         }
       }
     }
+    const facParam = searchParams.get('fac');
+    if (facParam) {
+      setSelectedFacultyId(facParam);
+    }
   }, [searchParams]);
 
   // Load Main News
@@ -97,12 +101,13 @@ export default function News() {
   const loadDeptNews = async (force = false) => {
     if (force) setDeptLoading(true);
     
-    // Find active department
-    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId);
-    const currentDept = currentGroup?.departments.find(d => d.id === selectedDepartmentId);
-    const deptUrl = currentDept?.newsUrl;
+    // Find active group and department
+    const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
+    const isAll = !selectedDepartmentId || selectedDepartmentId === 'all';
+    const currentDept = isAll ? null : currentGroup?.departments.find(d => d.id === selectedDepartmentId);
+    const deptUrl = isAll ? currentGroup?.facultyNewsUrl : currentDept?.newsUrl;
 
-    const data = await getDepartmentNews(deptUrl, selectedDepartmentId, selectedFacultyId, force);
+    const data = await getDepartmentNews(deptUrl, isAll ? 'all' : selectedDepartmentId, selectedFacultyId, force);
     if (data && data.length > 0) {
       setDepartmentNews(data);
     }
@@ -253,21 +258,28 @@ export default function News() {
     return ACADEMIC_UNITS_WITH_DEPARTMENTS.find(u => u.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
   }, [selectedFacultyId]);
 
+  const isAllDepartments = !selectedDepartmentId || selectedDepartmentId === 'all';
+
   const activeDepartment = useMemo(() => {
-    if (!activeFacultyGroup) return null;
-    return activeFacultyGroup.departments.find(d => d.id === selectedDepartmentId) || activeFacultyGroup.departments[0];
-  }, [activeFacultyGroup, selectedDepartmentId]);
+    if (!activeFacultyGroup || isAllDepartments) return null;
+    return activeFacultyGroup.departments.find(d => d.id === selectedDepartmentId) || null;
+  }, [activeFacultyGroup, selectedDepartmentId, isAllDepartments]);
 
   // Filter department news items
   const filteredDeptNews = useMemo(() => {
     return departmentNews.filter((item) => {
+      // If a specific faculty is selected and item has a facultyId, ensure it matches
+      if (selectedFacultyId && item.facultyId && item.facultyId !== selectedFacultyId) {
+        return false;
+      }
+
       // If a specific department is chosen and not 'all'
       if (selectedDepartmentId && selectedDepartmentId !== 'all') {
         const matchesDept = item.departmentId === selectedDepartmentId || 
-                            (item.departmentName && item.departmentName.toLowerCase().includes(activeDepartment?.name.toLowerCase() || '')) ||
+                            (item.departmentName && activeDepartment?.name && item.departmentName.toLowerCase().includes(activeDepartment.name.toLowerCase())) ||
                             (item.sourceUrl && activeDepartment?.newsUrl && item.sourceUrl === activeDepartment.newsUrl);
-        // If not matching specific department, only filter out if dataset contains multiple departments
-        if (!matchesDept && item.departmentId && item.departmentId !== selectedDepartmentId) {
+        // If not matching specific department and has another departmentId (not general), filter out
+        if (!matchesDept && item.departmentId && item.departmentId !== selectedDepartmentId && item.departmentId !== 'general') {
           return false;
         }
       }
@@ -284,7 +296,7 @@ export default function News() {
 
       return true;
     });
-  }, [departmentNews, selectedDepartmentId, activeDepartment, searchQuery]);
+  }, [departmentNews, selectedFacultyId, selectedDepartmentId, activeDepartment, searchQuery]);
 
   const toggleCategory = (category: string) => {
     setCollapsedCategories((prev) => ({
@@ -630,9 +642,7 @@ export default function News() {
                             : ACADEMIC_UNITS_WITH_DEPARTMENTS.find(u => u.category === cat.key) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
                           if (firstUnit) {
                             setSelectedFacultyId(firstUnit.facultyId);
-                            if (firstUnit.departments.length > 0) {
-                              setSelectedDepartmentId(firstUnit.departments[0].id);
-                            }
+                            setSelectedDepartmentId('all');
                           }
                         }}
                         className={cn(
@@ -662,10 +672,7 @@ export default function News() {
                       onChange={(e) => {
                         const facId = e.target.value;
                         setSelectedFacultyId(facId);
-                        const group = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === facId);
-                        if (group && group.departments.length > 0) {
-                          setSelectedDepartmentId(group.departments[0].id);
-                        }
+                        setSelectedDepartmentId('all'); // Bölüm seçme zorunluluğu yok, fakülte geneline geçer
                       }}
                       className="w-full bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer shadow-sm"
                     >
@@ -678,11 +685,16 @@ export default function News() {
                   </div>
                 </div>
 
-                {/* 3. Department Selector */}
+                {/* 3. Department Selector (İsteğe Bağlı) */}
                 <div>
-                  <label className="text-[11px] font-bold text-stone-500 dark:text-white/60 mb-1.5 block uppercase tracking-wider">
-                    3. İlgili Bölüm / Program:
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-stone-500 dark:text-white/60 block uppercase tracking-wider">
+                      3. İlgili Bölüm / Program:
+                    </label>
+                    <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                      İsteğe Bağlı
+                    </span>
+                  </div>
                   <div className="relative">
                     <select
                       value={selectedDepartmentId}
@@ -691,6 +703,9 @@ export default function News() {
                       }}
                       className="w-full bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-stone-900 dark:text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all cursor-pointer shadow-sm"
                     >
+                      <option value="all">
+                        🌟 Fakülte/Birim Geneli (Tüm Bölümler - Bölüm Seçilmedi)
+                      </option>
                       {activeFacultyGroup?.departments.map((dept) => (
                         <option key={dept.id} value={dept.id}>
                           {dept.name}
@@ -702,13 +717,36 @@ export default function News() {
               </div>
 
               {/* Department Shortcut Chips (for fast 1-click switching within selected faculty) */}
-              {activeFacultyGroup && activeFacultyGroup.departments.length > 1 && (
+              {activeFacultyGroup && (
                 <div className="pt-2 border-t border-stone-200/50 dark:border-white/5">
-                  <div className="text-[10px] font-bold text-stone-400 dark:text-white/50 mb-1.5 flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-amber-500" />
-                    <span>{activeFacultyGroup.shortName} Bölümleri Hızlı Seçim:</span>
+                  <div className="text-[10px] font-bold text-stone-400 dark:text-white/50 mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-amber-500" />
+                      <span>{activeFacultyGroup.shortName} Hızlı Seçim:</span>
+                    </div>
+                    {selectedDepartmentId !== 'all' && (
+                      <button
+                        onClick={() => setSelectedDepartmentId('all')}
+                        className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer"
+                      >
+                        Bölüm Filtresini Kaldır
+                      </button>
+                    )}
                   </div>
                   <HorizontalScrollWrapper>
+                    {/* All / Faculty General Chip */}
+                    <button
+                      onClick={() => setSelectedDepartmentId('all')}
+                      className={cn(
+                        "shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border cursor-pointer whitespace-nowrap",
+                        selectedDepartmentId === 'all'
+                          ? "bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-600/25 font-bold"
+                          : "bg-white/60 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-stone-200/60 dark:border-white/10"
+                      )}
+                    >
+                      ✨ Fakülte Geneli (Tüm Bölümler)
+                    </button>
+
                     {activeFacultyGroup.departments.map((d) => {
                       const isDeptActive = selectedDepartmentId === d.id;
                       return (
@@ -731,8 +769,8 @@ export default function News() {
               )}
             </div>
 
-            {/* Selected Department Official Portal Banner & URL Link */}
-            {activeDepartment && (
+            {/* Selected Faculty or Department Official Portal Banner & URL Link */}
+            {activeFacultyGroup && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -744,53 +782,86 @@ export default function News() {
                       <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-600 text-white shadow-sm">
                         {activeFacultyGroup.facultyName}
                       </span>
-                      <span className="text-[10px] sm:text-xs font-semibold text-stone-500 dark:text-white/60 flex items-center gap-1">
-                        <Building2 className="w-3 h-3" />
-                        {activeDepartment.name}
-                      </span>
+                      {activeDepartment ? (
+                        <span className="text-[10px] sm:text-xs font-semibold text-stone-600 dark:text-white/70 flex items-center gap-1 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/20">
+                          <Building2 className="w-3 h-3 text-amber-600" />
+                          {activeDepartment.name}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/20">
+                          🌟 Bölüm Seçilmedi (Fakülte/Birim Geneli)
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="font-display font-extrabold text-lg sm:text-xl text-stone-900 dark:text-white">
-                      {activeDepartment.name} Haberleri
+                      {activeDepartment
+                        ? `${activeDepartment.name} Haberleri`
+                        : `${activeFacultyGroup.facultyName} Genel ve Bölüm Haberleri`}
                     </h3>
 
-                    {activeDepartment.description && (
-                      <p className="text-xs text-stone-600 dark:text-white/70 max-w-2xl leading-relaxed">
-                        {activeDepartment.description}
-                      </p>
-                    )}
+                    <p className="text-xs text-stone-600 dark:text-white/70 max-w-2xl leading-relaxed">
+                      {activeDepartment?.description ||
+                        `Bölüm seçimi yapılmadığı için ${activeFacultyGroup.facultyName} genel haberleri ile bünyesindeki tüm bölümlerin güncel haber akışı birlikte listelenmektedir.`}
+                    </p>
                   </div>
 
-                  {/* Direct Link to Official Department News Website (e.g., https://turkdili.kilis.edu.tr/tr/news-all) */}
+                  {/* Direct Link to Official Department/Faculty News Website */}
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    <a
-                      href={activeDepartment.newsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                      <span>Resmi Bölüm Web Sayfası</span>
-                      <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
-                    </a>
+                    {activeDepartment ? (
+                      <>
+                        <button
+                          onClick={() => setSelectedDepartmentId('all')}
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 cursor-pointer"
+                        >
+                          <span>Fakülte Geneline Dön</span>
+                        </button>
+                        <a
+                          href={activeDepartment.newsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Bölüm Web Sayfası</span>
+                          <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
+                        </a>
+                      </>
+                    ) : (
+                      <a
+                        href={activeFacultyGroup.facultyNewsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Fakülte Web Sayfası</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
+                      </a>
+                    )}
 
-                    <button
-                      onClick={() => copyDepartmentLink(activeDepartment.newsUrl)}
-                      title="Bölüm haber bağlantısını kopyala"
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white dark:bg-white/10 hover:bg-stone-100 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 cursor-pointer"
-                    >
-                      {copiedUrl === activeDepartment.newsUrl ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Kopyalandı</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-stone-500" />
-                          <span>Linki Kopyala</span>
-                        </>
-                      )}
-                    </button>
+                    {(() => {
+                      const portalUrl = activeDepartment ? activeDepartment.newsUrl : activeFacultyGroup.facultyNewsUrl;
+                      return (
+                        <button
+                          onClick={() => copyDepartmentLink(portalUrl)}
+                          title="Bağlantıyı kopyala"
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white dark:bg-white/10 hover:bg-stone-100 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 cursor-pointer"
+                        >
+                          {copiedUrl === portalUrl ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Kopyalandı</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-stone-500" />
+                              <span>Linki Kopyala</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -798,7 +869,7 @@ export default function News() {
                 <div className="mt-3 pt-2.5 border-t border-amber-500/15 flex items-center gap-2 text-[11px] text-stone-500 dark:text-white/60">
                   <span className="font-semibold text-amber-700 dark:text-amber-300">Kaynak Portalı:</span>
                   <code className="px-2 py-0.5 bg-white/80 dark:bg-black/20 rounded font-mono text-[10px] text-stone-700 dark:text-stone-300 border border-amber-500/20 select-all">
-                    {activeDepartment.newsUrl}
+                    {activeDepartment ? activeDepartment.newsUrl : activeFacultyGroup.facultyNewsUrl}
                   </code>
                 </div>
               </motion.div>
@@ -812,7 +883,7 @@ export default function News() {
               <input
                 type="text"
                 className="block w-full pl-10 pr-10 py-2.5 sm:py-3 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all text-stone-900 dark:text-white placeholder-stone-400 shadow-sm"
-                placeholder={`${activeDepartment?.name || 'Bölüm'} haberlerinde ara...`}
+                placeholder={`${activeDepartment ? activeDepartment.name : activeFacultyGroup.shortName} haberlerinde ara...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -833,22 +904,20 @@ export default function News() {
               <div className="text-center py-12 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-6">
                 <Building2 className="w-10 h-10 text-stone-400 mx-auto mb-3 opacity-60" />
                 <h3 className="font-display font-bold text-stone-800 dark:text-white text-base">
-                  Bu Bölüme Ait Henüz Haber Listelenmedi
+                  {activeDepartment ? `${activeDepartment.name} İçin Haber Bulunamadı` : `${activeFacultyGroup.facultyName} İçin Haber Bulunamadı`}
                 </h3>
                 <p className="text-stone-500 dark:text-white/60 text-xs mt-1 max-w-md mx-auto">
-                  İlgili bölümün resmi web sayfasını ziyaret edebilir veya farklı bir fakülte ve bölüm seçebilirsiniz.
+                  İlgili birimin resmi web sayfasını ziyaret edebilir veya farklı bir fakülte/bölüm seçebilirsiniz.
                 </p>
-                {activeDepartment?.newsUrl && (
-                  <a
-                    href={activeDepartment.newsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <span>Resmi Web Sayfasını Aç ({activeDepartment.name})</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+                <a
+                  href={activeDepartment ? activeDepartment.newsUrl : activeFacultyGroup.facultyNewsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  <span>Resmi Web Sayfasını Aç ({activeDepartment ? activeDepartment.name : activeFacultyGroup.shortName})</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -863,11 +932,11 @@ export default function News() {
                         url: item.url || '',
                         title: item.title,
                         imageUrl: item.imageUrl,
-                        images: item.images && item.images.length > 0 ? item.images : (item.imageUrl ? [item.imageUrl] : []),
+                        images: (item as any).images && (item as any).images.length > 0 ? (item as any).images : (item.imageUrl ? [item.imageUrl] : []),
                         date: item.date,
                         category: item.category || 'Bölüm Haberi',
-                        departmentName: item.departmentName || activeDepartment?.name,
-                        facultyName: item.facultyName,
+                        departmentName: item.departmentName || activeDepartment?.name || activeFacultyGroup.shortName,
+                        facultyName: item.facultyName || activeFacultyGroup.facultyName,
                         content: item.content
                       })
                     }
@@ -893,7 +962,7 @@ export default function News() {
                       {/* Header tags: Department & Date */}
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                          {item.departmentName || activeDepartment?.name || 'Bölüm Haberi'}
+                          {item.departmentName || activeDepartment?.name || activeFacultyGroup.shortName}
                         </span>
                         {item.date && (
                           <span className="text-[10px] sm:text-[11px] font-semibold text-stone-400 dark:text-white/50 flex items-center gap-1">

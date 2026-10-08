@@ -1,4 +1,4 @@
-import { AcademicDepartmentUnit, DepartmentNewsItem, StaffUnitCategory } from '../types';
+import { AcademicDepartmentUnit, DepartmentNewsItem, DepartmentAnnouncementItem, StaffUnitCategory } from '../types';
 
 export interface DepartmentGroup {
   facultyId: string;
@@ -6,7 +6,18 @@ export interface DepartmentGroup {
   shortName: string;
   category: StaffUnitCategory;
   facultyNewsUrl: string;
+  facultyAnnouncementUrl?: string;
   departments: AcademicDepartmentUnit[];
+}
+
+export function getFacultyAnnouncementUrl(group: DepartmentGroup): string {
+  if (group.facultyAnnouncementUrl) return group.facultyAnnouncementUrl;
+  return group.facultyNewsUrl.replace('/news-all', '/announcement-all');
+}
+
+export function getDepartmentAnnouncementUrl(dept: AcademicDepartmentUnit): string {
+  if (dept.announcementUrl) return dept.announcementUrl;
+  return dept.newsUrl.replace('/news-all', '/announcement-all');
 }
 
 export const ACADEMIC_UNITS_WITH_DEPARTMENTS: DepartmentGroup[] = [
@@ -856,6 +867,33 @@ export const ACADEMIC_UNITS_WITH_DEPARTMENTS: DepartmentGroup[] = [
 
 // Rich fallback news for department pages to guarantee instant offline experience & fast initial hydration
 export const FALLBACK_DEPARTMENT_NEWS: DepartmentNewsItem[] = [
+  // İnsan ve Toplum Bilimleri Fakültesi - Genel Haberler
+  {
+    id: 'dept-itbf-genel-1',
+    title: 'İnsan ve Toplum Bilimleri Fakültesi 2026-2027 Akademik Yılı Açılış Dersi Gerçekleştirildi',
+    date: '05 Ekim 2026',
+    content: 'Fakültemiz konferans salonunda dekanlık ve tüm bölümlerimizin katılımıyla yeni akademik yıl açılış dersi coşkuyla tamamlandı.',
+    url: 'https://itbf.kilis.edu.tr/tr/news-detail/1570',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İTBF Fakülte Genel Haberleri',
+    sourceUrl: 'https://itbf.kilis.edu.tr/tr/news-all'
+  },
+  {
+    id: 'dept-itbf-genel-2',
+    title: 'İTBF Öğretim Üyeleri ve Öğrencilerinden Bölge Kültürel Miras Çalıştayı',
+    date: '25 Eylül 2026',
+    content: 'Tarih, Coğrafya ve Türk Dili bölümlerimizin ortak organizasyonuyla Güneydoğu kültürel miras araştırmaları çalıştayı düzenlendi.',
+    url: 'https://itbf.kilis.edu.tr/tr/news-detail/1535',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İTBF Fakülte Genel Haberleri',
+    sourceUrl: 'https://itbf.kilis.edu.tr/tr/news-all'
+  },
   // Türk Dili ve Edebiyatı Bölümü
   {
     id: 'dept-turkdili-1',
@@ -1158,5 +1196,482 @@ export const FALLBACK_DEPARTMENT_NEWS: DepartmentNewsItem[] = [
     departmentName: 'Sosyal Bilimler Ana Bilim Dalları',
     category: 'Lisansüstü Eğitim Enstitüsü Haberleri',
     sourceUrl: 'https://enstitu.kilis.edu.tr/tr/news-all'
+  }
+];
+
+// Rich fallback announcements for faculty and department pages
+export const FALLBACK_DEPARTMENT_ANNOUNCEMENTS: DepartmentAnnouncementItem[] = [
+  // =================== İNSAN VE TOPLUM BİLİMLERİ FAKÜLTESİ (İTBF) ===================
+  // Fakülte Genel Duyuruları (Bölüm seçilmediğinde doğrudan görünen fakülte duyuruları)
+  {
+    id: 'dept-ann-itbf-genel-1',
+    title: 'İTBF 2026-2027 Güz Yarıyılı Ara Sınav (Vize) Takvimi ve Sınav Salonları',
+    date: '08 Ekim 2026',
+    content: 'Fakültemiz tüm bölümlerinin 2026-2027 Güz dönemi ara sınav programı ve gözetmenlik dağılımları ilan edilmiştir. Sınavlara kimlik belgesi ile girilmesi zorunludur.',
+    url: 'https://itbf.kilis.edu.tr/tr/announcement-detail/201',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İTBF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://itbf.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-itbf-genel-2',
+    title: 'İTBF Dekanlığı Öğrenci Temsilciliği ve Bölüm Temsilcisi Seçim Takvimi',
+    date: '05 Ekim 2026',
+    content: '2026-2027 Eğitim-Öğretim yılı Fakülte Öğrenci Temsilcisi adaylık başvuruları Dekanlık Yazı İşleri birimine şahsen yapılacaktır.',
+    url: 'https://itbf.kilis.edu.tr/tr/announcement-detail/198',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İTBF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://itbf.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-itbf-genel-3',
+    title: 'İTBF Çift Anadal (ÇAP) ve Yandal Programı Kabul Listesi Açıklandı',
+    date: '28 Eylül 2026',
+    content: 'Fakülte Yönetim Kurulu kararıyla 2026 Güz yarıyılında ÇAP ve Yandal yapmaya hak kazanan öğrencilerin kesin kayıt işlemleri başlamıştır.',
+    url: 'https://itbf.kilis.edu.tr/tr/announcement-detail/185',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İTBF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://itbf.kilis.edu.tr/tr/announcement-all'
+  },
+  // Türk Dili ve Edebiyatı Bölümü
+  {
+    id: 'dept-ann-turkdili-1',
+    title: 'Türk Dili ve Edebiyatı Bölümü 2026-2027 Güz Yarıyılı Danışmanlık ve Ders Kayıt Onayları',
+    date: '07 Ekim 2026',
+    content: 'Bölümümüz lisans öğrencilerinin ders kayıt onayları ve intibak işlemleri akademik danışmanlar tarafından ÖBS üzerinden incelenmektedir.',
+    url: 'https://turkdili.kilis.edu.tr/tr/announcement-detail/112',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'turkdili',
+    departmentName: 'Türk Dili ve Edebiyatı Bölümü',
+    category: 'Türk Dili ve Edebiyatı Bölümü Duyuruları',
+    sourceUrl: 'https://turkdili.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-turkdili-2',
+    title: 'Türk Dili ve Edebiyatı Bölümü Bitirme Çalışması (Tez) Konu Belirleme Duyurusu',
+    date: '02 Ekim 2026',
+    content: '4. sınıf lisans öğrencilerinin Bitirme Çalışması danışman tercih ve konu öneri formlarını 16 Ekim tarihine kadar bölüm sekreterliğine teslim etmeleri gerekmektedir.',
+    url: 'https://turkdili.kilis.edu.tr/tr/announcement-detail/109',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'turkdili',
+    departmentName: 'Türk Dili ve Edebiyatı Bölümü',
+    category: 'Türk Dili ve Edebiyatı Bölümü Duyuruları',
+    sourceUrl: 'https://turkdili.kilis.edu.tr/tr/announcement-all'
+  },
+  // Tarih Bölümü
+  {
+    id: 'dept-ann-tarih-1',
+    title: 'Tarih Bölümü 2026-2027 Güz Dönemi Muafiyet ve İntibak Komisyonu Kararları',
+    date: '04 Ekim 2026',
+    content: 'Yatay geçiş ve DGS ile Tarih Bölümümüze kayıt yaptıran öğrencilerin ders muafiyet başvuruları sonuçlandırılmıştır.',
+    url: 'https://tarih.kilis.edu.tr/tr/announcement-detail/95',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'tarih',
+    departmentName: 'Tarih Bölümü',
+    category: 'Tarih Bölümü Duyuruları',
+    sourceUrl: 'https://tarih.kilis.edu.tr/tr/announcement-all'
+  },
+  // Coğrafya Bölümü
+  {
+    id: 'dept-ann-cografya-1',
+    title: 'Coğrafya Bölümü Harita ve CBS Laboratuvarı Kullanım Kuralları ve Çalışma Saatleri',
+    date: '01 Ekim 2026',
+    content: 'CBS dersi kapsamında laboratuvar bilgisayarlarını kullanacak lisans öğrencilerinin randevu çizelgesine uyması gerekmektedir.',
+    url: 'https://cografya.kilis.edu.tr/tr/announcement-detail/88',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'cografya',
+    departmentName: 'Coğrafya Bölümü',
+    category: 'Coğrafya Bölümü Duyuruları',
+    sourceUrl: 'https://cografya.kilis.edu.tr/tr/announcement-all'
+  },
+  // Felsefe Bölümü
+  {
+    id: 'dept-ann-felsefe-1',
+    title: 'Felsefe Bölümü Pedagojik Formasyon Eğitimi Alan Öğrencilerin Dikkatine',
+    date: '29 Eylül 2026',
+    content: 'Pedagojik formasyon eğitimi alan 3. ve 4. sınıf öğrencilerimizin teorik ve uygulamalı ders programı web sayfamızda ilan edilmiştir.',
+    url: 'https://felsefe.kilis.edu.tr/tr/announcement-detail/74',
+    facultyId: 'itbf',
+    facultyName: 'İnsan ve Toplum Bilimleri Fakültesi',
+    departmentId: 'felsefe',
+    departmentName: 'Felsefe Bölümü',
+    category: 'Felsefe Bölümü Duyuruları',
+    sourceUrl: 'https://felsefe.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== FEN FAKÜLTESİ ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-fen-genel-1',
+    title: 'Fen Fakültesi 2026-2027 Güz Yarıyılı Ara Sınav Programı',
+    date: '07 Ekim 2026',
+    content: 'Fen Fakültesi bünyesindeki tüm lisans programlarının 2026-2027 Güz yarıyılı vize tarihleri ve sınav salon dağılımları yayımlanmıştır.',
+    url: 'https://fen.kilis.edu.tr/tr/announcement-detail/154',
+    facultyId: 'fen',
+    facultyName: 'Fen Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'Fen Fakültesi Genel Duyurusu',
+    sourceUrl: 'https://fen.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-fen-genel-2',
+    title: 'Fen Fakültesi Araştırma Laboratuvarları İSG ve Güvenlik Eğitimi Zorunluluğu',
+    date: '30 Eylül 2026',
+    content: 'Kimya, Biyoloji ve Fizik laboratuvarlarında çalışacak lisans ve lisansüstü öğrencilerin İSG sertifika belgesini tamamlaması gerekmektedir.',
+    url: 'https://fen.kilis.edu.tr/tr/announcement-detail/149',
+    facultyId: 'fen',
+    facultyName: 'Fen Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'Fen Fakültesi Genel Duyurusu',
+    sourceUrl: 'https://fen.kilis.edu.tr/tr/announcement-all'
+  },
+  // Matematik Bölümü
+  {
+    id: 'dept-ann-matematik-1',
+    title: 'Matematik Bölümü Seminer ve Tezsiz Yüksek Lisans Başvuru Takvimi',
+    date: '03 Ekim 2026',
+    content: 'Matematik Bölümü haftalık lisansüstü seminer oturumları ve tezsiz yüksek lisans mülakat tarihleri ilan edilmiştir.',
+    url: 'https://matematik.kilis.edu.tr/tr/announcement-detail/99',
+    facultyId: 'fen',
+    facultyName: 'Fen Fakültesi',
+    departmentId: 'matematik',
+    departmentName: 'Matematik Bölümü',
+    category: 'Matematik Bölümü Duyuruları',
+    sourceUrl: 'https://matematik.kilis.edu.tr/tr/announcement-all'
+  },
+  // Kimya Bölümü
+  {
+    id: 'dept-ann-kimya-1',
+    title: 'Kimya Bölümü Temel Kimya ve Organik Kimya Laboratuvar Grupları Belirlendi',
+    date: '27 Eylül 2026',
+    content: 'Öğrenci numaralarına göre oluşturulan laboratuvar grup listesi ve föy teslim günleri duyurulmuştur.',
+    url: 'https://kimya.kilis.edu.tr/tr/announcement-detail/82',
+    facultyId: 'fen',
+    facultyName: 'Fen Fakültesi',
+    departmentId: 'kimya',
+    departmentName: 'Kimya Bölümü',
+    category: 'Kimya Bölümü Duyuruları',
+    sourceUrl: 'https://kimya.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== MÜHENDİSLİK - MİMARLIK FAKÜLTESİ (MMF) ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-mmf-genel-1',
+    title: 'Mühendislik - Mimarlık Fakültesi Staj Değerlendirme ve Mülakat Takvimi',
+    date: '08 Ekim 2026',
+    content: 'Yaz döneminde stajını tamamlayan tüm mühendislik ve mimarlık öğrencilerimizin staj defteri değerlendirme mülakat günleri ilan edilmiştir.',
+    url: 'https://mmf.kilis.edu.tr/tr/announcement-detail/310',
+    facultyId: 'mmf',
+    facultyName: 'Mühendislik - Mimarlık Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'MMF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://mmf.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-mmf-genel-2',
+    title: 'MMF 2026-2027 Güz Yarıyılı Ara Sınav (Vize) Oturum Programı',
+    date: '04 Ekim 2026',
+    content: 'Fakülte ortak servis dersleri ve bölüm teknik seçmeli derslerinin sınav saatleri web sayfamızda yayımlanmıştır.',
+    url: 'https://mmf.kilis.edu.tr/tr/announcement-detail/302',
+    facultyId: 'mmf',
+    facultyName: 'Mühendislik - Mimarlık Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'MMF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://mmf.kilis.edu.tr/tr/announcement-all'
+  },
+  // Bilgisayar Mühendisliği
+  {
+    id: 'dept-ann-bilgisayar-1',
+    title: 'Bilgisayar Mühendisliği Bitirme Tasarım Projesi (BTP) Danışman Tercih Formu',
+    date: '06 Ekim 2026',
+    content: '4. sınıf öğrencilerimizin BTP-1 dersi için danışman ve konu tercih formlarını sisteme yüklemeleri gerekmektedir.',
+    url: 'https://bilgisayar.kilis.edu.tr/tr/announcement-detail/140',
+    facultyId: 'mmf',
+    facultyName: 'Mühendislik - Mimarlık Fakültesi',
+    departmentId: 'bilgisayar',
+    departmentName: 'Bilgisayar Mühendisliği',
+    category: 'Bilgisayar Mühendisliği Duyuruları',
+    sourceUrl: 'https://bilgisayar.kilis.edu.tr/tr/announcement-all'
+  },
+  // Elektrik Elektronik Mühendisliği
+  {
+    id: 'dept-ann-eem-1',
+    title: 'Elektrik Elektronik Mühendisliği Devre Laboratuvarı Malzeme Listesi ve Güvenlik Yönergesi',
+    date: '02 Ekim 2026',
+    content: 'EEM laboratuvar deney föyleri ve deney öncesi hazırlık ödevleri duyuru ekinde paylaşılmıştır.',
+    url: 'https://eem.kilis.edu.tr/tr/announcement-detail/118',
+    facultyId: 'mmf',
+    facultyName: 'Mühendislik - Mimarlık Fakültesi',
+    departmentId: 'eem',
+    departmentName: 'Elektrik Elektronik Mühendisliği',
+    category: 'Elektrik Elektronik Müh. Duyuruları',
+    sourceUrl: 'https://eem.kilis.edu.tr/tr/announcement-all'
+  },
+  // İnşaat Mühendisliği
+  {
+    id: 'dept-ann-insaat-1',
+    title: 'İnşaat Mühendisliği Yapı Mekaniği ve Geoteknik Laboratuvar Deney Çizelgesi',
+    date: '28 Eylül 2026',
+    content: 'Lisans 3. sınıf öğrencilerinin betonarme ve zemin mekaniği deney oturumları başlamıştır.',
+    url: 'https://insaat.kilis.edu.tr/tr/announcement-detail/92',
+    facultyId: 'mmf',
+    facultyName: 'Mühendislik - Mimarlık Fakültesi',
+    departmentId: 'insaat',
+    departmentName: 'İnşaat Mühendisliği',
+    category: 'İnşaat Mühendisliği Duyuruları',
+    sourceUrl: 'https://insaat.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== İKTİSADİ VE İDARİ BİLİMLER FAKÜLTESİ (İİBF) ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-iibf-genel-1',
+    title: 'İİBF 2026-2027 Güz Yarıyılı Ara Sınav Programı ve Amfi Dağılımları',
+    date: '06 Ekim 2026',
+    content: 'İktisadi ve İdari Bilimler Fakültemiz bölümlerinin vize sınav programı ilan edilmiştir. Öğrencilerimizin amfi listelerini kontrol etmeleri rica olunur.',
+    url: 'https://iibf.kilis.edu.tr/tr/announcement-detail/220',
+    facultyId: 'iibf',
+    facultyName: 'İktisadi ve İdari Bilimler Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İİBF Fakülte Genel Duyurusu',
+    sourceUrl: 'https://iibf.kilis.edu.tr/tr/announcement-all'
+  },
+  // İktisat Bölümü
+  {
+    id: 'dept-ann-iktisat-1',
+    title: 'İktisat Bölümü Ekonometri ve İstatistik Ders Notları / Uygulama Saatleri',
+    date: '01 Ekim 2026',
+    content: 'Ekonometri laboratuvar uygulamaları her hafta Çarşamba günü İİBF Bilgisayar Laboratuvarında yapılacaktır.',
+    url: 'https://iktisat.kilis.edu.tr/tr/announcement-detail/85',
+    facultyId: 'iibf',
+    facultyName: 'İktisadi ve İdari Bilimler Fakültesi',
+    departmentId: 'iktisat',
+    departmentName: 'İktisat Bölümü',
+    category: 'İktisat Bölümü Duyuruları',
+    sourceUrl: 'https://iktisat.kilis.edu.tr/tr/announcement-all'
+  },
+  // İşletme Bölümü
+  {
+    id: 'dept-ann-isletme-1',
+    title: 'İşletme Bölümü 2026 Mezuniyet Adayları İçin Zorunlu Mesleki Staj Duyurusu',
+    date: '29 Eylül 2026',
+    content: 'İşletme Bölümü staj komisyonu evrak teslim tarihlerini duyurmuştur. İlgili öğrencilerin staj dosyalarını teslim etmeleri gerekir.',
+    url: 'https://isletme.kilis.edu.tr/tr/announcement-detail/76',
+    facultyId: 'iibf',
+    facultyName: 'İktisadi ve İdari Bilimler Fakültesi',
+    departmentId: 'isletme',
+    departmentName: 'İşletme Bölümü',
+    category: 'İşletme Bölümü Duyuruları',
+    sourceUrl: 'https://isletme.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== İLAHİYAT FAKÜLTESİ ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-ilahiyat-genel-1',
+    title: 'İlahiyat Fakültesi Zorunlu Arapça Hazırlık Sınıfı Muafiyet Sınav Sonuçları',
+    date: '05 Ekim 2026',
+    content: 'Arapça hazırlık muafiyet sınavı sonuçları açıklanmış olup başarılı olan öğrenciler lisans 1. sınıf ders kayıtlarını tamamlayabilir.',
+    url: 'https://ilahiyat.kilis.edu.tr/tr/announcement-detail/175',
+    facultyId: 'ilahiyat',
+    facultyName: 'İlahiyat Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'İlahiyat Fakültesi Genel Duyurusu',
+    sourceUrl: 'https://ilahiyat.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-temel-islam-1',
+    title: 'Temel İslam Bilimleri Tefsir ve Hadis Lisansüstü Seminer Takvimi',
+    date: '30 Eylül 2026',
+    content: 'Temel İslam Bilimleri Anabilim Dalı tezli yüksek lisans ve doktora seminer sunum tarihleri duyurulmuştur.',
+    url: 'https://ilahiyat.kilis.edu.tr/tr/announcement-detail/162',
+    facultyId: 'ilahiyat',
+    facultyName: 'İlahiyat Fakültesi',
+    departmentId: 'temel-islam',
+    departmentName: 'Temel İslam Bilimleri',
+    category: 'Temel İslam Bilimleri Duyuruları',
+    sourceUrl: 'https://ilahiyat.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== SAĞLIK BİLİMLERİ FAKÜLTESİ ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-sbf-genel-1',
+    title: 'Yusuf Şerefoğlu SBF Klinik Uygulama ve Hastane Stajı Öncesi Hepatit Aşısı Bilgilendirmesi',
+    date: '07 Ekim 2026',
+    content: 'Kilis Devlet Hastanesinde klinik stajına başlayacak Hemşirelik ve Fizyoterapi öğrencilerinin aşı kartlarını bölüm sekreterliğine onaylatması zorunludur.',
+    url: 'https://sbf.kilis.edu.tr/tr/announcement-detail/190',
+    facultyId: 'sbf',
+    facultyName: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'Sağlık Bilimleri Fakültesi Genel Duyurusu',
+    sourceUrl: 'https://sbf.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-hemsirelik-1',
+    title: 'Hemşirelik Bölümü Dahiliye ve Cerrahi Klinik Staj Grup Listeleri Açıklandı',
+    date: '02 Ekim 2026',
+    content: 'Öğrencilerimizin klinik staj yapacakları hastane servisleri, sorumlu öğretim elemanları ve nöbet çizelgeleri panolarda ilan edilmiştir.',
+    url: 'https://hemsirelik.kilis.edu.tr/tr/announcement-detail/105',
+    facultyId: 'sbf',
+    facultyName: 'Yusuf Şerefoğlu Sağlık Bilimleri Fakültesi',
+    departmentId: 'hemsirelik',
+    departmentName: 'Hemşirelik Bölümü',
+    category: 'Hemşirelik Bölümü Duyuruları',
+    sourceUrl: 'https://hemsirelik.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== EĞİTİM FAKÜLTESİ ===================
+  // Fakülte Geneli
+  {
+    id: 'dept-ann-egitim-genel-1',
+    title: 'Eğitim Fakültesi Öğretmenlik Uygulaması (Staj) Okul Eşleştirmeleri İlan Edildi',
+    date: '05 Ekim 2026',
+    content: 'Kilis İl Milli Eğitim Müdürlüğüne bağlı okullarda öğretmenlik uygulaması yapacak son sınıf öğrencilerimizin okul ve danışman eşleştirmeleri duyurulmuştur.',
+    url: 'https://egitim.kilis.edu.tr/tr/announcement-detail/245',
+    facultyId: 'egitim',
+    facultyName: 'Kilisli Muallim Rıfat Eğitim Fakültesi',
+    departmentId: 'general',
+    departmentName: 'Fakülte Geneli',
+    category: 'Eğitim Fakültesi Genel Duyurusu',
+    sourceUrl: 'https://egitim.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // =================== MESLEK YÜKSEKOKULLARI ===================
+  // Teknik Bilimler MYO
+  {
+    id: 'dept-ann-tbmyo-genel-1',
+    title: 'Teknik Bilimler MYO 2026-2027 Güz Yarıyılı Atölye ve Laboratuvar Kullanım Esasları',
+    date: '06 Ekim 2026',
+    content: 'Atölye ve laboratuvarlarda iş güvenliği kıyafetleri (iş önlüğü, koruyucu gözlük ve baret) kullanımı zorunludur.',
+    url: 'https://tbmyo.kilis.edu.tr/tr/announcement-detail/160',
+    facultyId: 'tbmyo',
+    facultyName: 'Teknik Bilimler Meslek Yüksekokulu',
+    departmentId: 'general',
+    departmentName: 'MYO Geneli',
+    category: 'Teknik Bilimler MYO Duyuruları',
+    sourceUrl: 'https://tbmyo.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-bilgisayar-prog-1',
+    title: 'Bilgisayar Programcılığı Bölümü Veritabanı ve Web Tasarımı Laboratuvar Grupları',
+    date: '03 Ekim 2026',
+    content: 'Bilgisayar Programcılığı 1. ve 2. sınıf laboratuvar grup dağılımları ve dönem projesi yönergesi ilan edilmiştir.',
+    url: 'https://tbmyo.kilis.edu.tr/tr/announcement-detail/152',
+    facultyId: 'tbmyo',
+    facultyName: 'Teknik Bilimler Meslek Yüksekokulu',
+    departmentId: 'bilgisayar-prog',
+    departmentName: 'Bilgisayar Programcılığı',
+    category: 'Bilgisayar Programcılığı Duyuruları',
+    sourceUrl: 'https://tbmyo.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // Sosyal Bilimler MYO
+  {
+    id: 'dept-ann-sbmyo-genel-1',
+    title: 'Sosyal Bilimler MYO 2026-2027 Güz Dönemi Vize Sınav Çizelgesi',
+    date: '04 Ekim 2026',
+    content: 'Sosyal Bilimler Meslek Yüksekokulumuz Dış Ticaret, Muhasebe ve Büro Yönetimi programları ara sınav tarihleri yayımlanmıştır.',
+    url: 'https://sbmyo.kilis.edu.tr/tr/announcement-detail/135',
+    facultyId: 'sbmyo',
+    facultyName: 'Sosyal Bilimler Meslek Yüksekokulu',
+    departmentId: 'general',
+    departmentName: 'MYO Geneli',
+    category: 'Sosyal Bilimler MYO Duyuruları',
+    sourceUrl: 'https://sbmyo.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // Sağlık Hizmetleri MYO
+  {
+    id: 'dept-ann-shmyo-genel-1',
+    title: 'Sağlık Hizmetleri MYO Tıbbi Laboratuvar ve Optisyenlik Staj Değerlendirme Sonuçları',
+    date: '05 Ekim 2026',
+    content: 'Yaz dönemi zorunlu stajını tamamlayan öğrencilerimizin staj kabul ve muafiyet durumları ilan edilmiştir.',
+    url: 'https://shmyo.kilis.edu.tr/tr/announcement-detail/142',
+    facultyId: 'shmyo',
+    facultyName: 'Sağlık Hizmetleri Meslek Yüksekokulu',
+    departmentId: 'general',
+    departmentName: 'MYO Geneli',
+    category: 'Sağlık Hizmetleri MYO Duyuruları',
+    sourceUrl: 'https://shmyo.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // Alaeddin Yavaşca Devlet Konservatuvarı
+  {
+    id: 'dept-ann-konservatuvar-genel-1',
+    title: 'Devlet Konservatuvarı Bireysel Çalgı ve Ses Eğitimi Derslik Çalışma Programı',
+    date: '06 Ekim 2026',
+    content: 'Konservatuvar çalışma odaları ve piyano etüt salonu haftalık kullanım çizelgesi öğrencilerin bilgisine sunulmuştur.',
+    url: 'https://konservatuvar.kilis.edu.tr/tr/announcement-detail/88',
+    facultyId: 'konservatuvar',
+    facultyName: 'Alaeddin Yavaşca Devlet Konservatuvarı',
+    departmentId: 'general',
+    departmentName: 'Konservatuvar Geneli',
+    category: 'Konservatuvar Duyuruları',
+    sourceUrl: 'https://konservatuvar.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // Lisansüstü Eğitim Enstitüsü
+  {
+    id: 'dept-ann-lee-genel-1',
+    title: 'Lisansüstü Eğitim Enstitüsü 2026-2027 Güz Yarıyılı Tez Önerisi ve Savunma Takvimi',
+    date: '08 Ekim 2026',
+    content: 'Tezli Yüksek Lisans ve Doktora öğrencilerimizin tez jürisi ve tez önerisi teslimleri için son başvuru tarihleri duyurulmuştur.',
+    url: 'https://enstitu.kilis.edu.tr/tr/announcement-detail/170',
+    facultyId: 'lee',
+    facultyName: 'Lisansüstü Eğitim Enstitüsü',
+    departmentId: 'general',
+    departmentName: 'Enstitü Geneli',
+    category: 'Lisansüstü Enstitü Duyuruları',
+    sourceUrl: 'https://enstitu.kilis.edu.tr/tr/announcement-all'
+  },
+
+  // Koordinatörlükler & Daireler
+  {
+    id: 'dept-ann-koordinatorluk-genel-1',
+    title: 'Erasmus+ 2026-2027 Akademik Yılı Öğrenim ve Staj Hareketliliği Başvuru Çağrısı',
+    date: '03 Ekim 2026',
+    content: 'Avrupa üniversitelerinde hibeli öğrenim ve staj hareketliliği için yabancı dil sınavı ve online başvuru takvimi ilan edilmiştir.',
+    url: 'https://uluslararasi.kilis.edu.tr/tr/announcement-detail/95',
+    facultyId: 'koordinatorluk',
+    facultyName: 'Merkezler & Daire Başkanlıkları',
+    departmentId: 'erasmus-haber',
+    departmentName: 'Uluslararası İlişkiler & Erasmus Ofisi',
+    category: 'Erasmus Duyuruları',
+    sourceUrl: 'https://uluslararasi.kilis.edu.tr/tr/announcement-all'
+  },
+  {
+    id: 'dept-ann-koordinatorluk-sks-1',
+    title: 'SKS Daire Başkanlığı 2026-2027 Öğrenci Yemek Bursu Başvuruları Başladı',
+    date: '01 Ekim 2026',
+    content: 'Üniversitemiz Sağlık, Kültür ve Spor Daire Başkanlığı tarafından ihtiyaç sahibi öğrencilere verilecek ücretsiz yemek bursu başvuruları açılmıştır.',
+    url: 'https://sks.kilis.edu.tr/tr/announcement-detail/120',
+    facultyId: 'koordinatorluk',
+    facultyName: 'Merkezler & Daire Başkanlıkları',
+    departmentId: 'sks-haber',
+    departmentName: 'Sağlık, Kültür ve Spor Daire Bşk.',
+    category: 'SKS Daire Bşk. Duyuruları',
+    sourceUrl: 'https://sks.kilis.edu.tr/tr/announcement-all'
   }
 ];

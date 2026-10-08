@@ -42,6 +42,9 @@ import {
   TabletSmartphone,
   ArrowLeft,
   Maximize2,
+  ZoomIn,
+  ZoomOut,
+  FileSpreadsheet,
   Newspaper,
   CheckCircle2,
   QrCode,
@@ -232,6 +235,36 @@ export default function CampusHub() {
     };
   }, [selectedStaffPhoto]);
 
+  // Sports Schedule & Fee Image Modal state
+  const [selectedSportsSchedule, setSelectedSportsSchedule] = useState<{
+    title: string;
+    subtitle?: string;
+    facilityName: string;
+    imageUrl: string;
+  } | null>(null);
+  const [sportsZoomLevel, setSportsZoomLevel] = useState<number>(1);
+
+  // Prevent background scroll when sports schedule modal is open & add ESC key support
+  useEffect(() => {
+    if (!selectedSportsSchedule) return;
+
+    setSportsZoomLevel(1);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedSportsSchedule(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedSportsSchedule]);
+
   // Detail Modal for events
   const [selectedDetail, setSelectedDetail] = useState<DetailModalItem | null>(null);
 
@@ -320,7 +353,7 @@ export default function CampusHub() {
     { key: 'transport', label: 'Ulaşım', icon: Bus, color: 'text-blue-600 dark:text-blue-400' },
     { key: 'forms', label: 'Dilekçe & Form', icon: FileText, color: 'text-amber-600 dark:text-amber-400' },
     { key: 'library', label: 'Kütüphane', icon: BookOpen, color: 'text-indigo-600 dark:text-indigo-400' },
-    { key: 'sports', label: 'Halı Saha & Spor', icon: Trophy, color: 'text-green-600 dark:text-green-400' },
+    { key: 'sports', label: 'Spor Tesisleri & Havuz', icon: Trophy, color: 'text-green-600 dark:text-green-400' },
     { key: 'hotel', label: 'Uygulama Oteli', icon: Hotel, color: 'text-cyan-600 dark:text-cyan-400' },
     { key: 'map', label: 'Yerleşkeler', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
   ];
@@ -338,6 +371,8 @@ export default function CampusHub() {
         return { label: 'Meslek Yüksekokulu', shortLabel: 'MYO', badgeClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' };
       case 'konservatuvar':
         return { label: 'Konservatuvar', shortLabel: 'Konservatuvar', badgeClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20' };
+      case 'daire':
+        return { label: 'Daire Başkanlığı', shortLabel: 'Daire Bşk.', badgeClass: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20' };
       case 'koordinatorluk':
         return { label: 'Koordinatörlük', shortLabel: 'Koordinatörlük', badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20' };
       default:
@@ -352,6 +387,7 @@ export default function CampusHub() {
       case 'yuksekokul': return School;
       case 'myo': return Building2;
       case 'konservatuvar': return Music;
+      case 'daire': return Landmark;
       case 'koordinatorluk': return Compass;
       default: return School;
     }
@@ -381,7 +417,8 @@ export default function CampusHub() {
       { key: 'yuksekokul' as StaffUnitCategory, label: 'Yüksekokul', icon: School, items: list.filter(f => f.category === 'yuksekokul') },
       { key: 'myo' as StaffUnitCategory, label: 'Meslek Yüksekokulları (MYO)', icon: Building2, items: list.filter(f => f.category === 'myo') },
       { key: 'konservatuvar' as StaffUnitCategory, label: 'Konservatuvar', icon: Music, items: list.filter(f => f.category === 'konservatuvar') },
-      { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler', icon: Compass, items: list.filter(f => f.category === 'koordinatorluk') },
+      { key: 'daire' as StaffUnitCategory, label: 'Daire Başkanlıkları', icon: Landmark, items: list.filter(f => f.category === 'daire') },
+      { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler & Merkezler', icon: Compass, items: list.filter(f => f.category === 'koordinatorluk') },
     ];
   }, []);
 
@@ -699,9 +736,9 @@ export default function CampusHub() {
                     Görüntüle <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Spor & Halı Saha</h3>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Spor Tesisleri & Havuz</h3>
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Sentetik halı saha rezervasyon sistemi, kapalı spor salonu ve fitness seansları.
+                  Yarı olimpik yüzme havuzu, fitness & spor salonu ve halı saha seans saatleri ile ücret tarifeleri.
                 </p>
               </div>
 
@@ -843,6 +880,7 @@ export default function CampusHub() {
                     { key: 'yuksekokul' as StaffUnitCategory, label: 'Yüksekokul', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'yuksekokul').length },
                     { key: 'myo' as StaffUnitCategory, label: 'Meslek Yüksekokulları', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'myo').length },
                     { key: 'konservatuvar' as StaffUnitCategory, label: 'Konservatuvar', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'konservatuvar').length },
+                    { key: 'daire' as StaffUnitCategory, label: 'Daire Başkanlıkları', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'daire').length },
                     { key: 'koordinatorluk' as StaffUnitCategory, label: 'Koordinatörlükler', count: STAFF_FACULTIES_LIST.filter(s => s.category === 'koordinatorluk').length },
                   ].map((cat) => {
                     const isCatActive = selectedStaffCategory === cat.key;
@@ -2140,76 +2178,407 @@ export default function CampusHub() {
             className="space-y-6"
           >
             {/* Action Banner */}
-            <div className="bg-gradient-to-r from-emerald-800 to-teal-700 text-white p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
-              <div>
-                <h3 className="font-display font-bold text-lg">Sentetik Halı Saha & Spor Tesisleri</h3>
-                <p className="text-xs text-white/80 mt-1">
-                  Öğrenci ve personel için online seans randevusu alabilir veya salon tahsis edebilirsiniz.
+            <div className="bg-gradient-to-br from-emerald-900 via-teal-800 to-[#182730] text-white p-5 sm:p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg border border-emerald-500/20">
+              <div className="space-y-1.5 max-w-xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold uppercase tracking-wider">
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>K7AÜ Spor Dostu Kampüs</span>
+                </div>
+                <h3 className="font-display font-bold text-xl sm:text-2xl text-white">
+                  Spor Tesisleri, Seans Saatleri ve Ücretleri
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
+                  Sentetik Halı Saha, Yarı Olimpik Yüzme Havuzu ve Fitness Salonu seans tabloları, kadın/erkek gün ve saatleri ile güncel fiyat listelerine aşağıdan ulaşabilirsiniz.
                 </p>
               </div>
 
-              <a
-                href="https://rezervasyon.kilis.edu.tr/SporRezervasyon/Rezervasyon"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-colors shadow"
-              >
-                <span>Halı Saha Rezervasyonu Yap</span>
-                <ExternalLink className="w-4 h-4" />
-              </a>
+              <div className="flex flex-wrap sm:flex-nowrap md:flex-col gap-2.5 shrink-0">
+                <a
+                  href={sports.reservationUrl || 'https://rezervasyon.kilis.edu.tr/'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs sm:text-sm rounded-2xl transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  <span>Online Rezervasyon Yap</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
+                {sports.sksOfficialUrl && (
+                  <a
+                    href={sports.sksOfficialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl transition-all border border-white/10 active:scale-95 cursor-pointer"
+                  >
+                    <span>SKS Spor Sayfası</span>
+                    <Globe className="w-3.5 h-3.5 opacity-80" />
+                  </a>
+                )}
+              </div>
             </div>
 
-            {/* Facility Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick SKS Official Visual Schedule & Price Hub */}
+            <div className="bg-[#fcfbf9] dark:bg-[#1f3741] border border-emerald-500/30 rounded-3xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200/60 dark:border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white">
+                      SKS Resmi Seans Tabloları & Fiyat Listeleri
+                    </h4>
+                    <p className="text-[11px] text-stone-500 dark:text-white/60">
+                      Resmi SKS duyuru görselleri (Kadın/erkek seans saatleri ve güncel fiyat listesi)
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={sports.sksOfficialUrl || "https://sks.kilis.edu.tr/tr/page/5063"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-semibold transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <span>sks.kilis.edu.tr/tr/page/5063</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Yüzme Havuzu Seans Tablosu */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSportsSchedule({
+                    title: 'Yüzme Havuzu Kadın - Erkek Seans Saatleri',
+                    subtitle: 'Haftalık kadın ve erkek seans günleri ve saat dağılım tablosu',
+                    facilityName: 'Yarı Olimpik Kapalı Yüzme Havuzu',
+                    imageUrl: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.23.jpeg'
+                  })}
+                  className="group flex flex-col p-3 rounded-2xl bg-white dark:bg-[#264653] border border-stone-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <div className="relative h-28 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-black/30 mb-2 border border-stone-100 dark:border-white/5">
+                    <img
+                      src="https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.23.jpeg"
+                      alt="Yüzme Havuzu Seans Saatleri"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-bold shadow">
+                      Havuz Seansları
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/80 text-white text-[11px] font-bold flex items-center gap-1 shadow">
+                        <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Büyüt & İncele
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                    Yüzme Havuzu Seans Tablosu
+                  </span>
+                  <span className="text-[11px] text-stone-500 dark:text-white/60 line-clamp-1 mt-0.5">
+                    Kadın & Erkek Seans Saatleri
+                  </span>
+                </button>
+
+                {/* 2. Yüzme Havuzu Ücret Listesi */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSportsSchedule({
+                    title: 'Yüzme Havuzu Seans ve Ücret Tarifesi',
+                    subtitle: 'Öğrenci, personel, mezun ve sivil misafir seans ve abonelik ücretleri',
+                    facilityName: 'Yarı Olimpik Kapalı Yüzme Havuzu',
+                    imageUrl: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.22.jpeg'
+                  })}
+                  className="group flex flex-col p-3 rounded-2xl bg-white dark:bg-[#264653] border border-stone-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <div className="relative h-28 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-black/30 mb-2 border border-stone-100 dark:border-white/5">
+                    <img
+                      src="https://sks.kilis.edu.tr/subdomain_files/sks/files/87/WhatsApp%20Image%202026-07-15%20at%2018.01.22.jpeg"
+                      alt="Yüzme Havuzu Ücret Listesi"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-teal-600 text-white text-[10px] font-bold shadow">
+                      Havuz Ücretleri
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/80 text-white text-[11px] font-bold flex items-center gap-1 shadow">
+                        <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Büyüt & İncele
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                    Yüzme Havuzu Ücret Listesi
+                  </span>
+                  <span className="text-[11px] text-stone-500 dark:text-white/60 line-clamp-1 mt-0.5">
+                    Öğrenci, Personel & Misafir Fiyatları
+                  </span>
+                </button>
+
+                {/* 3. Fitness Salonu Seans ve Fiyat Tablosu */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSportsSchedule({
+                    title: 'Spor Salonu (Fitness) Kadın / Erkek Seansları & Fiyat Listesi',
+                    subtitle: 'Kadın - erkek seans saatleri ve güncel abonelik ücret tarifesi tablosu',
+                    facilityName: 'Fitness & Kondisyon Merkezi (Spor Salonu)',
+                    imageUrl: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/G%C3%9CNCEL%20F%C4%B0YATLAR%20F%C4%B0TNES.png'
+                  })}
+                  className="group flex flex-col p-3 rounded-2xl bg-white dark:bg-[#264653] border border-stone-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <div className="relative h-28 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-black/30 mb-2 border border-stone-100 dark:border-white/5">
+                    <img
+                      src="https://sks.kilis.edu.tr/subdomain_files/sks/files/87/G%C3%9CNCEL%20F%C4%B0YATLAR%20F%C4%B0TNES.png"
+                      alt="Fitness Salonu Seans ve Fiyat Tablosu"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-amber-600 text-white text-[10px] font-bold shadow">
+                      Spor Salonu & Fitness
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/80 text-white text-[11px] font-bold flex items-center gap-1 shadow">
+                        <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Büyüt & İncele
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                    Spor Salonu Seans & Fiyat
+                  </span>
+                  <span className="text-[11px] text-stone-500 dark:text-white/60 line-clamp-1 mt-0.5">
+                    Kadın/Erkek Saatleri & Abonelikler
+                  </span>
+                </button>
+
+                {/* 4. Halı Saha Ücret Listesi */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedSportsSchedule({
+                    title: 'Halı Saha Seans ve Ücret Listesi',
+                    subtitle: 'Gündüz ve gece seans tarifeleri ve saatlik ücretler',
+                    facilityName: 'Sentetik Çim Halı Saha',
+                    imageUrl: 'https://sks.kilis.edu.tr/subdomain_files/sks/files/87/sks%20hal%C4%B1%20saha%20(1)%20(1).pdf.jpg'
+                  })}
+                  className="group flex flex-col p-3 rounded-2xl bg-white dark:bg-[#264653] border border-stone-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <div className="relative h-28 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-black/30 mb-2 border border-stone-100 dark:border-white/5">
+                    <img
+                      src="https://sks.kilis.edu.tr/subdomain_files/sks/files/87/sks%20hal%C4%B1%20saha%20(1)%20(1).pdf.jpg"
+                      alt="Halı Saha Ücret Listesi"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold shadow">
+                      Halı Saha
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2.5 py-1 rounded-lg bg-black/80 text-white text-[11px] font-bold flex items-center gap-1 shadow">
+                        <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Büyüt & İncele
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                    Halı Saha Ücret Listesi
+                  </span>
+                  <span className="text-[11px] text-stone-500 dark:text-white/60 line-clamp-1 mt-0.5">
+                    Gündüz / Gece Seans Tarifesi
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Facility Cards Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {sports.facilities?.map((f: any) => (
                 <div
                   key={f.id}
-                  className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3 flex flex-col justify-between"
+                  className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
                 >
-                  <div className="space-y-2">
-                    <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                      {f.name}
-                    </h4>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{f.specs}</p>
-                    <p className="text-xs text-stone-500 dark:text-white/60 leading-relaxed">{f.info}</p>
+                  <div className="space-y-3.5">
+                    {/* Facility Cover Image if available */}
+                    {f.coverImage && (
+                      <div className="relative h-44 sm:h-48 w-full rounded-2xl overflow-hidden bg-stone-100 dark:bg-black/20 border border-stone-200/60 dark:border-white/10">
+                        <img
+                          src={f.coverImage}
+                          alt={f.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        {f.category && (
+                          <div className="absolute top-3 left-3 px-3 py-1 rounded-xl bg-black/65 backdrop-blur-md text-white text-[11px] font-bold tracking-wide">
+                            {f.category}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                        <h4 className="font-display font-bold text-lg sm:text-xl text-stone-900 dark:text-white">
+                          {f.name}
+                        </h4>
+                      </div>
+                      <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        {f.specs}
+                      </p>
+                      <p className="text-xs text-stone-600 dark:text-white/70 leading-relaxed mt-1.5">
+                        {f.info}
+                      </p>
+                    </div>
+
+                    {/* Hours Badge */}
                     {f.hours && (
-                      <div className="flex items-center gap-1.5 text-xs text-stone-600 dark:text-white/70 pt-1">
-                        <Clock className="w-3.5 h-3.5 text-stone-400" />
-                        <span>{f.hours}</span>
+                      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-medium text-amber-900 dark:text-amber-200">
+                        <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span><strong>Seans Saatleri:</strong> {f.hours}</span>
+                      </div>
+                    )}
+
+                    {/* Branches tags if applicable */}
+                    {f.branches && f.branches.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {f.branches.map((b: string, bIdx: number) => (
+                          <span
+                            key={bIdx}
+                            className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-white/10 text-[11px] font-semibold text-stone-700 dark:text-white/80 border border-stone-200/60 dark:border-white/10"
+                          >
+                            {b}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Embedded Schedule & Price Images Showcase */}
+                    {f.images && f.images.length > 0 && (
+                      <div className="pt-2 border-t border-stone-200/60 dark:border-white/10 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 dark:text-white">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>Resmi Seans & Fiyat Belgeleri:</span>
+                          </div>
+                          <span className="text-[10px] text-stone-400 dark:text-white/40">
+                            Büyütmek için tıklayın
+                          </span>
+                        </div>
+
+                        <div className={`grid grid-cols-1 ${f.images.length > 1 ? 'sm:grid-cols-2' : ''} gap-2.5`}>
+                          {f.images.map((img: any, imgIdx: number) => (
+                            <button
+                              key={imgIdx}
+                              type="button"
+                              onClick={() => setSelectedSportsSchedule({
+                                title: img.title,
+                                subtitle: img.subtitle,
+                                facilityName: f.name,
+                                imageUrl: img.url
+                              })}
+                              className="group relative flex flex-col text-left p-3 rounded-2xl bg-white dark:bg-[#1f3741] border border-stone-200 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
+                            >
+                              <div className="relative h-32 w-full rounded-xl overflow-hidden bg-stone-100 dark:bg-black/30 mb-2 border border-stone-100 dark:border-white/5">
+                                <img
+                                  src={img.url}
+                                  alt={img.title}
+                                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                />
+                                {img.badge && (
+                                  <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-stone-900/80 backdrop-blur-sm text-white text-[10px] font-bold shadow">
+                                    {img.badge}
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                                  <span className="px-2.5 py-1 rounded-lg bg-black/80 text-white text-[11px] font-bold flex items-center gap-1 shadow">
+                                    <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Büyüt & İncele</span>
+                                  </span>
+                                </div>
+                              </div>
+
+                              <span className="text-xs font-bold text-stone-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                                {img.title}
+                              </span>
+                              {img.subtitle && (
+                                <span className="text-[10px] text-stone-400 dark:text-white/50 line-clamp-1 mt-0.5">
+                                  {img.subtitle}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {f.bookingUrl && (
-                    <a
-                      href={f.bookingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold text-xs rounded-lg transition-colors"
-                    >
-                      <span>Müsait Saatleri İncele</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
+                  {/* Booking & Action Link */}
+                  <div className="pt-3 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between gap-3">
+                    {f.bookingUrl && (
+                      <a
+                        href={f.bookingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                      >
+                        <span>Rezervasyon Yap</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+
+                    <span className="text-[11px] text-stone-400 dark:text-white/40 italic">
+                      Kilis 7 Aralık Ünv. SKS
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* How to reserve steps */}
-            <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 space-y-3">
-              <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
-                Rezervasyon Nasıl Yapılır?
-              </h4>
-              <div className="space-y-2 text-xs text-stone-600 dark:text-white/70">
-                {sports.reservationSteps?.map((step: string, sIdx: number) => (
-                  <div key={sIdx} className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>{step}</span>
-                  </div>
-                ))}
+            {/* How to reserve steps & Survey banner */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-3xl p-5 sm:p-6 space-y-3 shadow-sm">
+                <h4 className="font-display font-bold text-base text-stone-900 dark:text-white flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Rezervasyon Nasıl Yapılır?
+                </h4>
+                <div className="space-y-2 text-xs text-stone-600 dark:text-white/70">
+                  {sports.reservationSteps?.map((step: string, sIdx: number) => (
+                    <div key={sIdx} className="flex items-start gap-2">
+                      <div className="w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {sIdx + 1}
+                      </div>
+                      <span className="leading-relaxed">{step.replace(/^\d+\.\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 text-xs text-stone-400 border-t border-stone-100 dark:border-white/5">
+                  <strong>Danışma & İletişim:</strong> {sports.contactPhone}
+                </div>
               </div>
-              <div className="pt-2 text-xs text-stone-400">
-                Danışma: {sports.contactPhone}
+
+              <div className="bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-3">
+                <div className="space-y-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-bold">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    Görüş & Öneri
+                  </span>
+                  <h4 className="font-display font-bold text-base text-stone-900 dark:text-white">
+                    Spor Dostu Kampüs Memnuniyet Anketi
+                  </h4>
+                  <p className="text-xs text-stone-600 dark:text-white/70 leading-relaxed">
+                    Spor tesislerimizin kalitesini ve hizmet seanslarını geliştirmek için resmi memnuniyet anketimize katılabilirsiniz.
+                  </p>
+                </div>
+
+                <a
+                  href={sports.surveyUrl || 'https://docs.google.com/forms/d/e/1FAIpQLSfzlMmVodJScaaNNWPxzZWvZc5_pfOlYJlZ-UwTHA-DbAZmuw/viewform'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow active:scale-95 cursor-pointer self-start"
+                >
+                  <span>Ankete Katıl</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
           </motion.div>
@@ -2636,6 +3005,138 @@ export default function CampusHub() {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Sports Schedule & Fee Chart Lightbox Modal */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {selectedSportsSchedule && (
+            <div 
+              className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="sports-modal-title"
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
+              {/* Backdrop click to close */}
+              <div 
+                className="fixed inset-0 transition-opacity bg-transparent" 
+                onClick={() => setSelectedSportsSchedule(null)} 
+                aria-hidden="true" 
+              />
+
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="bg-[#182730] text-white border border-white/20 rounded-3xl w-full max-w-4xl max-h-[92vh] my-auto flex flex-col shadow-2xl relative z-10 overflow-hidden"
+                style={{ contain: 'layout' }}
+              >
+                {/* Header */}
+                <div className="sticky top-0 z-30 px-4 py-3 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 flex items-center justify-between gap-3 shadow-md">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold tracking-wide">
+                      <Trophy className="w-3.5 h-3.5 shrink-0" />
+                      <span>{selectedSportsSchedule.facilityName}</span>
+                    </div>
+                    <h3 id="sports-modal-title" className="font-display font-bold text-sm sm:text-base text-white truncate">
+                      {selectedSportsSchedule.title}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSportsZoomLevel((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}
+                      disabled={sportsZoomLevel <= 1}
+                      className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white transition-all cursor-pointer border border-white/10"
+                      title="Küçült"
+                      aria-label="Küçült"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSportsZoomLevel((prev) => (prev > 1.2 ? 1 : 1.6))}
+                      className="px-2 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-all cursor-pointer border border-white/10 min-w-[46px] text-center"
+                      title="Yakınlaştır / Sıfırla"
+                    >
+                      {Math.round(sportsZoomLevel * 100)}%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSportsZoomLevel((prev) => Math.min(2.5, Number((prev + 0.25).toFixed(2))))}
+                      disabled={sportsZoomLevel >= 2.5}
+                      className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white transition-all cursor-pointer border border-white/10"
+                      title="Büyüt"
+                      aria-label="Büyüt"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setSelectedSportsSchedule(null)}
+                      className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all cursor-pointer border border-white/10 shrink-0 ml-1"
+                      aria-label="Kapat"
+                      title="Kapat (ESC)"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scrollable Image Area */}
+                <div className="p-3 sm:p-5 overflow-auto overscroll-contain flex-1 flex items-center justify-center bg-black/50 min-h-[320px]">
+                  <div className="overflow-auto max-w-full max-h-[72vh] flex items-center justify-center p-2">
+                    <img
+                      src={selectedSportsSchedule.imageUrl}
+                      alt={selectedSportsSchedule.title}
+                      style={{
+                        transform: `scale(${sportsZoomLevel})`,
+                        transformOrigin: 'center center',
+                        transition: 'transform 0.2s ease-out'
+                      }}
+                      className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-2xl shadow-2xl border border-white/10 cursor-zoom-in"
+                      onClick={() => setSportsZoomLevel((prev) => (prev > 1.2 ? 1 : 1.6))}
+                      loading="eager"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer with actions */}
+                <div className="sticky bottom-0 z-30 px-4 py-3 bg-[#132028] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                  <span className="text-[11px] text-stone-400">
+                    Kilis 7 Aralık Üniversitesi Sağlık Kültür ve Spor Daire Başkanlığı
+                  </span>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <a
+                      href={selectedSportsSchedule.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs rounded-xl transition-all border border-white/10 cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Tam Boyutta Aç</span>
+                    </a>
+
+                    <button
+                      onClick={() => setSelectedSportsSchedule(null)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Tamam</span>
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>

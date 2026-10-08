@@ -8,7 +8,7 @@ import https from 'https';
 import cors from 'cors';
 import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
 import { ACADEMIC_STAFF_DATA } from './src/data/staffData';
-import { FALLBACK_DEPARTMENT_NEWS } from './src/data/departmentNewsData';
+import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './src/data/departmentNewsData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -626,6 +626,89 @@ app.get('/api/department-news', async (req, res) => {
   } catch (error) {
     console.error('Department news error:', error);
     res.json(FALLBACK_DEPARTMENT_NEWS);
+  }
+});
+
+// Cache for department specific announcements
+const cachedDepartmentAnnouncementsMap = new Map<string, { data: any[]; time: number }>();
+
+app.get('/api/department-announcements', async (req, res) => {
+  try {
+    const deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
+    const deptId = typeof req.query.deptId === 'string' ? req.query.deptId.trim() : '';
+    const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
+    const force = req.query.force === 'true';
+
+    // 1. If a specific department or faculty live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/announcement-all)
+    if (deptUrl && deptUrl.startsWith('http')) {
+      const cacheKey = `dept_ann_${deptUrl}`;
+      if (!force && cachedDepartmentAnnouncementsMap.has(cacheKey)) {
+        const cached = cachedDepartmentAnnouncementsMap.get(cacheKey)!;
+        if (Date.now() - cached.time < CACHE_TTL) {
+          return res.json(cached.data);
+        }
+      }
+
+      try {
+        const response = await axiosInstance.get(deptUrl, { timeout: 6000 });
+        const $ = cheerio.load(response.data);
+        const list: any[] = [];
+        const base = deptUrl.split('/tr')[0];
+
+        $('.announcement-item, a.announcement-item, a[href*="announcement-detail"], .announcement-all-item, .duyuru-item, a.full-link-item').each((i, el) => {
+          let title = $(el).find('.announcement-item-title, .announcement-title, .title, .title-wrapper .text, h3, h4').text().trim().replace(/\s+/g, ' ');
+          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
+          if (!title || title.length < 5) return;
+
+          let rawDate = $(el).find('.announcement-item-date, .announcement-date, .date, .time, .link-footer .date .text, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let href = $(el).attr('href') || $(el).find('a').attr('href');
+          if (href && !href.startsWith('http')) {
+            href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
+          }
+
+          let img = $(el).find('img').attr('src');
+          if (img && !img.startsWith('http')) {
+            img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
+          }
+
+          list.push({
+            id: `dept-ann-live-${deptId || 'item'}-${i}-${Date.now()}`,
+            title,
+            date: rawDate || 'Güncel',
+            url: href || deptUrl,
+            imageUrl: img || undefined,
+            facultyId: facultyId || '',
+            facultyName: '',
+            departmentId: deptId || '',
+            departmentName: '',
+            sourceUrl: deptUrl,
+            category: 'Bölüm Duyuruları'
+          });
+        });
+
+        if (list.length > 0) {
+          cachedDepartmentAnnouncementsMap.set(cacheKey, { data: list, time: Date.now() });
+          return res.json(list);
+        }
+      } catch (scrapeErr) {
+        console.warn('Live department announcements scrape failed for', deptUrl, scrapeErr);
+      }
+    }
+
+    // 2. Filter fallback department announcements
+    let result = [...FALLBACK_DEPARTMENT_ANNOUNCEMENTS];
+    if (deptId && deptId !== 'all') {
+      const match = result.filter(item => (item.departmentId && item.departmentId === deptId) || item.id.includes(deptId));
+      if (match.length > 0) result = match;
+    } else if (facultyId && facultyId !== 'all') {
+      const match = result.filter(item => item.facultyId === facultyId);
+      if (match.length > 0) result = match;
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Department announcements error:', error);
+    res.json(FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
   }
 });
 

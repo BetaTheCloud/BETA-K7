@@ -6,6 +6,7 @@ import {
   PhonebookEntry,
   AcademicStaffMember,
   DepartmentNewsItem,
+  DepartmentAnnouncementItem,
   CampusEvent,
   CampusForm,
   CampusBuilding
@@ -13,11 +14,12 @@ import {
 import { getApiUrl, safeFetch } from './config';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
-import { FALLBACK_DEPARTMENT_NEWS } from './data/departmentNewsData';
+import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';
 
 // ================= FALLBACK DATA =================
 
 export const FALLBACK_STAFF: AcademicStaffMember[] = ACADEMIC_STAFF_DATA;
+export { FALLBACK_DEPARTMENT_ANNOUNCEMENTS };
 
 export const FALLBACK_ANNOUNCEMENTS: Announcement[] = [
   {
@@ -858,6 +860,54 @@ export const getDepartmentNews = async (
   let fallback = FALLBACK_DEPARTMENT_NEWS;
   if (deptId && deptId !== 'all') {
     const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
+    if (matched.length > 0) return matched;
+  } else if (facultyId && facultyId !== 'all') {
+    const matched = fallback.filter(i => i.facultyId === facultyId);
+    if (matched.length > 0) return matched;
+  }
+
+  return cached.data || fallback;
+};
+
+export const getDepartmentAnnouncements = async (
+  deptUrl?: string,
+  deptId?: string,
+  facultyId?: string,
+  force: boolean = false
+): Promise<DepartmentAnnouncementItem[]> => {
+  const cacheKey = `k7_cached_dept_ann_${deptId || deptUrl || facultyId || 'all'}`;
+  const cached = getStoredWithTTL<DepartmentAnnouncementItem[]>(cacheKey, CACHE_TTL.ANNOUNCEMENTS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
+  
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return cached.data;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (deptUrl) params.append('deptUrl', deptUrl);
+    if (deptId) params.append('deptId', deptId);
+    if (facultyId) params.append('facultyId', facultyId);
+    if (force) params.append('force', 'true');
+
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const response = await safeFetch(getApiUrl(`/api/department-announcements${queryStr}`));
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setStoredWithTTL(cacheKey, data);
+        notifySyncSuccess('live');
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("Bölüm duyuruları canlı alınamadı, önbellek kullanılıyor:", err);
+    notifySyncSuccess('cached');
+  }
+
+  // Filter fallback data if specific department or faculty requested
+  let fallback = FALLBACK_DEPARTMENT_ANNOUNCEMENTS;
+  if (deptId && deptId !== 'all') {
+    const matched = fallback.filter(i => (i.departmentId && i.departmentId === deptId) || i.id.includes(deptId));
     if (matched.length > 0) return matched;
   } else if (facultyId && facultyId !== 'all') {
     const matched = fallback.filter(i => i.facultyId === facultyId);
