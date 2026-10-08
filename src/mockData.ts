@@ -12,6 +12,7 @@ import {
   CampusBuilding
 } from './types';
 import { getApiUrl, safeFetch } from './config';
+import { deduplicateFeedList, cleanFeedTitle, normalizeFeedDate, parseDateToTimestamp } from './lib/utils';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';
@@ -1160,8 +1161,8 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 
 // ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
 export const CACHE_TTL = {
-  ANNOUNCEMENTS: 0,                   // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
-  NEWS: 0,                            // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  ANNOUNCEMENTS: 3 * 60 * 1000,       // 3 dakika -> Hızlı sayfa geçişleri için önbellek, arka planda güncel kalır
+  NEWS: 3 * 60 * 1000,                // 3 dakika -> Hızlı sayfa geçişleri için önbellek, arka planda güncel kalır
   MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir (sunucuyu yormaz)
   CALENDAR: 30 * 24 * 60 * 60 * 1000, // 30 gün -> Akademik takvim dönemliktir, önbellekten çalışır
   BOLOGNA: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Bologna ders planları dönemliktir, önbellekten çalışır
@@ -1289,58 +1290,72 @@ function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
   }
 }
 
+export const CACHE_STORAGE_KEYS = {
+  ANNOUNCEMENTS: 'k7_cache_announcements_v8',
+  NEWS: 'k7_cache_news_v8',
+  EVENTS: 'k7_cache_events_v8',
+  MENU: 'k7_cache_menu_v8',
+  CALENDAR: 'k7_cache_calendar_v8'
+};
+
+export function deduplicateList<T extends { id?: string; title?: string; url?: string; date?: string; content?: string; category?: string }>(items: T[]): T[] {
+  return deduplicateFeedList(items);
+}
+
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
-export const getAnnouncements = async (force: boolean = true): Promise<Announcement[]> => {
-  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
-    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
-    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
-    return [...liveList, ...missingFromFallback];
-  };
-
-  const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements_v6', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
+export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
+  const cached = getStoredWithTTL<Announcement[]>(CACHE_STORAGE_KEYS.ANNOUNCEMENTS, CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return deduplicateFeedList(cached.data);
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const merged = mergeWithFallbacks(data, FALLBACK_ANNOUNCEMENTS);
-        setStoredWithTTL('k7_cached_announcements_v6', merged);
+        const clean = deduplicateFeedList(data);
+        setStoredWithTTL(CACHE_STORAGE_KEYS.ANNOUNCEMENTS, clean);
+        try {
+          localStorage.setItem('k7_cached_announcements', JSON.stringify({ data: clean, timestamp: Date.now() }));
+          localStorage.setItem('k7_cached_announcements_v8', JSON.stringify({ data: clean, timestamp: Date.now() }));
+        } catch {}
         notifySyncSuccess('live');
-        return merged;
+        return clean;
       }
     }
   } catch (err) {
     console.warn("Duyurular canlı alınamadı, önbellek kullanılıyor:", err);
     notifySyncSuccess('cached');
   }
-  return cached.data || FALLBACK_ANNOUNCEMENTS;
+  return cached.data && cached.data.length > 0 ? deduplicateFeedList(cached.data) : FALLBACK_ANNOUNCEMENTS;
 };
 
-export const getNews = async (force: boolean = true): Promise<Announcement[]> => {
-  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
-    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
-    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
-    return [...liveList, ...missingFromFallback];
-  };
-
-  const cached = getStoredWithTTL<Announcement[]>('k7_cached_news_v6', CACHE_TTL.NEWS, FALLBACK_NEWS);
+export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
+  const cached = getStoredWithTTL<Announcement[]>(CACHE_STORAGE_KEYS.NEWS, CACHE_TTL.NEWS, FALLBACK_NEWS);
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return deduplicateFeedList(cached.data);
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const merged = mergeWithFallbacks(data, FALLBACK_NEWS);
-        setStoredWithTTL('k7_cached_news_v6', merged);
+        const clean = deduplicateFeedList(data);
+        setStoredWithTTL(CACHE_STORAGE_KEYS.NEWS, clean);
+        try {
+          localStorage.setItem('k7_cached_news', JSON.stringify({ data: clean, timestamp: Date.now() }));
+          localStorage.setItem('k7_cached_news_v8', JSON.stringify({ data: clean, timestamp: Date.now() }));
+        } catch {}
         notifySyncSuccess('live');
-        return merged;
+        return clean;
       }
     }
   } catch (err) {
     console.warn("Haberler canlı alınamadı, önbellek kullanılıyor:", err);
     notifySyncSuccess('cached');
   }
-  return cached.data || FALLBACK_NEWS;
+  return cached.data && cached.data.length > 0 ? deduplicateFeedList(cached.data) : FALLBACK_NEWS;
 };
 
 export const getDepartmentNews = async (
@@ -1353,7 +1368,7 @@ export const getDepartmentNews = async (
   const cached = getStoredWithTTL<DepartmentNewsItem[]>(cacheKey, CACHE_TTL.NEWS, FALLBACK_DEPARTMENT_NEWS);
   
   if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return cached.data;
+    return deduplicateFeedList(cached.data);
   }
 
   try {
@@ -1368,9 +1383,10 @@ export const getDepartmentNews = async (
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStoredWithTTL(cacheKey, data);
+        const clean = deduplicateFeedList(data);
+        setStoredWithTTL(cacheKey, clean);
         notifySyncSuccess('live');
-        return data;
+        return clean;
       }
     }
   } catch (err) {
@@ -1382,13 +1398,13 @@ export const getDepartmentNews = async (
   let fallback = FALLBACK_DEPARTMENT_NEWS;
   if (deptId && deptId !== 'all') {
     const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
-    if (matched.length > 0) return matched;
+    if (matched.length > 0) return deduplicateFeedList(matched);
   } else if (facultyId && facultyId !== 'all') {
     const matched = fallback.filter(i => i.facultyId === facultyId);
-    if (matched.length > 0) return matched;
+    if (matched.length > 0) return deduplicateFeedList(matched);
   }
 
-  return cached.data || fallback;
+  return cached.data ? deduplicateFeedList(cached.data) : fallback;
 };
 
 export const getDepartmentAnnouncements = async (
@@ -1401,7 +1417,7 @@ export const getDepartmentAnnouncements = async (
   const cached = getStoredWithTTL<DepartmentAnnouncementItem[]>(cacheKey, CACHE_TTL.ANNOUNCEMENTS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
   
   if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return cached.data;
+    return deduplicateFeedList(cached.data);
   }
 
   try {
@@ -1416,9 +1432,10 @@ export const getDepartmentAnnouncements = async (
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStoredWithTTL(cacheKey, data);
+        const clean = deduplicateFeedList(data);
+        setStoredWithTTL(cacheKey, clean);
         notifySyncSuccess('live');
-        return data;
+        return clean;
       }
     }
   } catch (err) {
@@ -1430,13 +1447,13 @@ export const getDepartmentAnnouncements = async (
   let fallback = FALLBACK_DEPARTMENT_ANNOUNCEMENTS;
   if (deptId && deptId !== 'all') {
     const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
-    if (matched.length > 0) return matched;
+    if (matched.length > 0) return deduplicateFeedList(matched);
   } else if (facultyId && facultyId !== 'all') {
     const matched = fallback.filter(i => i.facultyId === facultyId);
-    if (matched.length > 0) return matched;
+    if (matched.length > 0) return deduplicateFeedList(matched);
   }
 
-  return cached.data || fallback;
+  return cached.data ? deduplicateFeedList(cached.data) : fallback;
 };
 
 export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {

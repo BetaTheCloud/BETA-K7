@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle2, Database, ShieldCheck, X, ArrowUpRight, Clock, Activity, CloudSun, Megaphone, Newspaper } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getEffectiveApiBase, getApiUrl } from '../config';
+import { getEffectiveApiBase, getApiUrl, DEFAULT_REMOTE_API_BASE } from '../config';
 import { getAnnouncements, getNews, getMenu, getEvents, getCalendarEvents } from '../mockData';
 
 export type SyncState = 'live' | 'cached' | 'syncing' | 'offline';
@@ -59,18 +59,16 @@ export default function SyncStatusBadge() {
       if (res.ok) {
         setLatencyMs(latency);
         setSyncState('live');
-        const now = Date.now();
-        setLastSyncTime(now);
         try {
           localStorage.setItem('k7_sync_mode', 'live');
-          localStorage.setItem('k7_last_live_sync_time', String(now));
         } catch {}
       } else {
-        // If custom/remote returned non-200, check if local endpoint responds
-        if (primaryUrl !== '/api/health') {
+        // If primary URL failed, try remote Render API if primary wasn't already remote
+        const remoteHealthUrl = `${DEFAULT_REMOTE_API_BASE}/api/health`;
+        if (primaryUrl !== remoteHealthUrl) {
           try {
-            const localRes = await fetch('/api/health');
-            if (localRes.ok) {
+            const remoteRes = await fetch(remoteHealthUrl);
+            if (remoteRes.ok) {
               setLatencyMs(Math.round(performance.now() - startTime));
               setSyncState('live');
               return;
@@ -80,7 +78,17 @@ export default function SyncStatusBadge() {
         setSyncState('cached');
       }
     } catch {
-      // Fallback check to local /api/health in case remote was sleeping
+      // Fallback check to remote Render API or local /api/health
+      const remoteHealthUrl = `${DEFAULT_REMOTE_API_BASE}/api/health`;
+      try {
+        const remoteRes = await fetch(remoteHealthUrl);
+        if (remoteRes.ok) {
+          setLatencyMs(Math.round(performance.now() - startTime));
+          setSyncState('live');
+          return;
+        }
+      } catch {}
+
       try {
         const localRes = await fetch('/api/health');
         if (localRes.ok) {

@@ -183,10 +183,11 @@ export function getApiUrl(path: string): string {
 
 /**
  * Robust fetch wrapper for mobile / cloud cold starts
- * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
+ * Retries on failure and sets an accommodating timeout (15s per attempt, 2 retries)
+ * for backend cold start awakening on free cloud hosting like Render.
  */
-export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
-  const timeoutMs = 10000; // 10s per attempt
+export async function safeFetch(url: string, options: RequestInit = {}, retries = 2): Promise<Response> {
+  const timeoutMs = 15000; // 15s per attempt for cold starts
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
