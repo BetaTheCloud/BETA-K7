@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
+import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
 import qs from 'qs';
 import * as cheerio from 'cheerio';
@@ -114,8 +114,8 @@ let cachedFacultiesTime: Record<string, number> = {};
 const CACHE_FAC_TTL = 3600 * 1000; // 1 hour
 
 app.get('/api/bologna/faculties', async (req, res) => {
-  const type = (req.query.type as string) || 'lis';
   try {
+    const type = (req.query.type as string) || 'lis';
     if (!['myo', 'lis', 'yls', 'dok'].includes(type)) {
        return res.status(400).json({ error: 'Invalid type parameter' });
     }
@@ -154,8 +154,8 @@ app.get('/api/bologna/faculties', async (req, res) => {
     cachedFacultiesTime[type] = Date.now();
     res.json(faculties);
   } catch (error) {
-    console.warn("Faculties fetch error:", error);
-    res.json(cachedFaculties[type] || []);
+    console.error("Faculties fetch error", error);
+    res.status(500).json({ error: 'Failed to fetch faculties' });
   }
 });
 
@@ -221,8 +221,8 @@ app.get('/api/bologna/courses', async (req, res) => {
     
     res.json(courses);
   } catch (error) {
-    console.warn("Courses fetch error, returning empty list:", error);
-    res.json([]);
+    console.error("Courses fetch error", error);
+    res.status(500).json({ error: 'Failed to fetch courses' });
   }
 });
 
@@ -312,8 +312,8 @@ app.get('/api/bologna/courseDetail', async (req, res) => {
     
     res.json({ outcomes, weeklyTopics, description });
   } catch (error) {
-    console.warn("Course detail error, returning fallback:", error);
-    res.json({ outcomes: [], weeklyTopics: [], description: 'Ders detayları Bologna/OBS sisteminde yer almaktadır.' });
+    console.error("Course detail error:", error);
+    res.status(500).json({ error: 'Failed to fetch course details' });
   }
 });
 
@@ -931,137 +931,6 @@ const DEFAULT_MENU = [
   { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
-function slugToCleanTitle(slug: string): string {
-  if (!slug) return '';
-  let s = slug.replace(/-[A-Za-z0-9]{4,6}$/, '');
-  const dict: Record<string, string> = {
-    'rektorumuz': 'Rektörümüz',
-    'akmandan': 'Akman’dan',
-    'akman': 'Akman',
-    'karatas': 'Karataş',
-    'kampusune': 'Kampüsü’ne',
-    'kampusu': 'Kampüsü',
-    'kampus': 'Kampüs',
-    'ziyaret': 'Ziyaret',
-    'akademik': 'Akademik',
-    'yili': 'Yılı',
-    'acilis': 'Açılış',
-    'torenine': 'Töreni’ne',
-    'toreni': 'Töreni',
-    'katildi': 'Katıldı',
-    'teknofest': 'TEKNOFEST',
-    'universitemiz': 'Üniversitemiz',
-    'universitemizde': 'Üniversitemizde',
-    'universitemizi': 'Üniversitemizi',
-    'greenmetric': 'GreenMetric',
-    'dunya': 'Dünya',
-    'siralamasinda': 'Sıralamasında',
-    'ilk': 'İlk',
-    'binde': 'Binde',
-    'ogrencilerimize': 'Öğrencilerimize',
-    'ogrenci': 'Öğrenci',
-    'ogrencilerin': 'Öğrencilerin',
-    'ders': 'Ders',
-    'milli': 'Millî',
-    'dayanisma': 'Dayanışma',
-    'kardeslik': 'Kardeşlik',
-    'demokrasi': 'Demokrasi',
-    'bilal-i': 'Bilal-i',
-    'habes': 'Habeş',
-    'erkek': 'Erkek',
-    'yurduna': 'Yurdu’na',
-    'egitim': 'Eğitim',
-    'ogretim': 'Öğretim',
-    'oryantasyon': 'Oryantasyon',
-    'programi': 'Programı',
-    'basladi': 'Başladı',
-    'yks': 'YKS',
-    'ek': 'Ek',
-    'kontenjaniyla': 'Kontenjanıyla',
-    'kontenjan': 'Kontenjan',
-    'kazanan': 'Kazanan',
-    'kayit': 'Kayıt',
-    'kabul': 'Kabul',
-    'islemleri': 'İşlemleri',
-    'vefat': 'Vefat',
-    'bassagligi': 'Başsağlığı',
-    'mesaji': 'Mesajı',
-    'sozlesmeli': 'Sözleşmeli',
-    'personel': 'Personel',
-    'personeli': 'Personeli',
-    'destek': 'Destek',
-    'hizmetli': 'Hizmetli',
-    'yedek': 'Yedek',
-    'adaylardan': 'Adaylardan',
-    'yerlestirme': 'Yerleştirme',
-    'sonuc': 'Sonuç',
-    'listesi': 'Listesi',
-    'erasmus': 'Erasmus+',
-    'yabanci': 'Yabancı',
-    'dil': 'Dil',
-    'sinavi': 'Sınavı',
-    'tarihi': 'Tarihi',
-    'uygulama': 'Uygulama',
-    'bilgileri': 'Bilgileri',
-    'atanmaya': 'Atanmaya',
-    'hak': 'Hak',
-    'kazananlardan': 'Kazananlardan',
-    'istenilen': 'İstenilen',
-    'belgeler': 'Belgeler',
-    'ingilizce': 'İngilizce',
-    'muafiyet': 'Muafiyet',
-    'sonuclari': 'Sonuçları',
-    'kitap': 'Kitap',
-    'bolumu': 'Bölümü',
-    'cagrisi': 'Çağrısı:',
-    'orta': 'Orta',
-    'doguda': 'Doğu’da',
-    'kadin': 'Kadın',
-    'aile': 'Aile',
-    '4b': '4/B'
-  };
-
-  const words = s.split('-');
-  const capitalized = words.map(w => {
-    const lower = w.toLowerCase();
-    if (dict[lower]) return dict[lower];
-    if (/^\d+$/.test(w)) return w;
-    return w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1).toLocaleLowerCase('tr-TR');
-  });
-  return capitalized.join(' ');
-}
-
-function cleanScrapedTitleAndDate(rawTitle: string, rawDate?: string) {
-  let text = (rawTitle || '').replace(/\s+/g, ' ').trim();
-  text = text.replace(/DEVAMI\.\.\./g, '').trim();
-
-  let date = rawDate || '';
-  const dateMatch = text.match(/^(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}|\d{1,2}\.\d{1,2}\.\d{4}|\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)/);
-  if (dateMatch) {
-    if (!date) date = dateMatch[1];
-    text = text.replace(dateMatch[0], '').trim();
-  }
-
-  // Remove leading breadcrumb if starts with slash
-  if (text.startsWith('/')) {
-    text = text.replace(/^\/\s*([^\/]+?(Fakültesi|Yüksekokulu|Enstitüsü|Başkanlığı|Koordinatörlüğü|Bölümü|Programı)[^\/]*?)\s+(?=[A-ZÇĞİÖŞÜ0-9"“])/i, '').trim();
-    text = text.replace(/^\/\s*/, '').trim();
-  }
-
-  // Deduplicate consecutive repeated phrases (e.g. "Türk Dili Bölümü Türk Dili Bölümü ...")
-  text = text.replace(/^(.{5,40}?)\s+\1/i, '$1').trim();
-
-  // Format ISO release date to Turkish date if needed
-  if (date && date.includes('T') && date.includes('Z')) {
-    try {
-      const d = new Date(date);
-      date = d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-    } catch {}
-  }
-
-  return { title: text, date: date || 'Güncel' };
-}
-
 app.get('/api/announcements', async (req, res) => {
   try {
     if (req.query.force !== 'true' && Date.now() - cachedAnnouncementsTime < CACHE_TTL && cachedAnnouncements.length > 0) {
@@ -1070,85 +939,54 @@ app.get('/api/announcements', async (req, res) => {
     
     const announcements: any[] = [];
     
-    // 1. Fetch Main Announcements from Main Site (supports both JSON API and HTML)
+    // Main Announcements
     try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr', { timeout: 6000 });
-      if (response.data && typeof response.data === 'object' && response.data.data) {
-        const dataObj = response.data.data;
-        const mainList = dataObj.announcements_last_8 || dataObj.announcements || (Array.isArray(dataObj.data) ? dataObj.data : []);
-        if (Array.isArray(mainList)) {
-          mainList.forEach((item: any, i: number) => {
-            if (item.slug) {
-              const cleanTitle = slugToCleanTitle(item.slug);
-              let dateStr = item.release_date || item.created_at || '';
-              if (dateStr) {
-                try {
-                  dateStr = new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-                } catch {}
-              }
-              announcements.push({
-                id: `ann-main-json-${item.id || i}`,
-                title: cleanTitle,
-                date: dateStr || 'Güncel',
-                content: '',
-                category: 'Ana Duyurular',
-                url: `https://www.kilis.edu.tr/tr/duyuru/${item.slug}`
-              });
-            }
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 6000 });
+      const $ = cheerio.load(response.data);
+      $('a.full-link-item').each((i, el) => {
+        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
+        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
+        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
+        let href = $(el).attr('href') || '';
+        if (href && !href.startsWith('http')) {
+          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+        }
+        
+        if (title) {
+          announcements.push({
+            id: `ann-main-${i}`,
+            title: title,
+            date: dateStr || new Date().toISOString(),
+            content: '',
+            category: 'Ana Duyurular',
+            url: href
           });
         }
-      } else if (typeof response.data === 'string') {
-        const $ = cheerio.load(response.data);
-        $('a[href*="/tr/duyuru/"]').each((i, el) => {
-          const href = $(el).attr('href') || '';
-          const rawText = $(el).text().trim().replace(/\s+/g, ' ');
-          if (href && rawText.length > 5 && !rawText.toLowerCase().includes('tüm duyurular')) {
-            const { title, date } = cleanScrapedTitleAndDate(rawText);
-            const fullUrl = href.startsWith('http') ? href : `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-            if (title && !announcements.some(a => a.url === fullUrl || a.title === title)) {
-              announcements.push({
-                id: `ann-main-html-${i}`,
-                title: title,
-                date: date,
-                content: '',
-                category: 'Ana Duyurular',
-                url: fullUrl
-              });
-            }
-          }
-        });
-      }
-    } catch(e) {
-      console.warn('Main announcements live scrape error');
-    }
+      });
+    } catch(e) { console.error('Main ann fetch error'); }
 
-    // 2. Fetch All Academic & Administrative Units Announcements in Parallel
+    // All Academic & Administrative Units Announcements (parallel with fast timeout)
     await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
       try {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        if (typeof facRes.data === 'string') {
-          const $ = cheerio.load(facRes.data);
-          $('a[href*="announcements-detail"], a[href*="announcement-detail"], .announcement-item, .full-link-item').each((i, el) => {
-            const href = $(el).attr('href') || $(el).find('a').attr('href') || '';
-            const rawText = $(el).text().trim().replace(/\s+/g, ' ');
-            if (rawText.length > 5 && !rawText.toLowerCase().includes('tüm duyuru')) {
-              const { title, date } = cleanScrapedTitleAndDate(rawText);
-              const fullUrl = href.startsWith('http') ? href : `${fac.url}${href.startsWith('/') ? '' : '/'}${href}`;
-              if (title && !announcements.some(a => a.url === fullUrl || a.title === title)) {
-                announcements.push({
-                  id: `ann-unit-${index}-${i}`,
-                  title: title,
-                  date: date,
-                  content: '',
-                  category: fac.name,
-                  url: fullUrl
-                });
-              }
-            }
-          });
-        }
+        const $ = cheerio.load(facRes.data);
+        $('.announcement-item, a[href*="announcement-detail"], .full-link-item').each((i, el) => {
+          let title = $(el).find('.announcement-title, .title-wrapper .text, .title, h3, h4').text().trim();
+          let dateStr = $(el).find('.announcement-date, .link-footer .date .text, .date').text().trim();
+          let url = $(el).attr('href') || $(el).find('a').attr('href');
+          if (title && title.length > 4) {
+            announcements.push({
+              id: `ann-unit-${index}-${i}`,
+              title: title,
+              date: dateStr || new Date().toISOString(),
+              content: '',
+              category: fac.name,
+              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
+            });
+          }
+        });
       } catch (e) {
-        // Silently continue
+        // Silently handle
       }
     });
 
@@ -1160,7 +998,7 @@ app.get('/api/announcements', async (req, res) => {
 
     res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
   } catch (error) {
-    console.warn('Announcements error, returning default data:', error);
+    console.error('Announcements error, returning default data:', error);
     res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
   }
 });
@@ -1173,85 +1011,54 @@ app.get('/api/news', async (req, res) => {
     
     const news: any[] = [];
     
-    // 1. Fetch Main News from Main Site (supports both JSON API and HTML)
+    // Main News
     try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr', { timeout: 6000 });
-      if (response.data && typeof response.data === 'object' && response.data.data) {
-        const dataObj = response.data.data;
-        const mainList = dataObj.news_all_11 || dataObj.other_news_4 || dataObj.news || (Array.isArray(dataObj.data) ? dataObj.data : []);
-        if (Array.isArray(mainList)) {
-          mainList.forEach((item: any, i: number) => {
-            if (item.slug) {
-              const cleanTitle = slugToCleanTitle(item.slug);
-              let dateStr = item.release_date || item.created_at || '';
-              if (dateStr) {
-                try {
-                  dateStr = new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-                } catch {}
-              }
-              news.push({
-                id: `news-main-json-${item.id || i}`,
-                title: cleanTitle,
-                date: dateStr || 'Güncel',
-                content: '',
-                category: 'Üniversite Haberleri',
-                url: `https://www.kilis.edu.tr/tr/haber/${item.slug}`
-              });
-            }
+      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 6000 });
+      const $ = cheerio.load(response.data);
+      $('a.full-link-item').each((i, el) => {
+        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
+        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
+        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
+        let href = $(el).attr('href') || '';
+        if (href && !href.startsWith('http')) {
+          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+        }
+        
+        if (title) {
+          news.push({
+            id: `news-main-${i}`,
+            title: title,
+            date: dateStr || new Date().toISOString(),
+            content: '',
+            category: 'Üniversite Haberleri',
+            url: href
           });
         }
-      } else if (typeof response.data === 'string') {
-        const $ = cheerio.load(response.data);
-        $('a[href*="/tr/haber/"]').each((i, el) => {
-          const href = $(el).attr('href') || '';
-          const rawText = $(el).text().trim().replace(/\s+/g, ' ');
-          if (href && rawText.length > 5 && !rawText.toLowerCase().includes('tüm haberler')) {
-            const { title, date } = cleanScrapedTitleAndDate(rawText);
-            const fullUrl = href.startsWith('http') ? href : `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-            if (title && !news.some(n => n.url === fullUrl || n.title === title)) {
-              news.push({
-                id: `news-main-html-${i}`,
-                title: title,
-                date: date,
-                content: '',
-                category: 'Üniversite Haberleri',
-                url: fullUrl
-              });
-            }
-          }
-        });
-      }
-    } catch(e) {
-      console.warn('Main news live scrape error');
-    }
+      });
+    } catch(e) { console.error('Main news fetch error'); }
 
-    // 2. Fetch All Academic & Administrative Units News in Parallel
+    // All Academic & Administrative Units News (parallel with fast timeout)
     await processInChunks(ALL_UNIVERSITY_UNITS, 6, async (fac, index) => {
       try {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        if (typeof facRes.data === 'string') {
-          const $ = cheerio.load(facRes.data);
-          $('a[href*="news-detail"], .news-item, .news-all-item, .full-link-item').each((i, el) => {
-            const href = $(el).attr('href') || $(el).find('a').attr('href') || '';
-            const rawText = $(el).text().trim().replace(/\s+/g, ' ');
-            if (rawText.length > 5 && !rawText.toLowerCase().includes('tüm haber')) {
-              const { title, date } = cleanScrapedTitleAndDate(rawText);
-              const fullUrl = href.startsWith('http') ? href : `${fac.url}${href.startsWith('/') ? '' : '/'}${href}`;
-              if (title && !news.some(n => n.url === fullUrl || n.title === title)) {
-                news.push({
-                  id: `news-unit-${index}-${i}`,
-                  title: title,
-                  date: date,
-                  content: '',
-                  category: fac.name,
-                  url: fullUrl
-                });
-              }
-            }
-          });
-        }
+        const $ = cheerio.load(facRes.data);
+        $('.news-item, a[href*="news-detail"], .news-all-item, .full-link-item').each((i, el) => {
+          let title = $(el).find('.news-title, .title-wrapper .text, .news-item-title, .title, h3, h4').text().trim();
+          let dateStr = $(el).find('.news-date, .link-footer .date .text, .news-item-date, .date').text().trim();
+          let url = $(el).attr('href') || $(el).find('a').attr('href');
+          if (title && title.length > 4) {
+            news.push({
+              id: `news-unit-${index}-${i}`,
+              title: title,
+              date: dateStr || new Date().toISOString(),
+              content: '',
+              category: fac.name,
+              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
+            });
+          }
+        });
       } catch (e) {
-        // Silently continue
+        // Silently handle
       }
     });
 
@@ -1263,98 +1070,13 @@ app.get('/api/news', async (req, res) => {
 
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   } catch (error) {
-    console.warn('News error, returning default data:', error);
+    console.error('News error, returning default data:', error);
     res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
   }
 });
 
 // Cache for department specific news
 const cachedDepartmentNewsMap = new Map<string, { data: any[]; time: number }>();
-
-// Enhanced Department Live Scraper
-async function scrapeDepartmentItems(
-  deptUrl: string,
-  type: 'news' | 'announcements',
-  deptId?: string,
-  facultyId?: string
-) {
-  const list: any[] = [];
-  if (!deptUrl || !deptUrl.startsWith('http')) return list;
-
-  const base = deptUrl.split('/tr')[0];
-  const candidateUrls: string[] = [];
-
-  if (type === 'announcements') {
-    candidateUrls.push(`${base}/tr/announcements-all`);
-    candidateUrls.push(`${base}/tr`);
-    candidateUrls.push(deptUrl);
-  } else {
-    candidateUrls.push(`${base}/tr/news-all`);
-    candidateUrls.push(`${base}/tr`);
-    candidateUrls.push(deptUrl);
-  }
-
-  const uniqueCandidateUrls = Array.from(new Set(candidateUrls));
-
-  for (const url of uniqueCandidateUrls) {
-    try {
-      const response = await axiosInstance.get(url, { timeout: 4500 });
-      if (!response.data || typeof response.data !== 'string') continue;
-      const $ = cheerio.load(response.data);
-
-      const targetDetailPattern = type === 'announcements' 
-        ? /(announcements-detail|announcement-detail|duyuru)/i
-        : /(news-detail|haber)/i;
-
-      $('a').each((i, el) => {
-        const href = $(el).attr('href');
-        if (!href) return;
-
-        const isDetail = targetDetailPattern.test(href);
-        const hasItemClass = $(el).hasClass('announcement-item') || $(el).hasClass('news-item') || $(el).closest('.announcement-item, .news-item, .card').length > 0;
-
-        if (!isDetail && !hasItemClass) return;
-
-        let fullHref = href.startsWith('http') ? href : `${base}${href.startsWith('/') ? '' : '/'}${href}`;
-        if (fullHref === `${base}/tr` || fullHref === `${base}/` || fullHref.endsWith('/tr/news-all') || fullHref.endsWith('/tr/announcements-all')) return;
-
-        const rawText = $(el).text().trim().replace(/\s+/g, ' ');
-        if (rawText.length < 5 || rawText.toLowerCase().includes('tüm haber') || rawText.toLowerCase().includes('tüm duyuru')) return;
-
-        const { title: cleanTitle, date: cleanDate } = cleanScrapedTitleAndDate(rawText);
-
-        let img = $(el).find('img').attr('src');
-        if (img && !img.startsWith('http')) {
-          img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
-        }
-
-        if (cleanTitle && cleanTitle.length > 5 && !list.some(x => x.url === fullHref || x.title === cleanTitle)) {
-          list.push({
-            id: `dept-${type === 'announcements' ? 'ann' : 'news'}-live-${deptId || 'item'}-${list.length}-${Date.now()}`,
-            title: cleanTitle,
-            date: cleanDate || 'Güncel',
-            url: fullHref,
-            imageUrl: img || undefined,
-            facultyId: facultyId || '',
-            facultyName: '',
-            departmentId: deptId || '',
-            departmentName: '',
-            sourceUrl: url,
-            category: type === 'announcements' ? 'Bölüm Duyuruları' : 'Bölüm Haberleri'
-          });
-        }
-      });
-
-      if (list.length > 0) {
-        break;
-      }
-    } catch (err) {
-      // Continue to next candidate URL
-    }
-  }
-
-  return list;
-}
 
 app.get('/api/department-news', async (req, res) => {
   try {
@@ -1363,9 +1085,9 @@ app.get('/api/department-news', async (req, res) => {
     const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
     const force = req.query.force === 'true';
 
-    // 1. Live scraping
+    // 1. If a specific department live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/news-all)
     if (deptUrl && deptUrl.startsWith('http')) {
-      const cacheKey = `dept_news_${deptUrl}_${deptId}_${facultyId}`;
+      const cacheKey = `dept_${deptUrl}`;
       if (!force && cachedDepartmentNewsMap.has(cacheKey)) {
         const cached = cachedDepartmentNewsMap.get(cacheKey)!;
         if (Date.now() - cached.time < CACHE_TTL) {
@@ -1373,22 +1095,57 @@ app.get('/api/department-news', async (req, res) => {
         }
       }
 
-      const list = await scrapeDepartmentItems(deptUrl, 'news', deptId, facultyId);
-      if (list.length > 0) {
-        cachedDepartmentNewsMap.set(cacheKey, { data: list, time: Date.now() });
-        return res.json(list);
+      try {
+        const response = await axiosInstance.get(deptUrl, { timeout: 6000 });
+        const $ = cheerio.load(response.data);
+        const list: any[] = [];
+        const base = deptUrl.split('/tr')[0];
+
+        $('.news-item, a.news-item, a[href*="news-detail"], .news-all-item').each((i, el) => {
+          let title = $(el).find('.news-item-title, .title, h3, h4').text().trim().replace(/\s+/g, ' ');
+          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
+          if (!title || title.length < 5) return;
+
+          let rawDate = $(el).find('.news-item-date, .date, .time, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let href = $(el).attr('href') || $(el).find('a').attr('href');
+          if (href && !href.startsWith('http')) {
+            href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
+          }
+
+          let img = $(el).find('img').attr('src');
+          if (img && !img.startsWith('http')) {
+            img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
+          }
+
+          list.push({
+            id: `dept-live-${deptId || 'item'}-${i}-${Date.now()}`,
+            title,
+            date: rawDate || 'Güncel',
+            url: href || deptUrl,
+            imageUrl: img || undefined,
+            facultyId: facultyId || '',
+            facultyName: '',
+            departmentId: deptId || '',
+            departmentName: '',
+            sourceUrl: deptUrl,
+            category: 'Bölüm Haberleri'
+          });
+        });
+
+        if (list.length > 0) {
+          cachedDepartmentNewsMap.set(cacheKey, { data: list, time: Date.now() });
+          return res.json(list);
+        }
+      } catch (scrapeErr) {
+        console.warn('Live department scrape failed for', deptUrl, scrapeErr);
       }
     }
 
     // 2. Filter fallback department news
     let result = [...FALLBACK_DEPARTMENT_NEWS];
     if (deptId && deptId !== 'all') {
-      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
+      const match = result.filter(item => item.departmentId === deptId || item.id.includes(deptId));
       if (match.length > 0) result = match;
-      else if (facultyId && facultyId !== 'all') {
-        const facMatch = result.filter(item => item.facultyId === facultyId);
-        if (facMatch.length > 0) result = facMatch;
-      }
     } else if (facultyId && facultyId !== 'all') {
       const match = result.filter(item => item.facultyId === facultyId);
       if (match.length > 0) result = match;
@@ -1396,7 +1153,7 @@ app.get('/api/department-news', async (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    console.warn('Department news error:', error);
+    console.error('Department news error:', error);
     res.json(FALLBACK_DEPARTMENT_NEWS);
   }
 });
@@ -1411,9 +1168,9 @@ app.get('/api/department-announcements', async (req, res) => {
     const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
     const force = req.query.force === 'true';
 
-    // 1. Live scraping
+    // 1. If a specific department live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/announcement-all)
     if (deptUrl && deptUrl.startsWith('http')) {
-      const cacheKey = `dept_ann_${deptUrl}_${deptId}_${facultyId}`;
+      const cacheKey = `dept_ann_${deptUrl}`;
       if (!force && cachedDepartmentAnnMap.has(cacheKey)) {
         const cached = cachedDepartmentAnnMap.get(cacheKey)!;
         if (Date.now() - cached.time < CACHE_TTL) {
@@ -1421,22 +1178,57 @@ app.get('/api/department-announcements', async (req, res) => {
         }
       }
 
-      const list = await scrapeDepartmentItems(deptUrl, 'announcements', deptId, facultyId);
-      if (list.length > 0) {
-        cachedDepartmentAnnMap.set(cacheKey, { data: list, time: Date.now() });
-        return res.json(list);
+      try {
+        const response = await axiosInstance.get(deptUrl, { timeout: 6000 });
+        const $ = cheerio.load(response.data);
+        const list: any[] = [];
+        const base = deptUrl.split('/tr')[0];
+
+        $('.announcement-item, a.announcement-item, a[href*="announcement-detail"], .announcement-all-item, .full-link-item').each((i, el) => {
+          let title = $(el).find('.announcement-item-title, .title-wrapper .text, .title, h3, h4').text().trim().replace(/\s+/g, ' ');
+          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
+          if (!title || title.length < 5) return;
+
+          let rawDate = $(el).find('.announcement-item-date, .date, .time, .link-footer .date .text, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let href = $(el).attr('href') || $(el).find('a').attr('href');
+          if (href && !href.startsWith('http')) {
+            href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
+          }
+
+          let img = $(el).find('img').attr('src');
+          if (img && !img.startsWith('http')) {
+            img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
+          }
+
+          list.push({
+            id: `dept-ann-live-${deptId || 'item'}-${i}-${Date.now()}`,
+            title,
+            date: rawDate || 'Güncel',
+            url: href || deptUrl,
+            imageUrl: img || undefined,
+            facultyId: facultyId || '',
+            facultyName: '',
+            departmentId: deptId || '',
+            departmentName: '',
+            sourceUrl: deptUrl,
+            category: 'Bölüm Duyuruları'
+          });
+        });
+
+        if (list.length > 0) {
+          cachedDepartmentAnnMap.set(cacheKey, { data: list, time: Date.now() });
+          return res.json(list);
+        }
+      } catch (scrapeErr) {
+        console.warn('Live department announcements scrape failed for', deptUrl, scrapeErr);
       }
     }
 
     // 2. Filter fallback department announcements
     let result = [...FALLBACK_DEPARTMENT_ANNOUNCEMENTS];
     if (deptId && deptId !== 'all') {
-      const match = result.filter(item => item.departmentId === deptId || item.facultyId === deptId || item.id.includes(deptId));
+      const match = result.filter(item => item.departmentId === deptId || item.id.includes(deptId));
       if (match.length > 0) result = match;
-      else if (facultyId && facultyId !== 'all') {
-        const facMatch = result.filter(item => item.facultyId === facultyId);
-        if (facMatch.length > 0) result = facMatch;
-      }
     } else if (facultyId && facultyId !== 'all') {
       const match = result.filter(item => item.facultyId === facultyId);
       if (match.length > 0) result = match;
@@ -1798,13 +1590,7 @@ app.get('/api/detail', async (req, res) => {
     
     res.json({ title, contentHtml, imageUrl, images });
   } catch (error) {
-    console.warn("Detail content fetch error, returning graceful fallback:", error);
-    res.json({
-      title: '',
-      contentHtml: '<p class="text-stone-600 dark:text-white/70">İçerik doğrudan üniversite resmi web sayfasında mevcuttur. "Kaynağına Git" butonunu kullanarak orijinal sayfayı inceleyebilirsiniz.</p>',
-      imageUrl: '',
-      images: []
-    });
+    res.status(500).json({ error: 'Failed to fetch detail content' });
   }
 });
 
@@ -2413,41 +2199,21 @@ app.get('/api/campus-map', (req, res) => {
 });
 
 async function startServer() {
-  const isCjsBundle = typeof __filename !== 'undefined' && (__filename.endsWith('.cjs') || __filename.includes('/dist/'));
-  const hasDist = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
-  const isRender = process.env.RENDER === 'true' || Boolean(process.env.RENDER_SERVICE_ID);
-  const isProduction = process.env.NODE_ENV === 'production' || isCjsBundle || isRender || (!process.env.VITE_DEV && hasDist);
-
-  if (!isProduction) {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-      console.log('⚡ Vite development middleware mounted');
-    } catch (err) {
-      console.warn('Vite dev middleware could not start, serving static build if available:', err);
-      const distPath = path.join(process.cwd(), 'dist');
-      if (fs.existsSync(distPath)) {
-        app.use(express.static(distPath));
-        app.get('*', (req, res) => {
-          res.sendFile(path.join(distPath, 'index.html'));
-        });
-      }
-    }
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
-    console.log(`📦 Serving production build from: ${distPath}`);
   }
-
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on http://0.0.0.0:${PORT} (Mode: ${isProduction ? 'Production' : 'Development'})`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

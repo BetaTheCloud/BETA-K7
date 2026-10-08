@@ -12,22 +12,13 @@ import {
   FALLBACK_MENU
 } from '../mockData';
 import { Announcement, MenuItem, CampusEvent } from '../types';
-import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Clock, MapPin, Pin, Star } from 'lucide-react';
+import { Megaphone, Newspaper, ChefHat, ChevronRight, Search, Calendar, FileText, BookOpen, Trophy, LayoutGrid, Users, Utensils, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
-import { cn, parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/utils';
-import {
-  getPinnedUnit,
-  PinnedUnit,
-  PINNED_EVENT_NAME,
-  getFavoriteFeedItems,
-  toggleFavoriteFeedItem,
-  isFeedItemFavorited,
-  FAVORITES_EVENT_NAME
-} from '../lib/pinnedStorage';
+import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/utils';
 
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -50,29 +41,8 @@ export default function Home() {
 
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
 
-  // Pinned unit & favorites states
-  const [pinnedUnit, setPinnedUnit] = useState<PinnedUnit | null>(() => getPinnedUnit());
-  const [favoriteItems, setFavoriteItems] = useState<any[]>(() => getFavoriteFeedItems());
-
   // Modal State
   const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
-
-  useEffect(() => {
-    const handlePinnedChange = (e: any) => {
-      setPinnedUnit(e.detail || getPinnedUnit());
-    };
-    const handleFavoritesChange = (e: any) => {
-      setFavoriteItems(e.detail || getFavoriteFeedItems());
-    };
-
-    window.addEventListener(PINNED_EVENT_NAME, handlePinnedChange);
-    window.addEventListener(FAVORITES_EVENT_NAME, handleFavoritesChange);
-
-    return () => {
-      window.removeEventListener(PINNED_EVENT_NAME, handlePinnedChange);
-      window.removeEventListener(FAVORITES_EVENT_NAME, handleFavoritesChange);
-    };
-  }, []);
 
   const handleRefresh = async () => {
     try {
@@ -292,148 +262,52 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pinned Unit Quick Access Banner */}
-      {pinnedUnit ? (
-        <section className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-              <Pin className="w-4.5 h-4.5 fill-amber-500 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                <span>Sabitlenen Biriminiz</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200">
-                  {pinnedUnit.isOnlyFaculty ? 'Fakülte Geneli' : 'Bölüm'}
-                </span>
-              </div>
-              <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white truncate">
-                {pinnedUnit.isOnlyFaculty
-                  ? pinnedUnit.facultyName
-                  : `${pinnedUnit.facultyName} • ${pinnedUnit.departmentName}`}
-              </div>
-            </div>
-          </div>
-          <Link
-            to={`/news?tab=department&faculty=${pinnedUnit.facultyId}${pinnedUnit.departmentId && pinnedUnit.departmentId !== 'all' ? `&dept=${pinnedUnit.departmentId}` : ''}`}
-            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs shrink-0"
-          >
-            Birim Masasını Aç
-          </Link>
-        </section>
-      ) : (
-        <section className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <Pin className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white truncate">
-                Kendi Bölümünün veya Fakültenin Duyuru & Haberlerini Sabitle
-              </div>
-              <div className="text-[11px] text-stone-500 dark:text-white/60 truncate">
-                Fakülteni veya bölümünü sabitleyip gelişmelerden anında haberdar ol.
-              </div>
-            </div>
-          </div>
-          <Link
-            to="/news?tab=department"
-            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shrink-0 shadow-xs"
-          >
-            Birim Sabitle
-          </Link>
-        </section>
-      )}
-
       {/* News Section (Haberler) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
           <h3 className="text-xl font-display font-bold flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
-            <span>Haberler</span>
+            Haberler
           </h3>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              to="/news?tab=department"
-              className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20"
-            >
-              Bölüm Masası
+          <div className="flex items-center gap-3">
+            <Link to="/news?tab=department" className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+              Bölüm Haberleri
             </Link>
-            <Link
-              to="/news?tab=all&type=news"
-              className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide"
-            >
+            <Link to="/news" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
               Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
             </Link>
           </div>
         </div>
         
         <div className="space-y-3">
-          {filteredNews.map((n) => {
-            const isFav = isFeedItemFavorited(`news-${n.id}`);
-
-            return (
-              <div
-                key={n.id}
-                onClick={() => setSelectedItem({
-                  url: n.url || '',
-                  title: n.title,
-                  date: n.date,
-                  category: n.category || 'Üniversite Haberleri',
-                  content: n.content,
-                  imageUrl: (n as any).imageUrl || (n as any).img
-                })}
-                className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 hover:border-amber-500/40 transition-colors focus:outline-none cursor-pointer group shadow-xs"
-              >
-                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
-                      <Newspaper className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                      <span>Haber</span>
-                    </span>
-                    {n.category && (
-                      <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 border border-stone-200 dark:border-white/10">
-                        {n.category}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {n.date && !n.date.includes('T') && (
-                      <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>{n.date}</span>
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavoriteFeedItem({
-                          id: `news-${n.id}`,
-                          title: n.title,
-                          date: n.date,
-                          category: n.category,
-                          type: 'news',
-                          url: n.url,
-                          content: n.content,
-                          imageUrl: (n as any).imageUrl || (n as any).img
-                        });
-                      }}
-                      title={isFav ? "Favorilerden Çıkar" : "Favoriye Ekle"}
-                      className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-white/10 text-stone-400 hover:text-amber-500 transition-colors cursor-pointer"
-                    >
-                      <Star className={cn("w-3.5 h-3.5", isFav ? "text-amber-500 fill-amber-500" : "text-stone-400")} />
-                    </button>
-                  </div>
-                </div>
-
-                <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {n.title}
-                </h4>
+          {filteredNews.map((n) => (
+            <button 
+              key={n.id} 
+              onClick={() => setSelectedItem({
+                url: n.url || '',
+                title: n.title,
+                date: n.date,
+                category: n.category,
+                content: n.content,
+                imageUrl: (n as any).imageUrl || (n as any).img
+              })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                  {n.category || 'Haber'}
+                </span>
+                {n.date && !n.date.includes('T') && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
+                    {n.date}
+                  </span>
+                )}
               </div>
-            );
-          })}
+              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
+                {n.title}
+              </h4>
+            </button>
+          ))}
           {filteredNews.length === 0 && (
             <div className="text-stone-500 italic text-sm px-2">Güncel haber bulunamadı.</div>
           )}
@@ -444,82 +318,42 @@ export default function Home() {
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1 border-b border-[#e6e2d6] dark:border-white/10 pb-2">
           <h3 className="text-xl font-display font-bold flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-sky-600 dark:text-sky-500" strokeWidth={1.5} />
-            <span>Duyurular</span>
+            <Megaphone className="w-5 h-5 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />
+            Duyurular
           </h3>
-          <Link
-            to="/news?tab=all&type=announcements"
-            className="text-sm text-stone-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors flex items-center gap-1 font-medium tracking-wide"
-          >
+          <Link to="/announcements" className="text-sm text-stone-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors flex items-center gap-1 font-medium tracking-wide">
             Tümünü Gör <ChevronRight strokeWidth={1.5} className="w-4 h-4" />
           </Link>
         </div>
         
         <div className="space-y-3">
-          {filteredAnnouncements.map((announcement) => {
-            const isFav = isFeedItemFavorited(`ann-${announcement.id}`);
-
-            return (
-              <div 
-                key={announcement.id} 
-                onClick={() => setSelectedItem({
-                  url: announcement.url || '',
-                  title: announcement.title,
-                  date: announcement.date,
-                  category: announcement.category || 'Duyuru',
-                  content: announcement.content
-                })}
-                className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 hover:border-sky-500/40 transition-colors focus:outline-none cursor-pointer group shadow-xs"
-              >
-                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/25">
-                      <Megaphone className="w-3 h-3 text-sky-600 dark:text-sky-400" />
-                      <span>Duyuru</span>
-                    </span>
-                    {announcement.category && (
-                      <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 border border-stone-200 dark:border-white/10">
-                        {announcement.category}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {announcement.date && !announcement.date.includes('T') && (
-                      <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>{announcement.date}</span>
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavoriteFeedItem({
-                          id: `ann-${announcement.id}`,
-                          title: announcement.title,
-                          date: announcement.date,
-                          category: announcement.category,
-                          type: 'announcement',
-                          url: announcement.url,
-                          content: announcement.content
-                        });
-                      }}
-                      title={isFav ? "Favorilerden Çıkar" : "Favoriye Ekle"}
-                      className="p-1 rounded-lg hover:bg-stone-200 dark:hover:bg-white/10 text-stone-400 hover:text-amber-500 transition-colors cursor-pointer"
-                    >
-                      <Star className={cn("w-3.5 h-3.5", isFav ? "text-amber-500 fill-amber-500" : "text-stone-400")} />
-                    </button>
-                  </div>
-                </div>
-
-                <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                  {announcement.title}
-                </h4>
+          {filteredAnnouncements.map((announcement) => (
+            <button 
+              key={announcement.id} 
+              onClick={() => setSelectedItem({
+                url: announcement.url || '',
+                title: announcement.title,
+                date: announcement.date,
+                category: announcement.category,
+                content: announcement.content
+              })}
+              className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                  {announcement.category || 'Duyuru'}
+                </span>
+                {announcement.date && !announcement.date.includes('T') && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-stone-400 dark:text-white/50">
+                    {announcement.date}
+                  </span>
+                )}
               </div>
-            );
-          })}
+              <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
+                {announcement.title}
+              </h4>
+            </button>
+          ))}
           {filteredAnnouncements.length === 0 && (
             <div className="text-stone-500 italic text-sm px-2">Güncel duyuru bulunamadı.</div>
           )}

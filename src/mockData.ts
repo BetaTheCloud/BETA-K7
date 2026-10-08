@@ -1292,15 +1292,22 @@ function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
 export const getAnnouncements = async (force: boolean = true): Promise<Announcement[]> => {
-  const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements_v7', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
+  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
+    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
+    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
+    return [...liveList, ...missingFromFallback];
+  };
+
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements_v6', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStoredWithTTL('k7_cached_announcements_v7', data);
+        const merged = mergeWithFallbacks(data, FALLBACK_ANNOUNCEMENTS);
+        setStoredWithTTL('k7_cached_announcements_v6', merged);
         notifySyncSuccess('live');
-        return data;
+        return merged;
       }
     }
   } catch (err) {
@@ -1311,15 +1318,22 @@ export const getAnnouncements = async (force: boolean = true): Promise<Announcem
 };
 
 export const getNews = async (force: boolean = true): Promise<Announcement[]> => {
-  const cached = getStoredWithTTL<Announcement[]>('k7_cached_news_v7', CACHE_TTL.NEWS, FALLBACK_NEWS);
+  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
+    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
+    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
+    return [...liveList, ...missingFromFallback];
+  };
+
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_news_v6', CACHE_TTL.NEWS, FALLBACK_NEWS);
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStoredWithTTL('k7_cached_news_v7', data);
+        const merged = mergeWithFallbacks(data, FALLBACK_NEWS);
+        setStoredWithTTL('k7_cached_news_v6', merged);
         notifySyncSuccess('live');
-        return data;
+        return merged;
       }
     }
   } catch (err) {
