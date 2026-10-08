@@ -110,21 +110,6 @@ export interface DepartmentNewsItem {
   sourceUrl?: string;
 }
 
-export interface DepartmentAnnouncementItem {
-  id: string;
-  title: string;
-  date: string;
-  content?: string;
-  url: string;
-  imageUrl?: string;
-  facultyId: string;
-  facultyName: string;
-  departmentId: string;
-  departmentName: string;
-  category?: string;
-  sourceUrl?: string;
-}
-
 export interface AcademicDepartmentUnit {
   id: string;
   name: string;
@@ -133,7 +118,6 @@ export interface AcademicDepartmentUnit {
   facultyName: string;
   category: StaffUnitCategory;
   newsUrl: string;
-  announcementUrl?: string;
   websiteUrl?: string;
   description?: string;
 }

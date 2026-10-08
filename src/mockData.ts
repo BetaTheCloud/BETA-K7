@@ -6,18 +6,14 @@ import {
   PhonebookEntry,
   AcademicStaffMember,
   DepartmentNewsItem,
-  DepartmentAnnouncementItem,
   CampusEvent,
   CampusForm,
   CampusBuilding
 } from './types';
 import { getApiUrl, safeFetch } from './config';
-import { deduplicateFeedList, cleanFeedTitle, normalizeFeedDate, parseDateToTimestamp } from './lib/utils';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
-import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';
-
-export { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS };
+import { FALLBACK_DEPARTMENT_NEWS } from './data/departmentNewsData';
 
 // ================= FALLBACK DATA =================
 
@@ -1161,8 +1157,8 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 
 // ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
 export const CACHE_TTL = {
-  ANNOUNCEMENTS: 3 * 60 * 1000,       // 3 dakika -> Hızlı sayfa geçişleri için önbellek, arka planda güncel kalır
-  NEWS: 3 * 60 * 1000,                // 3 dakika -> Hızlı sayfa geçişleri için önbellek, arka planda güncel kalır
+  ANNOUNCEMENTS: 0,                   // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  NEWS: 0,                            // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
   MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir (sunucuyu yormaz)
   CALENDAR: 30 * 24 * 60 * 60 * 1000, // 30 gün -> Akademik takvim dönemliktir, önbellekten çalışır
   BOLOGNA: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Bologna ders planları dönemliktir, önbellekten çalışır
@@ -1290,72 +1286,58 @@ function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
   }
 }
 
-export const CACHE_STORAGE_KEYS = {
-  ANNOUNCEMENTS: 'k7_cache_announcements_v8',
-  NEWS: 'k7_cache_news_v8',
-  EVENTS: 'k7_cache_events_v8',
-  MENU: 'k7_cache_menu_v8',
-  CALENDAR: 'k7_cache_calendar_v8'
-};
-
-export function deduplicateList<T extends { id?: string; title?: string; url?: string; date?: string; content?: string; category?: string }>(items: T[]): T[] {
-  return deduplicateFeedList(items);
-}
-
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
-export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
-  const cached = getStoredWithTTL<Announcement[]>(CACHE_STORAGE_KEYS.ANNOUNCEMENTS, CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
-  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return deduplicateFeedList(cached.data);
-  }
+export const getAnnouncements = async (force: boolean = true): Promise<Announcement[]> => {
+  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
+    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
+    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
+    return [...liveList, ...missingFromFallback];
+  };
+
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements_v6', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const clean = deduplicateFeedList(data);
-        setStoredWithTTL(CACHE_STORAGE_KEYS.ANNOUNCEMENTS, clean);
-        try {
-          localStorage.setItem('k7_cached_announcements', JSON.stringify({ data: clean, timestamp: Date.now() }));
-          localStorage.setItem('k7_cached_announcements_v8', JSON.stringify({ data: clean, timestamp: Date.now() }));
-        } catch {}
+        const merged = mergeWithFallbacks(data, FALLBACK_ANNOUNCEMENTS);
+        setStoredWithTTL('k7_cached_announcements_v6', merged);
         notifySyncSuccess('live');
-        return clean;
+        return merged;
       }
     }
   } catch (err) {
     console.warn("Duyurular canlı alınamadı, önbellek kullanılıyor:", err);
     notifySyncSuccess('cached');
   }
-  return cached.data && cached.data.length > 0 ? deduplicateFeedList(cached.data) : FALLBACK_ANNOUNCEMENTS;
+  return cached.data || FALLBACK_ANNOUNCEMENTS;
 };
 
-export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
-  const cached = getStoredWithTTL<Announcement[]>(CACHE_STORAGE_KEYS.NEWS, CACHE_TTL.NEWS, FALLBACK_NEWS);
-  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return deduplicateFeedList(cached.data);
-  }
+export const getNews = async (force: boolean = true): Promise<Announcement[]> => {
+  const mergeWithFallbacks = (liveList: Announcement[], fallbackList: Announcement[]) => {
+    const existingCategories = new Set(liveList.map(item => (item.category || '').trim().toLowerCase()));
+    const missingFromFallback = fallbackList.filter(item => !existingCategories.has((item.category || '').trim().toLowerCase()));
+    return [...liveList, ...missingFromFallback];
+  };
+
+  const cached = getStoredWithTTL<Announcement[]>('k7_cached_news_v6', CACHE_TTL.NEWS, FALLBACK_NEWS);
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const clean = deduplicateFeedList(data);
-        setStoredWithTTL(CACHE_STORAGE_KEYS.NEWS, clean);
-        try {
-          localStorage.setItem('k7_cached_news', JSON.stringify({ data: clean, timestamp: Date.now() }));
-          localStorage.setItem('k7_cached_news_v8', JSON.stringify({ data: clean, timestamp: Date.now() }));
-        } catch {}
+        const merged = mergeWithFallbacks(data, FALLBACK_NEWS);
+        setStoredWithTTL('k7_cached_news_v6', merged);
         notifySyncSuccess('live');
-        return clean;
+        return merged;
       }
     }
   } catch (err) {
     console.warn("Haberler canlı alınamadı, önbellek kullanılıyor:", err);
     notifySyncSuccess('cached');
   }
-  return cached.data && cached.data.length > 0 ? deduplicateFeedList(cached.data) : FALLBACK_NEWS;
+  return cached.data || FALLBACK_NEWS;
 };
 
 export const getDepartmentNews = async (
@@ -1368,7 +1350,7 @@ export const getDepartmentNews = async (
   const cached = getStoredWithTTL<DepartmentNewsItem[]>(cacheKey, CACHE_TTL.NEWS, FALLBACK_DEPARTMENT_NEWS);
   
   if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return deduplicateFeedList(cached.data);
+    return cached.data;
   }
 
   try {
@@ -1383,10 +1365,9 @@ export const getDepartmentNews = async (
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        const clean = deduplicateFeedList(data);
-        setStoredWithTTL(cacheKey, clean);
+        setStoredWithTTL(cacheKey, data);
         notifySyncSuccess('live');
-        return clean;
+        return data;
       }
     }
   } catch (err) {
@@ -1398,62 +1379,13 @@ export const getDepartmentNews = async (
   let fallback = FALLBACK_DEPARTMENT_NEWS;
   if (deptId && deptId !== 'all') {
     const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
-    if (matched.length > 0) return deduplicateFeedList(matched);
+    if (matched.length > 0) return matched;
   } else if (facultyId && facultyId !== 'all') {
     const matched = fallback.filter(i => i.facultyId === facultyId);
-    if (matched.length > 0) return deduplicateFeedList(matched);
+    if (matched.length > 0) return matched;
   }
 
-  return cached.data ? deduplicateFeedList(cached.data) : fallback;
-};
-
-export const getDepartmentAnnouncements = async (
-  deptUrl?: string,
-  deptId?: string,
-  facultyId?: string,
-  force: boolean = false
-): Promise<DepartmentAnnouncementItem[]> => {
-  const cacheKey = `k7_cached_dept_ann_${deptId || deptUrl || facultyId || 'all'}`;
-  const cached = getStoredWithTTL<DepartmentAnnouncementItem[]>(cacheKey, CACHE_TTL.ANNOUNCEMENTS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS);
-  
-  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
-    return deduplicateFeedList(cached.data);
-  }
-
-  try {
-    const params = new URLSearchParams();
-    if (deptUrl) params.append('deptUrl', deptUrl);
-    if (deptId) params.append('deptId', deptId);
-    if (facultyId) params.append('facultyId', facultyId);
-    if (force) params.append('force', 'true');
-
-    const queryStr = params.toString() ? `?${params.toString()}` : '';
-    const response = await safeFetch(getApiUrl(`/api/department-announcements${queryStr}`));
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const clean = deduplicateFeedList(data);
-        setStoredWithTTL(cacheKey, clean);
-        notifySyncSuccess('live');
-        return clean;
-      }
-    }
-  } catch (err) {
-    console.warn("Bölüm duyuruları canlı alınamadı, önbellek kullanılıyor:", err);
-    notifySyncSuccess('cached');
-  }
-
-  // Filter fallback data if specific department or faculty requested
-  let fallback = FALLBACK_DEPARTMENT_ANNOUNCEMENTS;
-  if (deptId && deptId !== 'all') {
-    const matched = fallback.filter(i => i.departmentId === deptId || i.id.includes(deptId));
-    if (matched.length > 0) return deduplicateFeedList(matched);
-  } else if (facultyId && facultyId !== 'all') {
-    const matched = fallback.filter(i => i.facultyId === facultyId);
-    if (matched.length > 0) return deduplicateFeedList(matched);
-  }
-
-  return cached.data ? deduplicateFeedList(cached.data) : fallback;
+  return cached.data || fallback;
 };
 
 export const getMenu = async (force: boolean = false): Promise<MenuItem[]> => {
