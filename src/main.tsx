@@ -4,7 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { warmupBackendServer } from './config';
 
-// Pre-warm remote backend on startup (wakes up sleeping Render instance)
+// Wake up backend server cold start early on initial page load
 warmupBackendServer();
 
 createRoot(document.getElementById('root')!).render(
