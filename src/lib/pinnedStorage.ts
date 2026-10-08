@@ -1,96 +1,107 @@
 /**
- * Utility for managing pinned department and items in localStorage
+ * Pinned Unit Storage & Management
+ * Allows students and staff to pin/bookmark their favorite faculty or department
  */
 
-const PINNED_DEPT_KEY = 'k7_pinned_department';
-const PINNED_ANNOUNCEMENTS_KEY = 'k7_pinned_announcements';
-const PINNED_NEWS_KEY = 'k7_pinned_news';
+export interface PinnedUnit {
+  id: string;
+  name: string;
+  type?: 'faculty' | 'institute' | 'school' | 'myo' | 'department';
+  url?: string;
+  shortName?: string;
+}
 
-export function getPinnedDepartmentId(): string | null {
+export const PINNED_UNIT_STORAGE_KEY = 'k7_pinned_unit';
+
+/**
+ * Returns the currently pinned unit ID or name as a string (or null if none)
+ */
+export function getPinnedUnit(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem(PINNED_DEPT_KEY) || null;
+    const stored = localStorage.getItem(PINNED_UNIT_STORAGE_KEY);
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      if (typeof parsed === 'string') return parsed;
+      return parsed.name || parsed.id || null;
+    } catch {
+      return stored;
+    }
   } catch {
     return null;
   }
 }
 
-export function setPinnedDepartmentId(id: string | null): void {
+/**
+ * Returns the currently pinned unit as a full PinnedUnit object (or null if none)
+ */
+export function getPinnedUnitObject(): PinnedUnit | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(PINNED_UNIT_STORAGE_KEY);
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return {
+          id: parsed.id || parsed.name || '',
+          name: parsed.name || parsed.id || '',
+          type: parsed.type,
+          url: parsed.url,
+          shortName: parsed.shortName
+        };
+      }
+      return { id: String(stored), name: String(stored) };
+    } catch {
+      return { id: stored, name: stored };
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets or updates the pinned unit in localStorage
+ */
+export function setPinnedUnit(unit: string | PinnedUnit | null): void {
   if (typeof window === 'undefined') return;
   try {
-    if (id) {
-      localStorage.setItem(PINNED_DEPT_KEY, id);
+    if (!unit) {
+      localStorage.removeItem(PINNED_UNIT_STORAGE_KEY);
+    } else if (typeof unit === 'string') {
+      localStorage.setItem(PINNED_UNIT_STORAGE_KEY, unit);
     } else {
-      localStorage.removeItem(PINNED_DEPT_KEY);
+      localStorage.setItem(PINNED_UNIT_STORAGE_KEY, JSON.stringify(unit));
     }
-  } catch (e) {
-    console.warn('Failed to set pinned department', e);
+    window.dispatchEvent(new CustomEvent('k7_pinned_unit_changed', { detail: unit }));
+  } catch (err) {
+    console.warn('[PinnedStorage] Failed to save pinned unit:', err);
   }
 }
 
-export function isDepartmentPinned(id: string): boolean {
-  return getPinnedDepartmentId() === id;
+/**
+ * Checks if a specific unit is currently pinned
+ */
+export function isUnitPinned(unitIdOrName: string): boolean {
+  if (!unitIdOrName) return false;
+  const current = getPinnedUnit();
+  if (!current) return false;
+  return current.trim().toLowerCase() === unitIdOrName.trim().toLowerCase();
 }
 
-export function togglePinnedDepartment(id: string): boolean {
-  const current = getPinnedDepartmentId();
-  if (current === id) {
-    setPinnedDepartmentId(null);
-    return false;
-  } else {
-    setPinnedDepartmentId(id);
-    return true;
-  }
+/**
+ * Removes the currently pinned unit
+ */
+export function clearPinnedUnit(): void {
+  setPinnedUnit(null);
 }
 
-export function getPinnedAnnouncements(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(PINNED_ANNOUNCEMENTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function togglePinnedAnnouncement(id: string): boolean {
-  const list = getPinnedAnnouncements();
-  const exists = list.includes(id);
-  const updated = exists ? list.filter(item => item !== id) : [...list, id];
-  try {
-    localStorage.setItem(PINNED_ANNOUNCEMENTS_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn('Failed to toggle pinned announcement', e);
-  }
-  return !exists;
-}
-
-export function isAnnouncementPinned(id: string): boolean {
-  return getPinnedAnnouncements().includes(id);
-}
-
-export function getPinnedNews(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(PINNED_NEWS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function togglePinnedNews(id: string): boolean {
-  const list = getPinnedNews();
-  const exists = list.includes(id);
-  const updated = exists ? list.filter(item => item !== id) : [...list, id];
-  try {
-    localStorage.setItem(PINNED_NEWS_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn('Failed to toggle pinned news', e);
-  }
-  return !exists;
-}
-
-export function isNewsPinned(id: string): boolean {
-  return getPinnedNews().includes(id);
-}
+export default {
+  getPinnedUnit,
+  getPinnedUnitObject,
+  setPinnedUnit,
+  isUnitPinned,
+  clearPinnedUnit,
+  PINNED_UNIT_STORAGE_KEY
+};

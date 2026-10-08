@@ -1,23 +1,14 @@
 /**
- * Utility for managing feed item favorites in localStorage
+ * Feed Favorites Management
+ * Allows bookmarking announcements, news and campus items
  */
 
-const FAVORITES_KEY = 'k7_feed_favorites';
+export const FAVORITES_STORAGE_KEY = 'k7_feed_favorites';
 
-export interface FavoriteItem {
-  id: string;
-  title: string;
-  category?: string;
-  date?: string;
-  url?: string;
-  type?: 'announcement' | 'news' | 'event';
-  timestamp?: number;
-}
-
-export function getFavorites(): FavoriteItem[] {
+export function getFavorites(): string[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(FAVORITES_KEY);
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -25,25 +16,43 @@ export function getFavorites(): FavoriteItem[] {
 }
 
 export function isFavorite(id: string): boolean {
-  return getFavorites().some(item => item.id === id);
+  if (!id) return false;
+  const favs = getFavorites();
+  return favs.includes(id);
 }
 
-export function toggleFavorite(item: FavoriteItem): boolean {
-  if (typeof window === 'undefined') return false;
+export function toggleFavorite(id: string): boolean {
+  if (typeof window === 'undefined' || !id) return false;
   try {
-    const current = getFavorites();
-    const index = current.findIndex(f => f.id === item.id);
-    let updated: FavoriteItem[];
-    let added = false;
-    if (index >= 0) {
-      updated = current.filter(f => f.id !== item.id);
+    const favs = getFavorites();
+    let updated: string[];
+    let isNowFav: boolean;
+    if (favs.includes(id)) {
+      updated = favs.filter(item => item !== id);
+      isNowFav = false;
     } else {
-      updated = [{ ...item, timestamp: Date.now() }, ...current];
-      added = true;
+      updated = [...favs, id];
+      isNowFav = true;
     }
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
-    return added;
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('k7_favorites_changed', { detail: { id, isFavorite: isNowFav } }));
+    return isNowFav;
   } catch {
     return false;
   }
 }
+
+export function clearFavorites(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(FAVORITES_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('k7_favorites_changed', { detail: { cleared: true } }));
+  } catch {}
+}
+
+export default {
+  getFavorites,
+  isFavorite,
+  toggleFavorite,
+  clearFavorites
+};
