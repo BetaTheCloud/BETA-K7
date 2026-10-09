@@ -12,6 +12,7 @@ import {
   CampusBuilding
 } from './types';
 import { getApiUrl, safeFetch } from './config';
+import { cleanDuplicateTitle } from './lib/utils';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';

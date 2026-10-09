@@ -33,7 +33,8 @@ import {
   X,
   Calendar
 } from 'lucide-react';
-import { cn, parseDateToTimestamp } from '../lib/utils';
+import { cn, parseDateToTimestamp, cleanDuplicateTitle } from '../lib/utils';
+import { openExternalUrl } from '../lib/openExternal';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
 import LoadingState from '../components/LoadingState';
@@ -277,7 +278,7 @@ export default function Announcements() {
 
   // Filter department announcements items (handles optional department)
   const filteredDeptAnnouncements = useMemo(() => {
-    return deptAnnouncements.filter((item) => {
+    const rawList = deptAnnouncements.filter((item) => {
       // If a specific faculty is selected and item has a facultyId, ensure it matches
       if (selectedFacultyId && item.facultyId && item.facultyId !== selectedFacultyId) {
         return false;
@@ -305,6 +306,34 @@ export default function Announcements() {
 
       return true;
     });
+
+    // Deduplicate by URL, cleaned title, and image to prevent repeated cards or identical graphics
+    const seenUrls = new Set<string>();
+    const seenTitles = new Set<string>();
+    const seenImages = new Set<string>();
+    const deduplicated: DepartmentAnnouncementItem[] = [];
+
+    for (const item of rawList) {
+      const cleanedTitle = cleanDuplicateTitle(item.title);
+      const urlKey = item.url ? item.url.trim().toLowerCase() : '';
+      const titleKey = cleanedTitle.trim().toLowerCase();
+      const imgKey = item.imageUrl ? item.imageUrl.trim().toLowerCase() : '';
+
+      if (urlKey && seenUrls.has(urlKey)) continue;
+      if (titleKey && seenTitles.has(titleKey)) continue;
+      if (imgKey && seenImages.has(imgKey)) continue;
+
+      if (urlKey) seenUrls.add(urlKey);
+      if (titleKey) seenTitles.add(titleKey);
+      if (imgKey) seenImages.add(imgKey);
+
+      deduplicated.push({
+        ...item,
+        title: cleanedTitle
+      });
+    }
+
+    return deduplicated;
   }, [deptAnnouncements, selectedFacultyId, selectedDepartmentId, activeDepartment, searchQuery]);
 
   const toggleCategory = (category: string) => {
@@ -560,7 +589,7 @@ export default function Announcements() {
                                     </div>
 
                                     <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug mb-2">
-                                      {annItem.title}
+                                      {cleanDuplicateTitle(annItem.title)}
                                     </h4>
 
                                     {annItem.content && (
@@ -830,6 +859,7 @@ export default function Announcements() {
                           href={getDepartmentAnnouncementUrl(activeDepartment)}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => openExternalUrl(getDepartmentAnnouncementUrl(activeDepartment), e)}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
                         >
                           <Globe className="w-3.5 h-3.5" />
@@ -842,6 +872,7 @@ export default function Announcements() {
                         href={getFacultyAnnouncementUrl(activeFacultyGroup)}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => openExternalUrl(getFacultyAnnouncementUrl(activeFacultyGroup), e)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 active:scale-95 cursor-pointer"
                       >
                         <Globe className="w-3.5 h-3.5" />
@@ -925,6 +956,7 @@ export default function Announcements() {
                   href={activeDepartment ? getDepartmentAnnouncementUrl(activeDepartment) : getFacultyAnnouncementUrl(activeFacultyGroup)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => openExternalUrl(activeDepartment ? getDepartmentAnnouncementUrl(activeDepartment) : getFacultyAnnouncementUrl(activeFacultyGroup), e)}
                   className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
                 >
                   <span>Resmi Web Sayfasını Aç ({activeDepartment ? activeDepartment.name : activeFacultyGroup.shortName})</span>
@@ -985,7 +1017,7 @@ export default function Announcements() {
 
                       {/* Title */}
                       <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                        {item.title}
+                        {cleanDuplicateTitle(item.title)}
                       </h4>
 
                       {/* Content summary */}
@@ -1008,7 +1040,10 @@ export default function Announcements() {
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openExternalUrl(item.url, e);
+                          }}
                           className="text-[11px] font-medium text-stone-400 hover:text-stone-600 dark:hover:text-white flex items-center gap-1 transition-colors z-10"
                           title="Resmi web sitesinde aç"
                         >

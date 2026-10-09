@@ -32,6 +32,54 @@ const axiosInstance = axios.create({
   timeout: 10000
 });
 
+function cleanDuplicateTitle(raw?: string | null): string {
+  if (!raw) return '';
+  let s = raw.trim().replace(/\s+/g, ' ');
+
+  // 1. Remove trailing dates first so date suffix doesn't prevent title deduplication
+  s = s.replace(/\s*\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}\s*$/i, '').trim();
+  s = s.replace(/\s*\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/i, '').trim();
+
+  // 2. Remove delimiter-separated duplicate: e.g. "Başlık - Başlık" or "Başlık | Başlık"
+  const separators = [' - ', ' – ', ' — ', ' | ', ' / ', ' : ', ' • '];
+  for (const sep of separators) {
+    if (s.includes(sep)) {
+      const parts = s.split(sep);
+      if (parts.length === 2 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+        s = parts[0].trim();
+        break;
+      }
+    }
+  }
+
+  // 3. Remove exact word-sequence duplicate: e.g. "Bahar Şenliği Programı Bahar Şenliği Programı"
+  const words = s.split(' ');
+  if (words.length >= 2) {
+    const halfWords = Math.floor(words.length / 2);
+    for (let h = halfWords; h >= 1; h--) {
+      if (h * 2 === words.length) {
+        const part1 = words.slice(0, h).join(' ').trim().toLowerCase();
+        const part2 = words.slice(h, h * 2).join(' ').trim().toLowerCase();
+        if (part1 && part1 === part2) {
+          s = words.slice(0, h).join(' ');
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Remove exact duplicate without spaces: e.g. "ABCABC"
+  const len = s.length;
+  if (len >= 6 && len % 2 === 0) {
+    const half = len / 2;
+    if (s.slice(0, half).toLowerCase() === s.slice(half).toLowerCase()) {
+      s = s.slice(0, half).trim();
+    }
+  }
+
+  return s;
+}
+
 const FACULTIES = [
   // Fakülteler
   { name: 'Fen Fakültesi', url: 'https://fen.kilis.edu.tr' },
@@ -413,15 +461,15 @@ app.get('/api/announcements', async (req, res) => {
       const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 6000 });
       const $ = cheerio.load(response.data);
       $('a.full-link-item').each((i, el) => {
-        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
+        let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
+        let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
         let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
         let href = $(el).attr('href') || '';
         if (href && !href.startsWith('http')) {
           href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
         }
         
-        if (title) {
+        if (title && !announcements.some(a => a.title === title || (href && a.url === href))) {
           announcements.push({
             id: `ann-main-${i}`,
             title: title,
@@ -441,17 +489,19 @@ app.get('/api/announcements', async (req, res) => {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
         const $ = cheerio.load(facRes.data);
         $('.announcement-item').each((i, el) => {
-          let title = $(el).find('.announcement-title').text().trim();
+          let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
           let dateStr = $(el).find('.announcement-date').text().trim();
           let url = $(el).attr('href');
-          if (title) {
+          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+          if (title && !announcements.some(a => a.title === title || (fullUrl && a.url === fullUrl))) {
             announcements.push({
               id: `ann-fac-${index}-${i}`,
               title: title,
               date: dateStr || new Date().toISOString(),
               content: '',
               category: fac.name,
-              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
+              url: fullUrl
             });
           }
         });
@@ -486,15 +536,15 @@ app.get('/api/news', async (req, res) => {
       const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 6000 });
       const $ = cheerio.load(response.data);
       $('a.full-link-item').each((i, el) => {
-        let title = $(el).find('.title-wrapper .text').text().replace(/\s+/g, ' ').trim();
+        let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
+        let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
         let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
         let href = $(el).attr('href') || '';
         if (href && !href.startsWith('http')) {
           href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
         }
         
-        if (title) {
+        if (title && !news.some(n => n.title === title || (href && n.url === href))) {
           news.push({
             id: `news-main-${i}`,
             title: title,
@@ -514,17 +564,19 @@ app.get('/api/news', async (req, res) => {
         const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
         const $ = cheerio.load(facRes.data);
         $('.news-item').each((i, el) => {
-          let title = $(el).find('.news-title').text().trim();
+          let titleEl = $(el).find('.news-title, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
           let dateStr = $(el).find('.news-date').text().trim();
           let url = $(el).attr('href');
-          if (title) {
+          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+          if (title && !news.some(n => n.title === title || (fullUrl && n.url === fullUrl))) {
             news.push({
               id: `news-fac-${index}-${i}`,
               title: title,
               date: dateStr || new Date().toISOString(),
               content: '',
               category: fac.name,
-              url: url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`
+              url: fullUrl
             });
           }
         });
@@ -589,11 +641,12 @@ app.get('/api/department-news', async (req, res) => {
         const base = deptUrl.split('/tr')[0];
 
         $('.news-item, a.news-item, a[href*="news-detail"], .news-all-item').each((i, el) => {
-          let title = $(el).find('.news-item-title, .title, h3, h4').text().trim().replace(/\s+/g, ' ');
-          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
+          let titleEl = $(el).find('.news-item-title, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
           if (!title || title.length < 5) return;
 
-          let rawDate = $(el).find('.news-item-date, .date, .time, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let dateEl = $(el).find('.news-item-date, .date, .time, .link-footer .date .text, .link-footer .date').first();
+          let rawDate = dateEl.text().trim().replace(/\s+/g, ' ');
           let href = $(el).attr('href') || $(el).find('a').attr('href');
           if (href && !href.startsWith('http')) {
             href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
@@ -604,7 +657,7 @@ app.get('/api/department-news', async (req, res) => {
             img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
           }
 
-          if (!list.some(it => it.title === title || (href && it.url === href))) {
+          if (!list.some(it => it.title === title || (href && it.url === href) || (img && it.imageUrl === img))) {
             list.push({
               id: `dept-live-${deptId || facultyId || 'item'}-${i}-${Date.now()}`,
               title,
@@ -696,11 +749,12 @@ app.get('/api/department-announcements', async (req, res) => {
         const base = deptUrl.split('/tr')[0];
 
         $('.news-item, a.news-item, .announcement-item, a.announcement-item, a[href*="announcements-detail"], a[href*="announcement-detail"], .sidebar-news-item, .announcement-all-item, .duyuru-item, a.full-link-item').each((i, el) => {
-          let title = $(el).find('.news-item-title, .announcement-item-title, .announcement-title, .sidebar-news-item-title, .title, .title-wrapper .text, h3, h4').text().trim().replace(/\s+/g, ' ');
-          if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
+          let titleEl = $(el).find('.news-item-title, .announcement-item-title, .announcement-title, .sidebar-news-item-title, .title-wrapper .text, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
           if (!title || title.length < 5) return;
 
-          let rawDate = $(el).find('.news-item-date, .announcement-item-date, .announcement-date, .date, .time, .link-footer .date .text, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let dateEl = $(el).find('.news-item-date, .announcement-item-date, .announcement-date, .date, .time, .link-footer .date .text, .link-footer .date').first();
+          let rawDate = dateEl.text().trim().replace(/\s+/g, ' ');
           let href = $(el).attr('href') || $(el).find('a').attr('href');
           if (href && !href.startsWith('http')) {
             href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
@@ -711,7 +765,7 @@ app.get('/api/department-announcements', async (req, res) => {
             img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
           }
 
-          if (!list.some(it => it.title === title || (href && it.url === href))) {
+          if (!list.some(it => it.title === title || (href && it.url === href) || (img && it.imageUrl === img))) {
             list.push({
               id: `dept-ann-live-${deptId || facultyId || 'item'}-${i}-${Date.now()}`,
               title,
@@ -1000,6 +1054,7 @@ app.get('/api/detail', async (req, res) => {
     const $ = cheerio.load(response.data);
     
     let title = $('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1').first().text().trim();
+    title = cleanDuplicateTitle(title);
     
     const urlObj = new URL(targetUrl);
     const baseUrl = urlObj.origin;
@@ -1097,6 +1152,65 @@ app.get('/api/detail', async (req, res) => {
     }
     
     if (contentHtml) {
+      const $content = cheerio.load(contentHtml, null, false);
+
+      // 1. Remove duplicate headings matching page title
+      const normTitle = (title || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (normTitle) {
+        $content('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').each((_, el) => {
+          const hText = $content(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
+          if (hText && (hText === normTitle || normTitle.includes(hText) || hText.includes(normTitle))) {
+            $content(el).remove();
+          }
+        });
+      }
+
+      // 2. Remove duplicate images matching imageUrl or same filename
+      const seenImgs = new Set<string>();
+      const normalizeImgKey = (urlStr: string): string => {
+        if (!urlStr) return '';
+        let s = urlStr.trim();
+        try { s = decodeURIComponent(s); } catch {}
+        return s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+      };
+
+      if (imageUrl) {
+        seenImgs.add(imageUrl.toLowerCase());
+        const coverFn = normalizeImgKey(imageUrl);
+        if (coverFn) seenImgs.add(coverFn);
+      }
+
+      $content('img').each((_, el) => {
+        let src = $content(el).attr('src') || '';
+        if (src && !src.startsWith('http')) {
+          src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+          $content(el).attr('src', src);
+        }
+        const fn = normalizeImgKey(src);
+        if ((imageUrl && src === imageUrl) || (fn && seenImgs.has(fn)) || (src && seenImgs.has(src.toLowerCase()))) {
+          const parent = $content(el).parent();
+          $content(el).remove();
+          if (parent.length && parent.children().length === 0 && !parent.text().trim()) {
+            parent.remove();
+          }
+        } else if (fn) {
+          seenImgs.add(fn);
+          if (src) seenImgs.add(src.toLowerCase());
+        }
+      });
+
+      // 3. Ensure all links have target="_blank" and rel="noopener noreferrer"
+      $content('a').each((_, el) => {
+        let href = $content(el).attr('href');
+        if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+          href = `${baseUrl}${href.startsWith('/') ? '' : '/'}${href}`;
+          $content(el).attr('href', href);
+        }
+        $content(el).attr('target', '_blank');
+        $content(el).attr('rel', 'noopener noreferrer');
+      });
+
+      contentHtml = $content.html() || '';
       contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
       contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
     }
@@ -1242,52 +1356,67 @@ app.get('/api/events', async (req, res) => {
       return res.json(cachedEvents);
     }
 
-    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/etkinlikler');
-    const $ = cheerio.load(response.data);
-    const events: any[] = [];
-    const seenTitles = new Set<string>();
-
-    $('a[href*="/etkinlik/"], a.full-link-item').each((i, el) => {
-      let title = $(el).find('.title-wrapper .text, .title, h3, h4').first().text().replace(/\s+/g, ' ').trim();
-      let img = $(el).find('img').attr('src') || '';
-      let imgAlt = $(el).find('img').attr('alt') || '';
-      if (!title && imgAlt) title = imgAlt.trim();
-      if (!title) title = $(el).text().replace(/\s+/g, ' ').trim();
-
-      let rawDate = $(el).find('.link-footer .date .text, .date, time').first().text().replace(/\s+/g, ' ').trim();
-      if (!rawDate) rawDate = $(el).text().replace(/\s+/g, ' ').trim();
-
-      const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-      let cleanDate = dateMatch ? dateMatch[1] : '';
-
-      if (cleanDate) {
-        title = title.replace(new RegExp('\\s*' + cleanDate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i'), '').trim();
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/etkinlikler', {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
-      title = title.replace(/\s*\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}\s*$/i, '').trim();
-      title = title.replace(/\s*\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/i, '').trim();
+    });
 
-      let href = $(el).attr('href') || '';
+    const eventsMap = new Map<string, any>();
+    const seenImages = new Set<string>();
 
-      if (title && !title.toLowerCase().includes('tüm etkinlikler') && title.length > 5 && !seenTitles.has(title)) {
-        seenTitles.add(title);
-        if (href && !href.startsWith('http')) {
+    if (typeof response.data === 'string') {
+      const $ = cheerio.load(response.data);
+
+      $('a[href*="/etkinlik/"], a.full-link-item').each((_, el) => {
+        let href = $(el).attr('href') || '';
+        if (!href || href.includes('page=') || href === '/tr/etkinlikler' || href === 'https://www.kilis.edu.tr/tr/etkinlikler') return;
+        if (!href.startsWith('http')) {
           href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
         }
+
+        let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
+        let rawTitle = titleEl.length ? titleEl.text() : $(el).text();
+        let title = cleanDuplicateTitle(rawTitle);
+
+        let img = $(el).find('img').attr('src') || '';
         if (img && !img.startsWith('http')) {
           img = `https://www.kilis.edu.tr${img.startsWith('/') ? '' : '/'}${img}`;
         }
 
-        events.push({
-          id: `event-${events.length + 1}`,
-          title: title,
-          date: cleanDate || '02 Ekim 2026',
-          location: 'Konum için bilgi afişini referans alın.',
-          url: href,
-          img: img,
-          category: 'Etkinlik'
-        });
-      }
-    });
+        let rawDate = $(el).find('.link-footer .date .text, .date, time').first().text().trim();
+        const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
+        let cleanDate = dateMatch ? dateMatch[1] : '';
+
+        if (!title || title.length < 5 || title.toLowerCase().includes('tüm etkinlikler')) return;
+
+        const hrefKey = href.toLowerCase();
+        if (eventsMap.has(hrefKey)) {
+          const existing = eventsMap.get(hrefKey);
+          if (title.length > existing.title.length && !title.includes('...')) {
+            existing.title = title;
+          }
+          if (!existing.img && img) existing.img = img;
+          if (!existing.date && cleanDate) existing.date = cleanDate;
+        } else {
+          const imgKey = img ? img.toLowerCase() : '';
+          if (imgKey && seenImages.has(imgKey)) return;
+          if (imgKey) seenImages.add(imgKey);
+
+          eventsMap.set(hrefKey, {
+            id: `event-${eventsMap.size + 1}`,
+            title,
+            date: cleanDate || '02 Ekim 2026',
+            location: 'Konum için bilgi afişini referans alın.',
+            url: href,
+            img,
+            category: 'Etkinlik'
+          });
+        }
+      });
+    }
+
+    const events = Array.from(eventsMap.values());
 
     if (events.length > 0) {
       cachedEvents = events;

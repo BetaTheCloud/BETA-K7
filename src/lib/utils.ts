@@ -5,6 +5,58 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Deduplicates doubled/repeated titles and cleans trailing noise.
+ * Fixes titles that have been concatenated twice by CMS or scrapers (e.g., "Başlık Başlık" or "BaşlıkBaşlık").
+ */
+export function cleanDuplicateTitle(raw?: string | null): string {
+  if (!raw) return '';
+  let s = raw.trim().replace(/\s+/g, ' ');
+
+  // 1. Remove trailing dates first so date suffix doesn't prevent title deduplication
+  s = s.replace(/\s*\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4}\s*$/i, '').trim();
+  s = s.replace(/\s*\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*$/i, '').trim();
+
+  // 2. Remove delimiter-separated duplicate: e.g. "Başlık - Başlık" or "Başlık | Başlık"
+  const separators = [' - ', ' – ', ' — ', ' | ', ' / ', ' : ', ' • '];
+  for (const sep of separators) {
+    if (s.includes(sep)) {
+      const parts = s.split(sep);
+      if (parts.length === 2 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+        s = parts[0].trim();
+        break;
+      }
+    }
+  }
+
+  // 3. Remove exact word-sequence duplicate: e.g. "Bahar Şenliği Programı Bahar Şenliği Programı"
+  const words = s.split(' ');
+  if (words.length >= 2) {
+    const halfWords = Math.floor(words.length / 2);
+    for (let h = halfWords; h >= 1; h--) {
+      if (h * 2 === words.length) {
+        const part1 = words.slice(0, h).join(' ').trim().toLowerCase();
+        const part2 = words.slice(h, h * 2).join(' ').trim().toLowerCase();
+        if (part1 && part1 === part2) {
+          s = words.slice(0, h).join(' ');
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Remove exact duplicate without spaces: e.g. "ABCABC"
+  const len = s.length;
+  if (len >= 6 && len % 2 === 0) {
+    const half = len / 2;
+    if (s.slice(0, half).toLowerCase() === s.slice(half).toLowerCase()) {
+      s = s.slice(0, half).trim();
+    }
+  }
+
+  return s;
+}
+
 const TURKISH_MONTHS: Record<string, number> = {
   ocak: 0, oca: 0,
   subat: 1, şubat: 1, sub: 1, şub: 1,

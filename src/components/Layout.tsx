@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { OfflineIndicator } from './OfflineIndicator';
 import { ServerColdStartAlert } from './ServerColdStartAlert';
 import K7Logo from './K7Logo';
+import { openExternalUrl } from '../lib/openExternal';
 
 export default function Layout() {
   const { pathname, search } = useLocation();
@@ -16,6 +17,44 @@ export default function Layout() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname, search]);
+
+  // Global link interception: ensures all external links (kilis.edu.tr portals, reservation, docs, etc.)
+  // are routed to the system's real external browser, preventing in-app WebView crashes.
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest('a');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href) return;
+
+      // Skip in-app hash anchors and internal SPA routes
+      if (href.startsWith('#') || href.startsWith('javascript:')) return;
+
+      // Handle external links (http/https)
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        const isCurrentDomain = typeof window !== 'undefined' && (
+          href.startsWith(window.location.origin) ||
+          href.includes('localhost') ||
+          href.includes('127.0.0.1')
+        );
+
+        // If target is _blank or pointing to an external domain (like kilis.edu.tr, yordam, etc.)
+        if (anchor.target === '_blank' || !isCurrentDomain) {
+          event.preventDefault();
+          event.stopPropagation();
+          openExternalUrl(href, event);
+        }
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, { capture: true });
+    return () => {
+      document.removeEventListener('click', handleGlobalClick, { capture: true });
+    };
+  }, []);
 
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },

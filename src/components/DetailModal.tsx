@@ -1,8 +1,82 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn, Newspaper, Megaphone } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, cleanDuplicateTitle } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
+import { openExternalUrl } from '../lib/openExternal';
+
+/**
+ * Strips redundant repeated headings and duplicate cover images from scraped HTML.
+ * Ensures that titles and images are never rendered twice inside the modal.
+ */
+function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?: string): string {
+  if (!html || typeof window === 'undefined') return html || '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const cleanTitle = cleanDuplicateTitle(title || '');
+    const normTitle = cleanTitle.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // 1. Remove duplicate headings matching the page title or being the main h1 inside content
+    if (normTitle) {
+      const headings = doc.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header');
+      headings.forEach((el) => {
+        const text = cleanDuplicateTitle(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (text && (text === normTitle || normTitle.includes(text) || text.includes(normTitle))) {
+          el.remove();
+        }
+      });
+    }
+
+    // 2. Remove duplicate images matching the cover image or already seen
+    const seenSrcs = new Set<string>();
+    const normalizeImgKey = (urlStr: string): string => {
+      if (!urlStr) return '';
+      let s = urlStr.trim();
+      try { s = decodeURIComponent(s); } catch {}
+      return s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+    };
+
+    if (coverImg) {
+      const normCover = normalizeImgKey(coverImg);
+      if (normCover) seenSrcs.add(normCover);
+      seenSrcs.add(coverImg.trim().toLowerCase());
+    }
+
+    const images = doc.querySelectorAll('img');
+    images.forEach((imgEl) => {
+      const rawSrc = (imgEl.getAttribute('src') || '').trim();
+      const normKey = normalizeImgKey(rawSrc);
+
+      if (
+        (normKey && seenSrcs.has(normKey)) ||
+        (rawSrc && seenSrcs.has(rawSrc.toLowerCase()))
+      ) {
+        // Remove image element and any lonely empty parent container
+        const parent = imgEl.parentElement;
+        imgEl.remove();
+        if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
+          parent.remove();
+        }
+      } else if (normKey) {
+        seenSrcs.add(normKey);
+        if (rawSrc) seenSrcs.add(rawSrc.toLowerCase());
+      }
+    });
+
+    // 3. Mark all anchor tags for external opening
+    const links = doc.querySelectorAll('a');
+    links.forEach((aEl) => {
+      aEl.setAttribute('target', '_blank');
+      aEl.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
 
 export interface DetailModalItem {
   url?: string;
@@ -26,7 +100,8 @@ export interface DetailModalProps {
 }
 
 export default function DetailModal({ isOpen, onClose, item, url, title }: DetailModalProps) {
-  const activeTitle = item?.title || title || '';
+  const rawTitle = item?.title || title || '';
+  const activeTitle = cleanDuplicateTitle(rawTitle);
   const activeUrl = item?.url || url || '';
   const initialImageUrl = item?.imageUrl || '';
   const initialContent = item?.content || '';
@@ -57,12 +132,13 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
             return res.json();
           })
           .then(data => {
-            if (data.contentHtml) {
-              setContentHtml(data.contentHtml);
-            }
+            const bestImg = img || data.imageUrl || '';
             if (data.imageUrl && !img) {
               setFeaturedImage(data.imageUrl);
               setImgError(false);
+            }
+            if (data.contentHtml) {
+              setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle));
             }
             setLoading(false);
           })
@@ -76,7 +152,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
           });
       }
     }
-  }, [isOpen, activeUrl, initialImageUrl, initialContent, item]);
+  }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -221,6 +297,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                       href={activeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => openExternalUrl(activeUrl, e)}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors cursor-pointer"
                     >
                       <span>Resmi Sayfada Aç</span>
@@ -238,6 +315,12 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                     prose-a:text-amber-600 dark:prose-a:text-amber-400 prose-a:font-semibold hover:prose-a:underline
                     prose-img:rounded-xl prose-img:mx-auto prose-img:shadow-md prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10
                     prose-headings:font-display prose-headings:font-bold prose-headings:text-stone-900 dark:prose-headings:text-white"
+                  onClick={(e) => {
+                    const anchor = (e.target as HTMLElement).closest('a');
+                    if (anchor && anchor.href) {
+                      openExternalUrl(anchor.href, e);
+                    }
+                  }}
                   dangerouslySetInnerHTML={{ __html: contentHtml }}
                 />
               ) : initialContent ? (
@@ -263,6 +346,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   href={activeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => openExternalUrl(activeUrl, e)}
                   className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl transition-all text-xs font-bold shadow-md shadow-amber-600/25 active:scale-95 cursor-pointer"
                 >
                   <span>Resmi Sayfada Aç</span>

@@ -9,10 +9,7 @@ const config: CapacitorConfig = {
     cleartext: true,
     allowNavigation: [
       '*.onrender.com',
-      'beta-k7.onrender.com',
-      '*.kilis.edu.tr',
-      'kilis.edu.tr',
-      'api.open-meteo.com'
+      'beta-k7.onrender.com'
     ]
   },
   android: {

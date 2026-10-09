@@ -18,7 +18,7 @@ import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
-import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo } from '../lib/utils';
+import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo, cleanDuplicateTitle } from '../lib/utils';
 import { getPinnedUnit } from '../lib/pinnedStorage';
 
 export default function Home() {
@@ -141,9 +141,25 @@ export default function Home() {
     ? sortedNews.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : sortedNews.slice(0, 3);
 
-  const filteredEvents = searchQuery
-    ? events.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : events.slice(0, 3);
+  const filteredEvents = useMemo(() => {
+    const seen = new Set<string>();
+    const seenImgs = new Set<string>();
+    const unique = events.filter(e => {
+      const cleanTitle = cleanDuplicateTitle(e.title);
+      const key = (e.url || cleanTitle || '').trim().toLowerCase();
+      const imgKey = e.img ? e.img.trim().toLowerCase() : '';
+      if (seen.has(key)) return false;
+      if (imgKey && seenImgs.has(imgKey)) return false;
+      seen.add(key);
+      if (imgKey) seenImgs.add(imgKey);
+      return true;
+    }).map(e => ({ ...e, title: cleanDuplicateTitle(e.title) }));
+
+    if (searchQuery) {
+      return unique.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return unique.slice(0, 3);
+  }, [events, searchQuery]);
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -420,7 +436,7 @@ export default function Home() {
                   <span>{ev.date || '02 Ekim 2026'}</span>
                 </div>
                 <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-snug line-clamp-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
-                  {ev.title}
+                  {cleanDuplicateTitle(ev.title)}
                 </h4>
               </div>
             </button>
