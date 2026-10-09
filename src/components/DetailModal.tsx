@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Tag, ZoomIn, Newspaper, Megaphone } from 'lucide-react';
-import { cn, cleanDuplicateTitle } from '../lib/utils';
+import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Newspaper, Megaphone } from 'lucide-react';
+import { cleanDuplicateTitle } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
 
@@ -113,7 +114,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [activeLightboxImg, setActiveLightboxImg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -122,7 +122,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
       setImgError(false);
       setContentHtml(null);
       setError(false);
-      setActiveLightboxImg(null);
 
       if (activeUrl && activeUrl.startsWith('http')) {
         setLoading(true);
@@ -154,65 +153,75 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     }
   }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
 
-  // Lock body scroll when modal is open
+  // Lock body scroll when modal is open and bind Escape key
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = 'unset';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     } else {
       document.body.style.overflow = 'unset';
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center overflow-hidden">
+          {/* Full viewport Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-0"
           />
 
-          {/* Modal / Drawer */}
+          {/* Modal Container: Fullscreen on mobile, centered card on desktop */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-            className="fixed inset-x-0 bottom-0 z-50 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-2xl md:w-full bg-[#fcfbf9] dark:bg-[#264653] md:rounded-2xl rounded-t-2xl shadow-2xl md:shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden max-h-[92vh] md:max-h-[88vh] flex flex-col md:border border-[#e6e2d6] dark:border-white/10"
+            initial={{ opacity: 0, y: 30, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.98 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+            className="relative z-10 w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl bg-[#fcfbf9] dark:bg-[#1d3540] flex flex-col md:rounded-2xl shadow-2xl overflow-hidden md:border border-[#e6e2d6] dark:border-white/10"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 md:p-5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9]/95 dark:bg-[#264653]/95 backdrop-blur-md sticky top-0 z-10 gap-3">
+            {/* Header: Dedicated safe area padding preventing clash with mobile status bars / headers */}
+            <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653] shrink-0 gap-3 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] shadow-sm">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-700 dark:text-white text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shrink-0 shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-bold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shrink-0 shadow-sm"
+                aria-label="Geri Dön"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+                <ArrowLeft className="w-4 h-4 text-rose-600 dark:text-amber-400" />
                 <span>Geri Dön</span>
               </button>
 
-              <h2 className="text-xs md:text-sm font-display font-bold text-stone-900 dark:text-white leading-tight line-clamp-1 flex-1 text-center px-1">
+              <h2 className="text-xs sm:text-sm font-display font-bold text-stone-900 dark:text-white leading-tight line-clamp-1 flex-1 text-center px-1">
                 {activeTitle}
               </h2>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500 dark:text-stone-300 shrink-0 cursor-pointer"
+                className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500 dark:text-stone-300 shrink-0 cursor-pointer"
                 aria-label="Kapat"
               >
-                <X className="w-5 h-5" strokeWidth={1.5} />
+                <X className="w-5 h-5" strokeWidth={1.8} />
               </button>
             </div>
 
-            {/* Content Area */}
+            {/* Scrollable Article Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-4">
               {/* Metadata Badges */}
               {(initialDept || initialDate) && (
@@ -237,26 +246,18 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 {activeTitle}
               </h1>
 
-              {/* Featured Image or Smart Fallback Banner (No empty/broken voids!) */}
+              {/* Natural Featured Image without cropping or ZoomIn button */}
               {featuredImage && !imgError ? (
-                <div className="relative group rounded-2xl overflow-hidden bg-stone-100 dark:bg-black/30 border border-stone-200/80 dark:border-white/10 shadow-md">
+                <div className="rounded-2xl overflow-hidden bg-stone-100/90 dark:bg-stone-900/60 border border-stone-200/80 dark:border-white/10 shadow-sm flex items-center justify-center p-2 sm:p-3">
                   <img
                     src={featuredImage}
                     alt={activeTitle}
-                    className="w-full max-h-[380px] object-cover object-center transition-transform duration-300 group-hover:scale-[1.01]"
+                    className="w-full max-h-[500px] object-contain rounded-xl transition-all"
+                    loading="lazy"
                     onError={() => {
                       setImgError(true);
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setActiveLightboxImg(featuredImage)}
-                    className="absolute bottom-3 right-3 px-2.5 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg"
-                    title="Büyük boyutta gör"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                    <span>Görseli Büyüt</span>
-                  </button>
                 </div>
               ) : (
                 <div className="rounded-2xl h-36 sm:h-44 shadow-md bg-gradient-to-br from-[#264653] to-[#1e3842] p-5 flex flex-col justify-between text-white relative overflow-hidden">
@@ -313,7 +314,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-1
                     prose-p:text-stone-700 dark:prose-p:text-stone-300 prose-p:leading-relaxed
                     prose-a:text-amber-600 dark:prose-a:text-amber-400 prose-a:font-semibold hover:prose-a:underline
-                    prose-img:rounded-xl prose-img:mx-auto prose-img:shadow-md prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10
+                    prose-img:rounded-xl prose-img:mx-auto prose-img:max-h-[500px] prose-img:object-contain prose-img:shadow-sm prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10
                     prose-headings:font-display prose-headings:font-bold prose-headings:text-stone-900 dark:prose-headings:text-white"
                   onClick={(e) => {
                     const anchor = (e.target as HTMLElement).closest('a');
@@ -330,15 +331,15 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               ) : null}
             </div>
 
-            {/* Footer */}
-            <div className="p-3.5 sm:p-4 border-t border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653] flex items-center justify-between gap-3">
+            {/* Footer with Safe Area padding covering BottomNav */}
+            <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-t border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653] flex items-center justify-between gap-3 shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] shadow-lg">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-200 dark:bg-white/10 hover:bg-stone-300 dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-semibold transition-all border border-stone-300 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-stone-200 dark:bg-white/10 hover:bg-stone-300 dark:hover:bg-white/20 text-stone-800 dark:text-white text-xs font-bold transition-all border border-stone-300 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
-                <span>Kapat</span>
+                <span>Geri Dön</span>
               </button>
 
               {activeUrl && activeUrl.startsWith('http') && (
@@ -355,35 +356,9 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               )}
             </div>
           </motion.div>
-
-          {/* Fullscreen Lightbox / Zoom Modal */}
-          <AnimatePresence>
-            {activeLightboxImg && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setActiveLightboxImg(null)}
-                className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 backdrop-blur-md"
-              >
-                <button
-                  type="button"
-                  onClick={() => setActiveLightboxImg(null)}
-                  className="absolute top-5 right-5 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-                <img
-                  src={activeLightboxImg}
-                  alt={activeTitle}
-                  className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
+        </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
