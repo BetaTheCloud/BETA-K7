@@ -69,7 +69,7 @@ export interface PhonebookEntry {
   email: string;
 }
 
-export type StaffUnitCategory = 'all' | 'fakulte' | 'enstitu' | 'yuksekokul' | 'myo' | 'konservatuvar' | 'koordinatorluk';
+export type StaffUnitCategory = 'all' | 'fakulte' | 'enstitu' | 'yuksekokul' | 'myo' | 'konservatuvar' | 'koordinatorluk' | 'daire';
 
 export interface AcademicStaffMember {
   id: string;

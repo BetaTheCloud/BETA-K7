@@ -8,7 +8,7 @@ import https from 'https';
 import cors from 'cors';
 import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
 import { ACADEMIC_STAFF_DATA } from './src/data/staffData';
-import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './src/data/departmentNewsData';
+import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS, ACADEMIC_UNITS_WITH_DEPARTMENTS } from './src/data/departmentNewsData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -551,12 +551,28 @@ const cachedDepartmentNewsMap = new Map<string, { data: any[]; time: number }>()
 
 app.get('/api/department-news', async (req, res) => {
   try {
-    const deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
+    let deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
     const deptId = typeof req.query.deptId === 'string' ? req.query.deptId.trim() : '';
     const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
     const force = req.query.force === 'true';
 
-    // 1. If a specific department live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/news-all)
+    // Lookup academic unit details
+    const foundGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === facultyId) || 
+      (deptId ? ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.departments.some(d => d.id === deptId || d.slug === deptId)) : undefined);
+    const foundDept = foundGroup && deptId && deptId !== 'all' ? foundGroup.departments.find(d => d.id === deptId || d.slug === deptId) : undefined;
+    
+    const facultyName = foundGroup ? foundGroup.facultyName : '';
+    const departmentName = foundDept ? foundDept.name : (deptId && deptId !== 'all' ? deptId : 'Fakülte Geneli');
+
+    if (!deptUrl) {
+      if (foundDept) {
+        deptUrl = foundDept.newsUrl;
+      } else if (foundGroup) {
+        deptUrl = foundGroup.facultyNewsUrl;
+      }
+    }
+
+    // 1. If a specific department live URL is provided
     if (deptUrl && deptUrl.startsWith('http')) {
       const cacheKey = `dept_${deptUrl}`;
       if (!force && cachedDepartmentNewsMap.has(cacheKey)) {
@@ -588,19 +604,21 @@ app.get('/api/department-news', async (req, res) => {
             img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
           }
 
-          list.push({
-            id: `dept-live-${deptId || 'item'}-${i}-${Date.now()}`,
-            title,
-            date: rawDate || 'Güncel',
-            url: href || deptUrl,
-            imageUrl: img || undefined,
-            facultyId: facultyId || '',
-            facultyName: '',
-            departmentId: deptId || '',
-            departmentName: '',
-            sourceUrl: deptUrl,
-            category: 'Bölüm Haberleri'
-          });
+          if (!list.some(it => it.title === title || (href && it.url === href))) {
+            list.push({
+              id: `dept-live-${deptId || facultyId || 'item'}-${i}-${Date.now()}`,
+              title,
+              date: rawDate || 'Güncel',
+              url: href || deptUrl,
+              imageUrl: img || undefined,
+              facultyId: facultyId || (foundGroup ? foundGroup.facultyId : ''),
+              facultyName,
+              departmentId: deptId || 'general',
+              departmentName,
+              sourceUrl: deptUrl,
+              category: `${departmentName || facultyName || 'Bölüm'} Haberleri`
+            });
+          }
         });
 
         if (list.length > 0) {
@@ -608,7 +626,7 @@ app.get('/api/department-news', async (req, res) => {
           return res.json(list);
         }
       } catch (scrapeErr) {
-        console.warn('Live department scrape failed for', deptUrl, scrapeErr);
+        console.warn('Live department scrape failed for', deptUrl, (scrapeErr as any)?.message);
       }
     }
 
@@ -634,12 +652,34 @@ const cachedDepartmentAnnouncementsMap = new Map<string, { data: any[]; time: nu
 
 app.get('/api/department-announcements', async (req, res) => {
   try {
-    const deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
+    let deptUrl = typeof req.query.deptUrl === 'string' ? req.query.deptUrl.trim() : '';
     const deptId = typeof req.query.deptId === 'string' ? req.query.deptId.trim() : '';
     const facultyId = typeof req.query.facultyId === 'string' ? req.query.facultyId.trim() : '';
     const force = req.query.force === 'true';
 
-    // 1. If a specific department or faculty live URL is provided (e.g., https://turkdili.kilis.edu.tr/tr/announcement-all)
+    // Lookup academic unit details
+    const foundGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === facultyId) || 
+      (deptId ? ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.departments.some(d => d.id === deptId || d.slug === deptId)) : undefined);
+    const foundDept = foundGroup && deptId && deptId !== 'all' ? foundGroup.departments.find(d => d.id === deptId || d.slug === deptId) : undefined;
+    
+    const facultyName = foundGroup ? foundGroup.facultyName : '';
+    const departmentName = foundDept ? foundDept.name : (deptId && deptId !== 'all' ? deptId : 'Fakülte Geneli');
+
+    // Auto-resolve URL if missing
+    if (!deptUrl) {
+      if (foundDept) {
+        deptUrl = foundDept.announcementUrl || foundDept.newsUrl.replace('/news-all', '/announcements-all');
+      } else if (foundGroup) {
+        deptUrl = foundGroup.facultyAnnouncementUrl || foundGroup.facultyNewsUrl.replace('/news-all', '/announcements-all');
+      }
+    }
+
+    // Normalize URL: convert singular /announcement-all to plural /announcements-all
+    if (deptUrl) {
+      deptUrl = deptUrl.replace('/announcement-all', '/announcements-all');
+    }
+
+    // 1. Live Scrape
     if (deptUrl && deptUrl.startsWith('http')) {
       const cacheKey = `dept_ann_${deptUrl}`;
       if (!force && cachedDepartmentAnnouncementsMap.has(cacheKey)) {
@@ -655,12 +695,12 @@ app.get('/api/department-announcements', async (req, res) => {
         const list: any[] = [];
         const base = deptUrl.split('/tr')[0];
 
-        $('.announcement-item, a.announcement-item, a[href*="announcement-detail"], .announcement-all-item, .duyuru-item, a.full-link-item').each((i, el) => {
-          let title = $(el).find('.announcement-item-title, .announcement-title, .title, .title-wrapper .text, h3, h4').text().trim().replace(/\s+/g, ' ');
+        $('.news-item, a.news-item, .announcement-item, a.announcement-item, a[href*="announcements-detail"], a[href*="announcement-detail"], .sidebar-news-item, .announcement-all-item, .duyuru-item, a.full-link-item').each((i, el) => {
+          let title = $(el).find('.news-item-title, .announcement-item-title, .announcement-title, .sidebar-news-item-title, .title, .title-wrapper .text, h3, h4').text().trim().replace(/\s+/g, ' ');
           if (!title) title = $(el).text().trim().replace(/\s+/g, ' ');
           if (!title || title.length < 5) return;
 
-          let rawDate = $(el).find('.announcement-item-date, .announcement-date, .date, .time, .link-footer .date .text, .link-footer .date').text().trim().replace(/\s+/g, ' ');
+          let rawDate = $(el).find('.news-item-date, .announcement-item-date, .announcement-date, .date, .time, .link-footer .date .text, .link-footer .date').text().trim().replace(/\s+/g, ' ');
           let href = $(el).attr('href') || $(el).find('a').attr('href');
           if (href && !href.startsWith('http')) {
             href = `${base}${href.startsWith('/') ? '' : '/'}${href}`;
@@ -671,19 +711,21 @@ app.get('/api/department-announcements', async (req, res) => {
             img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
           }
 
-          list.push({
-            id: `dept-ann-live-${deptId || 'item'}-${i}-${Date.now()}`,
-            title,
-            date: rawDate || 'Güncel',
-            url: href || deptUrl,
-            imageUrl: img || undefined,
-            facultyId: facultyId || '',
-            facultyName: '',
-            departmentId: deptId || '',
-            departmentName: '',
-            sourceUrl: deptUrl,
-            category: 'Bölüm Duyuruları'
-          });
+          if (!list.some(it => it.title === title || (href && it.url === href))) {
+            list.push({
+              id: `dept-ann-live-${deptId || facultyId || 'item'}-${i}-${Date.now()}`,
+              title,
+              date: rawDate || 'Güncel',
+              url: href || deptUrl,
+              imageUrl: img || undefined,
+              facultyId: facultyId || (foundGroup ? foundGroup.facultyId : ''),
+              facultyName,
+              departmentId: deptId || 'general',
+              departmentName,
+              sourceUrl: deptUrl,
+              category: `${departmentName || facultyName || 'Üniversite'} Duyuruları`
+            });
+          }
         });
 
         if (list.length > 0) {
@@ -691,7 +733,7 @@ app.get('/api/department-announcements', async (req, res) => {
           return res.json(list);
         }
       } catch (scrapeErr) {
-        console.warn('Live department announcements scrape failed for', deptUrl, scrapeErr);
+        console.warn('Live department announcements scrape failed for', deptUrl, (scrapeErr as any)?.message);
       }
     }
 
