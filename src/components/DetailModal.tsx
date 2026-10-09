@@ -207,9 +207,9 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 <span>Geri Dön</span>
               </button>
 
-              <h2 className="text-xs sm:text-sm font-display font-bold text-stone-900 dark:text-white leading-tight line-clamp-1 flex-1 text-center px-1">
-                {activeTitle}
-              </h2>
+              <span className="text-xs sm:text-sm font-display font-bold text-stone-700 dark:text-stone-300 leading-tight truncate flex-1 text-center px-2">
+                {item?.category || (item?.departmentName ? `${item.departmentName} Duyurusu` : 'Duyuru Detayı')}
+              </span>
 
               <button
                 type="button"
@@ -238,6 +238,11 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                       <span>{initialDate}</span>
                     </span>
                   )}
+                  {item?.category && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-300">
+                      {item.category}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -247,7 +252,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               </h1>
 
               {/* Natural Featured Image without cropping or ZoomIn button */}
-              {featuredImage && !imgError ? (
+              {featuredImage && !imgError && (
                 <div className="rounded-2xl overflow-hidden bg-stone-100/90 dark:bg-stone-900/60 border border-stone-200/80 dark:border-white/10 shadow-sm flex items-center justify-center p-2 sm:p-3">
                   <img
                     src={featuredImage}
@@ -258,24 +263,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                       setImgError(true);
                     }}
                   />
-                </div>
-              ) : (
-                <div className="rounded-2xl h-36 sm:h-44 shadow-md bg-gradient-to-br from-[#264653] to-[#1e3842] p-5 flex flex-col justify-between text-white relative overflow-hidden">
-                  <div className="flex items-center gap-2 text-xs font-medium text-amber-300">
-                    {item?.category?.toLowerCase().includes('haber') ? (
-                      <Newspaper className="w-4 h-4" />
-                    ) : (
-                      <Megaphone className="w-4 h-4" />
-                    )}
-                    <span>{item?.category || initialDept || 'Kilis 7 Aralık Üniversitesi'}</span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-bold line-clamp-2 text-white">
-                    {activeTitle}
-                  </h3>
-                  <div className="text-[11px] text-stone-300 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{initialDate || 'Güncel'}</span>
-                  </div>
                 </div>
               )}
 
