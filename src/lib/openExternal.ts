@@ -1,3 +1,5 @@
+import type React from 'react';
+
 /**
  * Safe external URL opener utility.
  * Guarantees that external links (university portals, YÖK, sports reservations, PDFs, Google Forms, etc.)
