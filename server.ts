@@ -482,33 +482,36 @@ app.get('/api/announcements', async (req, res) => {
       });
     } catch(e) { console.error('Main ann fetch error'); }
 
-    // Faculty Announcements (parallel with fast individual timeout)
-    const activeFaculties = FACULTIES.slice(0, 10);
-    await processInChunks(activeFaculties, 5, async (fac, index) => {
-      try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        const $ = cheerio.load(facRes.data);
-        $('.announcement-item').each((i, el) => {
-          let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
-          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-          let dateStr = $(el).find('.announcement-date').text().trim();
-          let url = $(el).attr('href');
-          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
-          if (title && !announcements.some(a => a.title === title || (fullUrl && a.url === fullUrl))) {
-            announcements.push({
-              id: `ann-fac-${index}-${i}`,
-              title: title,
-              date: dateStr || new Date().toISOString(),
-              content: '',
-              category: fac.name,
-              url: fullUrl
-            });
-          }
-        });
-      } catch (e) {
-        // Silently handle
-      }
-    });
+    // Faculty Announcements are now fetched on-demand per faculty/department via /api/department-announcements.
+    // Only scrape faculties if explicitly requested with includeFaculties=true.
+    if (req.query.includeFaculties === 'true') {
+      const activeFaculties = FACULTIES.slice(0, 10);
+      await processInChunks(activeFaculties, 5, async (fac, index) => {
+        try {
+          const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
+          const $ = cheerio.load(facRes.data);
+          $('.announcement-item').each((i, el) => {
+            let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
+            let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+            let dateStr = $(el).find('.announcement-date').text().trim();
+            let url = $(el).attr('href');
+            let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+            if (title && !announcements.some(a => a.title === title || (fullUrl && a.url === fullUrl))) {
+              announcements.push({
+                id: `ann-fac-${index}-${i}`,
+                title: title,
+                date: dateStr || new Date().toISOString(),
+                content: '',
+                category: fac.name,
+                url: fullUrl
+              });
+            }
+          });
+        } catch (e) {
+          // Silently handle
+        }
+      });
+    }
 
     if (announcements.length > 0) {
       cachedAnnouncements = announcements;
@@ -557,33 +560,36 @@ app.get('/api/news', async (req, res) => {
       });
     } catch(e) { console.error('Main news fetch error'); }
 
-    // Faculty News
-    const activeFaculties = FACULTIES.slice(0, 10);
-    await processInChunks(activeFaculties, 5, async (fac, index) => {
-      try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-        const $ = cheerio.load(facRes.data);
-        $('.news-item').each((i, el) => {
-          let titleEl = $(el).find('.news-title, .title, h3, h4').first();
-          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-          let dateStr = $(el).find('.news-date').text().trim();
-          let url = $(el).attr('href');
-          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
-          if (title && !news.some(n => n.title === title || (fullUrl && n.url === fullUrl))) {
-            news.push({
-              id: `news-fac-${index}-${i}`,
-              title: title,
-              date: dateStr || new Date().toISOString(),
-              content: '',
-              category: fac.name,
-              url: fullUrl
-            });
-          }
-        });
-      } catch (e) {
-        // Silently handle
-      }
-    });
+    // Faculty News are now fetched on-demand per faculty/department via /api/department-news.
+    // Only scrape faculties if explicitly requested with includeFaculties=true.
+    if (req.query.includeFaculties === 'true') {
+      const activeFaculties = FACULTIES.slice(0, 10);
+      await processInChunks(activeFaculties, 5, async (fac, index) => {
+        try {
+          const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
+          const $ = cheerio.load(facRes.data);
+          $('.news-item').each((i, el) => {
+            let titleEl = $(el).find('.news-title, .title, h3, h4').first();
+            let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+            let dateStr = $(el).find('.news-date').text().trim();
+            let url = $(el).attr('href');
+            let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+            if (title && !news.some(n => n.title === title || (fullUrl && n.url === fullUrl))) {
+              news.push({
+                id: `news-fac-${index}-${i}`,
+                title: title,
+                date: dateStr || new Date().toISOString(),
+                content: '',
+                category: fac.name,
+                url: fullUrl
+              });
+            }
+          });
+        } catch (e) {
+          // Silently handle
+        }
+      });
+    }
 
     if (news.length > 0) {
       cachedNews = news;
@@ -808,8 +814,16 @@ app.get('/api/department-announcements', async (req, res) => {
   }
 });
 
+let cachedMenu: any[] = [];
+let cachedMenuTime = 0;
+const MENU_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
 app.get('/api/menu', async (req, res) => {
   try {
+    if (req.query.force !== 'true' && Date.now() - cachedMenuTime < MENU_CACHE_TTL && cachedMenu.length > 0) {
+      return res.json(cachedMenu);
+    }
+
     const response = await axiosInstance.get('https://sks.kilis.edu.tr/tr/page/5088', { timeout: 7000 });
     const $ = cheerio.load(response.data);
     const menuItems: any[] = [];
@@ -850,13 +864,15 @@ app.get('/api/menu', async (req, res) => {
     });
     
     if (menuItems.length > 0) {
+      cachedMenu = menuItems;
+      cachedMenuTime = Date.now();
       return res.json(menuItems);
     }
 
-    res.json(DEFAULT_MENU);
+    res.json(cachedMenu.length > 0 ? cachedMenu : DEFAULT_MENU);
   } catch (error) {
     console.error('Menu error, returning fallback menu:', error);
-    res.json(DEFAULT_MENU);
+    res.json(cachedMenu.length > 0 ? cachedMenu : DEFAULT_MENU);
   }
 });
 

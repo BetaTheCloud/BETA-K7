@@ -97,7 +97,7 @@ export default function Announcements() {
 
   // Load Main Announcements
   const loadMainAnnouncements = async (force = false) => {
-    if (force) setLoading(true);
+    if (force || announcements.length === 0) setLoading(true);
     const data = await getAnnouncements(force);
     if (data && data.length > 0) {
       setAnnouncements(data);
@@ -107,7 +107,7 @@ export default function Announcements() {
 
   // Load Department Announcements
   const loadDeptAnnouncements = async (force = false) => {
-    if (force) setDeptLoading(true);
+    setDeptLoading(true);
 
     const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];
     const isAll = !selectedDepartmentId || selectedDepartmentId === 'all';

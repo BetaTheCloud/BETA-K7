@@ -90,7 +90,7 @@ export default function News() {
 
   // Load Main News
   const loadMainNews = async (force = false) => {
-    if (force) setLoading(true);
+    if (force || news.length === 0) setLoading(true);
     const data = await getNews(force);
     if (data && data.length > 0) {
       setNews(data);
@@ -100,7 +100,7 @@ export default function News() {
 
   // Load Department News
   const loadDeptNews = async (force = false) => {
-    if (force) setDeptLoading(true);
+    setDeptLoading(true);
     
     // Find active group and department
     const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];

@@ -784,8 +784,11 @@ function notifySyncSuccess(status: 'live' | 'cached' = 'live') {
 
 // ================= API CALLS WITH INSTANT CACHE & RESILIENT FALLBACKS =================
 
-export const getAnnouncements = async (force: boolean = true): Promise<Announcement[]> => {
+export const getAnnouncements = async (force: boolean = false): Promise<Announcement[]> => {
   const cached = getStoredWithTTL<Announcement[]>('k7_cached_announcements', CACHE_TTL.ANNOUNCEMENTS, FALLBACK_ANNOUNCEMENTS);
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return cached.data;
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
@@ -803,8 +806,11 @@ export const getAnnouncements = async (force: boolean = true): Promise<Announcem
   return cached.data || FALLBACK_ANNOUNCEMENTS;
 };
 
-export const getNews = async (force: boolean = true): Promise<Announcement[]> => {
+export const getNews = async (force: boolean = false): Promise<Announcement[]> => {
   const cached = getStoredWithTTL<Announcement[]>('k7_cached_news', CACHE_TTL.NEWS, FALLBACK_NEWS);
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return cached.data;
+  }
   try {
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {

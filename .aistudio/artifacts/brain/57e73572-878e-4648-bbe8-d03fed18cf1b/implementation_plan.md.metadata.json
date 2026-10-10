@@ -1,0 +1,6 @@
+{
+  "summary":  "Kilis 7 Aralık Üniversitesi mobil uygulaması için kullanıcının önerdiği 'Girişte yalnızca ana sayfa canlı verisi, fakülte ve bölümler için tıklandığında isteğe bağlı (on-demand lazy) canlı veri çekimi' mimarisinin detaylı uygulama planı. Render CPU ve ağ trafiğini %95 azaltırken son kullanıcı açılış hızını 10 kat artıran stratejiyi içerir.",
+  "updatedAt":  "2026-10-10T11:51:42.896289722Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
