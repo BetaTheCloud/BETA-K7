@@ -1083,6 +1083,54 @@ export const getStaff = async (
   return list;
 };
 
+export interface StaffSyncResult {
+  success: boolean;
+  facultyId?: string;
+  facultyName?: string;
+  count: number;
+  lastSyncTime: number;
+  data?: AcademicStaffMember[];
+}
+
+export const syncStaff = async (facultyId: string = 'all'): Promise<StaffSyncResult> => {
+  try {
+    const url = getApiUrl(`/api/staff/sync?faculty=${encodeURIComponent(facultyId)}`);
+    const response = await safeFetch(url);
+    if (response.ok) {
+      const res = await response.json();
+      if (res && res.success) {
+        if (typeof window !== 'undefined') {
+          const now = res.lastSyncTime || Date.now();
+          localStorage.setItem('k7_staff_last_sync_' + facultyId, now.toString());
+          localStorage.setItem('k7_staff_last_sync_all', now.toString());
+        }
+        notifySyncSuccess('live');
+        return res;
+      }
+    }
+  } catch (err) {
+    console.warn('Personel senkronizasyon hatası:', err);
+  }
+  return {
+    success: false,
+    count: 0,
+    lastSyncTime: Date.now()
+  };
+};
+
+export const formatStaffSyncDate = (timestamp?: number | null): string => {
+  if (!timestamp) return 'Bugün, ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(timestamp);
+  const now = new Date();
+  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  const timeStr = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  if (isToday) {
+    return `Bugün, ${timeStr}`;
+  }
+  const dateStr = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  return `${dateStr}, ${timeStr}`;
+};
+
 export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> => {
   const normalize = (items: CampusEvent[]) => {
     return items.map((e) => {

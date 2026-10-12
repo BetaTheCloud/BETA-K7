@@ -51,9 +51,9 @@ import {
   Utensils,
   HelpCircle,
   ChevronUp,
-  User,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw
 } from 'lucide-react';
 import K7Logo from '../components/K7Logo';
 import { getApiUrl } from '../config';
@@ -64,6 +64,8 @@ import {
   getEvents,
   getForms,
   getStaff,
+  syncStaff,
+  formatStaffSyncDate,
   getTransportInfo,
   getLibraryInfo,
   getSportsInfo,
@@ -132,6 +134,17 @@ export default function CampusHub() {
   const [selectedStaffFaculty, setSelectedStaffFaculty] = useState<string>('');
   const [selectedStaffDepartment, setSelectedStaffDepartment] = useState<string>('Tümü');
   const [staffSearch, setStaffSearch] = useState<string>('');
+
+  // Staff live sync state
+  const [isSyncingStaff, setIsSyncingStaff] = useState(false);
+  const [staffSyncSuccessMsg, setStaffSyncSuccessMsg] = useState<string | null>(null);
+  const [staffLastSyncTime, setStaffLastSyncTime] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('k7_staff_last_sync_all');
+      if (saved) return parseInt(saved, 10);
+    }
+    return Date.now() - 3600000;
+  });
 
   // Forms filter state: Pure Faculty Categorization
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
@@ -345,6 +358,45 @@ export default function CampusHub() {
     toast.success(`${label} kopyalandı: ${text}`, {
       duration: 3000
     });
+  };
+
+  const handleSyncStaff = async () => {
+    if (isSyncingStaff) return;
+    setIsSyncingStaff(true);
+    setStaffSyncSuccessMsg(null);
+    try {
+      let facId = selectedStaffFaculty;
+      if (!facId && filteredStaff.length > 0 && filteredStaff.length <= 15) {
+        facId = filteredStaff[0].facultyId;
+      }
+      if (!facId) {
+        facId = 'all';
+      }
+      const result = await syncStaff(facId);
+      if (result && result.success && result.data && result.data.length > 0) {
+        if (facId === 'all') {
+          setStaffList(result.data);
+        } else {
+          setStaffList((prev) => {
+            const others = prev.filter(s => s.facultyId.toLowerCase() !== facId.toLowerCase());
+            return [...others, ...result.data!];
+          });
+        }
+        const now = result.lastSyncTime || Date.now();
+        setStaffLastSyncTime(now);
+        setStaffSyncSuccessMsg(`${result.count} personel güncellendi.`);
+        setTimeout(() => setStaffSyncSuccessMsg(null), 4000);
+      } else {
+        setStaffSyncSuccessMsg('Kadro güncel.');
+        setTimeout(() => setStaffSyncSuccessMsg(null), 3000);
+      }
+    } catch (err) {
+      console.warn('Sync failed:', err);
+      setStaffSyncSuccessMsg('Bağlantı hatası.');
+      setTimeout(() => setStaffSyncSuccessMsg(null), 3000);
+    } finally {
+      setIsSyncingStaff(false);
+    }
   };
 
   const tabs: { key: TabKey; label: string; icon: any; color: string }[] = [
@@ -806,7 +858,32 @@ export default function CampusHub() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-xs flex-wrap">
+                  {/* Minimal Sync & Refresh Badge */}
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-white/5 border border-stone-200/90 dark:border-white/10 text-[11px] text-stone-600 dark:text-stone-300 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-stone-400 dark:text-white/40">Son Senkron:</span>
+                    <span className="font-medium text-stone-700 dark:text-stone-200">
+                      {formatStaffSyncDate(staffLastSyncTime)}
+                    </span>
+                    <button
+                      onClick={handleSyncStaff}
+                      disabled={isSyncingStaff}
+                      type="button"
+                      title={activeStaffFacultyConfig ? `${activeStaffFacultyConfig.shortName} kadrosunu resmi siteden canlı güncelle` : "Kadro bilgilerini resmi siteden canlı güncelle"}
+                      className="ml-1 pl-1.5 border-l border-stone-200 dark:border-white/10 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold flex items-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isSyncingStaff ? 'animate-spin' : ''}`} />
+                      <span>{isSyncingStaff ? 'Güncelleniyor...' : 'Güncelle'}</span>
+                    </button>
+                  </div>
+
+                  {staffSyncSuccessMsg && (
+                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60">
+                      ✓ {staffSyncSuccessMsg}
+                    </span>
+                  )}
+
                   {selectedStaffFaculty || staffSearch.trim() ? (
                     <>
                       <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/20">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { getNews, getDepartmentNews, getCachedOrFallback, FALLBACK_NEWS } from '../mockData';
+import { getNews, getDepartmentNews, getCachedOrFallback, getStoredWithTTL, CACHE_TTL, FALLBACK_NEWS } from '../mockData';
 import { Announcement, DepartmentNewsItem, StaffUnitCategory } from '../types';
 import {
   ACADEMIC_UNITS_WITH_DEPARTMENTS,
@@ -100,6 +100,19 @@ export default function News() {
 
   // Load Department News
   const loadDeptNews = async (force = false) => {
+    const effectiveKey = (selectedDepartmentId && selectedDepartmentId !== 'all') 
+      ? `${selectedFacultyId || 'fac'}_${selectedDepartmentId}` 
+      : `${selectedFacultyId || 'all'}_genel`;
+    const cached = getStoredWithTTL<DepartmentNewsItem[]>(`k7_cached_dept_news_${effectiveKey}`, CACHE_TTL.DEPT_NEWS, []);
+
+    if (cached.data && cached.data.length > 0) {
+      setDepartmentNews(cached.data);
+      if (cached.isFresh && !force) {
+        setDeptLoading(false);
+        return;
+      }
+    }
+
     setDeptLoading(true);
     
     // Find active group and department

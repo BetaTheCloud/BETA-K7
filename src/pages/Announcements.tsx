@@ -5,6 +5,8 @@ import {
   getAnnouncements,
   getDepartmentAnnouncements,
   getCachedOrFallback,
+  getStoredWithTTL,
+  CACHE_TTL,
   FALLBACK_ANNOUNCEMENTS,
   FALLBACK_DEPARTMENT_ANNOUNCEMENTS
 } from '../mockData';
@@ -107,6 +109,19 @@ export default function Announcements() {
 
   // Load Department Announcements
   const loadDeptAnnouncements = async (force = false) => {
+    const effectiveKey = (selectedDepartmentId && selectedDepartmentId !== 'all')
+      ? `${selectedFacultyId || 'fac'}_${selectedDepartmentId}`
+      : `${selectedFacultyId || 'all'}_genel`;
+    const cached = getStoredWithTTL<DepartmentAnnouncementItem[]>(`k7_cached_dept_ann_${effectiveKey}`, CACHE_TTL.DEPT_ANNOUNCEMENTS, []);
+
+    if (cached.data && cached.data.length > 0) {
+      setDeptAnnouncements(cached.data);
+      if (cached.isFresh && !force) {
+        setDeptLoading(false);
+        return;
+      }
+    }
+
     setDeptLoading(true);
 
     const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId) || ACADEMIC_UNITS_WITH_DEPARTMENTS[0];

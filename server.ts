@@ -7,7 +7,7 @@ import * as cheerio from 'cheerio';
 import https from 'https';
 import cors from 'cors';
 import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
-import { ACADEMIC_STAFF_DATA } from './src/data/staffData';
+import { ACADEMIC_STAFF_DATA, STAFF_FACULTIES_LIST } from './src/data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS, ACADEMIC_UNITS_WITH_DEPARTMENTS } from './src/data/departmentNewsData';
 
 const app = express();
@@ -1323,7 +1323,164 @@ app.get('/api/phonebook', async (req, res) => {
   }
 });
 
-// --- AKADEMİK & İDARİ PERSONEL (FAKÜLTE, ENSTİTÜ, YO, MYO, KONSERVATUVAR, KOORDİNATÖRLÜK BAZLI) ---
+// --- AKADEMİK & İDARİ PERSONEL VERİ YÖNETİMİ & CANLI SENKRONİZASYON ---
+let syncedStaffData: any[] = [...ACADEMIC_STAFF_DATA];
+const facultyStaffSyncTimeMap: Record<string, number> = {};
+let globalStaffLastSync = Date.now();
+
+// Helper to scrape a single faculty live
+async function scrapeFacultyStaffLive(facultyOption: typeof STAFF_FACULTIES_LIST[0]): Promise<any[]> {
+  if (!facultyOption.sourceUrl || !facultyOption.sourceUrl.startsWith('http')) return [];
+  try {
+    const res = await axiosInstance.get(facultyOption.sourceUrl, { timeout: 8500 });
+    const $ = cheerio.load(res.data);
+    const parsedStaff: any[] = [];
+    const base = facultyOption.sourceUrl.split('/tr')[0];
+
+    $('.staff-card').each((idx, el) => {
+      const nameEl = $(el).find('.staff-card-name');
+      const fullName = nameEl.text().trim();
+      if (!fullName || fullName.length < 3) return;
+
+      const email = $(el).find('.staff-card-email').text().trim();
+      const role = $(el).find('.staff-card-title').text().trim();
+      let img = $(el).find('.staff-card-img img').attr('src') || '';
+      if (img && !img.startsWith('http')) {
+        img = `${base}${img.startsWith('/') ? '' : '/'}${img}`;
+      }
+
+      let dept = $(el).closest('.accordion-item').find('.accordion-item-header, .accordion-header').first().text().replace(/[+\-\s]+/g, ' ').trim();
+      if (!dept) dept = 'Dekanlık / Bölüm';
+
+      let yokUrl = $(el).find('.staff-card-social a[href*="yok.gov.tr"]').attr('href');
+      let scholarUrl = $(el).find('.staff-card-social a[href*="scholar.google"]').attr('href');
+      let orcidUrl = $(el).find('.staff-card-social a[href*="orcid.org"]').attr('href');
+      let publonsUrl = $(el).find('.staff-card-social a[href*="webofscience"], .staff-card-social a[href*="publons"]').attr('href');
+
+      const titleMatch = fullName.match(/^(Prof\.\s*Dr\.|Doç\.\s*Dr\.|Doc\.\s*Dr\.|Dr\.\s*Öğr\.\s*Üyesi|Dr\.\s*Ogr\.\s*Uyesi|Öğr\.\s*Gör\.\s*Dr\.|Ogr\.\s*Gor\.\s*Dr\.|Öğr\.\s*Gör\.|Ogr\.\s*Gor\.|Arş\.\s*Gör\.\s*Dr\.|Ars\.\s*Gor\.\s*Dr\.|Arş\.\s*Gör\.|Ars\.\s*Gor\.|Uzm\.|Dr\.)/i);
+      const title = titleMatch ? titleMatch[1] : '';
+      const name = title ? fullName.replace(title, '').trim() : fullName;
+
+      // Preserve existing research URLs if live card does not include them
+      const existing = syncedStaffData.find(s => 
+        (email && s.email && s.email.toLowerCase() === email.toLowerCase()) ||
+        (s.name && name && s.name.trim().toLowerCase() === name.trim().toLowerCase())
+      );
+      if (existing) {
+        if (!yokUrl && existing.yokUrl) yokUrl = existing.yokUrl;
+        if (!scholarUrl && existing.scholarUrl) scholarUrl = existing.scholarUrl;
+        if (!orcidUrl && existing.orcidUrl) orcidUrl = existing.orcidUrl;
+        if (!publonsUrl && existing.publonsUrl) publonsUrl = existing.publonsUrl;
+        if (!img && existing.image) img = existing.image;
+      }
+
+      parsedStaff.push({
+        id: `staff-${facultyOption.id}-${idx}`,
+        fullName,
+        title: title || 'Öğretim Elemanı',
+        name,
+        role: role || 'Öğretim Üyesi',
+        facultyId: facultyOption.id,
+        facultyName: facultyOption.name,
+        facultyShortName: facultyOption.shortName,
+        department: dept,
+        email,
+        image: img || undefined,
+        sourceUrl: facultyOption.sourceUrl,
+        yokUrl,
+        scholarUrl,
+        orcidUrl,
+        publonsUrl,
+        unitCategory: facultyOption.category
+      });
+    });
+
+    return parsedStaff;
+  } catch (err: any) {
+    console.warn(`Staff live scrape notice for ${facultyOption.name}:`, err.message);
+    return [];
+  }
+}
+
+// Background Sync Schedule: Staggered, gentle background sync every 4 hours for stale faculties
+let backgroundSyncIndex = 0;
+const syncableFaculties = STAFF_FACULTIES_LIST.filter(f => f.id !== 'all' && f.sourceUrl);
+
+setInterval(async () => {
+  if (syncableFaculties.length === 0) return;
+  const fac = syncableFaculties[backgroundSyncIndex % syncableFaculties.length];
+  backgroundSyncIndex++;
+
+  const lastTime = facultyStaffSyncTimeMap[fac.id] || 0;
+  // If not synced in last 7 days
+  if (Date.now() - lastTime > 7 * 24 * 60 * 60 * 1000) {
+    try {
+      const fresh = await scrapeFacultyStaffLive(fac);
+      if (fresh.length > 0) {
+        syncedStaffData = syncedStaffData.filter(s => s.facultyId.toLowerCase() !== fac.id.toLowerCase()).concat(fresh);
+        facultyStaffSyncTimeMap[fac.id] = Date.now();
+        globalStaffLastSync = Date.now();
+      }
+    } catch {}
+  }
+}, 4 * 60 * 60 * 1000);
+
+// On-demand staff sync endpoint
+app.all(['/api/staff/sync'], async (req, res) => {
+  try {
+    const facultyId = ((req.query.faculty || req.body?.faculty || 'all') as string).toLowerCase().trim();
+    
+    // Find target faculty
+    const targetFac = STAFF_FACULTIES_LIST.find(f => f.id.toLowerCase() === facultyId && f.id !== 'all');
+    
+    if (targetFac && targetFac.sourceUrl) {
+      const freshStaff = await scrapeFacultyStaffLive(targetFac);
+      if (freshStaff.length > 0) {
+        // Replace this faculty's staff in syncedStaffData
+        syncedStaffData = syncedStaffData.filter(s => s.facultyId.toLowerCase() !== targetFac.id.toLowerCase()).concat(freshStaff);
+        facultyStaffSyncTimeMap[targetFac.id] = Date.now();
+        globalStaffLastSync = Date.now();
+
+        return res.json({
+          success: true,
+          facultyId: targetFac.id,
+          facultyName: targetFac.name,
+          count: freshStaff.length,
+          lastSyncTime: facultyStaffSyncTimeMap[targetFac.id],
+          data: freshStaff
+        });
+      }
+    }
+
+    // If 'all' or fallback, actively scrape key faculties live in parallel so title promotions are updated
+    if (facultyId === 'all') {
+      const primaryFaculties = syncableFaculties.slice(0, 8);
+      await Promise.allSettled(primaryFaculties.map(async fac => {
+        try {
+          const fresh = await scrapeFacultyStaffLive(fac);
+          if (fresh.length > 0) {
+            syncedStaffData = syncedStaffData.filter(s => s.facultyId.toLowerCase() !== fac.id.toLowerCase()).concat(fresh);
+            facultyStaffSyncTimeMap[fac.id] = Date.now();
+          }
+        } catch {}
+      }));
+      globalStaffLastSync = Date.now();
+    }
+
+    res.json({
+      success: true,
+      facultyId: 'all',
+      count: syncedStaffData.length,
+      lastSyncTime: globalStaffLastSync,
+      data: syncedStaffData
+    });
+  } catch (error: any) {
+    console.error('Staff sync error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Senkronizasyon hatası' });
+  }
+});
+
+// Primary staff query endpoint
 app.get('/api/staff', (req, res) => {
   try {
     const faculty = ((req.query.faculty || 'all') as string).toLowerCase().trim();
@@ -1331,7 +1488,7 @@ app.get('/api/staff', (req, res) => {
     const category = ((req.query.category || 'all') as string).toLowerCase().trim();
     const q = ((req.query.q || req.query.search || '') as string).toLowerCase().trim();
 
-    let list = ACADEMIC_STAFF_DATA;
+    let list = syncedStaffData;
 
     if (category && category !== 'all' && category !== 'tümü') {
       list = list.filter(s => s.unitCategory && s.unitCategory.toLowerCase() === category);
