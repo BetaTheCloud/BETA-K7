@@ -14,9 +14,11 @@ import {
   Wind, 
   Umbrella,
   Clock,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
+import { getApiUrl, safeFetch } from '../config';
 
 interface WeatherData {
   temperature: number;
@@ -26,6 +28,8 @@ interface WeatherData {
   rainChanceMax: number;
   weathercode: number;
   is_day: number;
+  conditionText?: string;
+  source?: string;
 }
 
 interface WeatherWidgetProps {
@@ -42,7 +46,37 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   useEffect(() => {
     async function fetchWeather() {
       try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=3&timezone=Europe%2FIstanbul';
+        // 1. Primary: Fetch from backend /api/weather (MGM Official Kilis Station No: 17262)
+        try {
+          const apiRes = await safeFetch(getApiUrl('/api/weather'));
+          if (apiRes.ok) {
+            const mgmData = await apiRes.json();
+            if (mgmData && typeof mgmData.temperature === 'number') {
+              setWeather({
+                temperature: mgmData.temperature,
+                humidity: mgmData.humidity,
+                windSpeed: mgmData.windSpeed,
+                rainChance: mgmData.rainChance ?? 0,
+                rainChanceMax: mgmData.rainChanceMax ?? 0,
+                weathercode: mgmData.weathercode ?? 0,
+                is_day: mgmData.is_day ?? 1,
+                conditionText: mgmData.conditionText,
+                source: mgmData.source
+              });
+              setDetailedWeather(mgmData);
+              if (onWeatherChange) {
+                onWeatherChange(mgmData.weathercode ?? 0, mgmData.is_day ?? 1);
+              }
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (serverErr) {
+          console.warn('Backend /api/weather notice, attempting direct fallback:', serverErr);
+        }
+
+        // 2. High-precision Client Fallback: ECMWF European model via Open-Meteo
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&models=ecmwf_ifs025&forecast_days=3&timezone=Europe%2FIstanbul';
         const res = await fetch(url);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
@@ -51,7 +85,6 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         const times: string[] = data.hourly?.time || [];
         const currentTimeIso = data.current?.time || '';
         
-        // Exact matching on current hour block (e.g. "2026-10-05T19" from "2026-10-05T19:45")
         const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
         let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : -1;
         
@@ -337,11 +370,15 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               {Math.round(weather.temperature)}°
             </span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${theme.badge} truncate tracking-wide`}>
-              {theme.text}
+              {weather.conditionText || theme.text}
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30" title="Meteoroloji Genel Müdürlüğü Kilis İstasyonu (Canlı)">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              MGM Kilis
+            </span>
+            <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
               <Clock className="w-2.5 h-2.5" />
-              1, 2, 4, 6, 8s Tahmin
+              Saatlik Tahmin
             </span>
           </div>
           

@@ -146,18 +146,14 @@ export function getEffectiveApiBase(): string {
     }
   }
 
-  // 2. Build-time environment variable (from .env)
-  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-  if (envUrl) {
-    return envUrl;
-  }
-
-  // 3. Auto-detection for Mobile APK / WebView: If running inside an APK, use default backend
+  // 2. Mobile APK / Hybrid container: Needs remote backend URL
   if (isMobileAppEnvironment()) {
-    return DEFAULT_REMOTE_API_BASE;
+    const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+    return envUrl || DEFAULT_REMOTE_API_BASE;
   }
 
-  // 4. Default for Web development / Unified proxy
+  // 3. Web runtime (AI Studio preview, local dev, unified full-stack):
+  // Always use same-origin relative endpoints ('') so the app communicates directly with its own backend
   return '';
 }
 

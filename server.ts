@@ -948,6 +948,244 @@ function detectCalendarEventType(title: string, term?: string): 'exam' | 'regist
   return 'other';
 }
 
+// --- CANLI HAVA DURUMU (MGM RESMİ KİLİS İSTASYONU & YEDEK MODEL) ---
+let cachedWeatherData: any = null;
+let cachedWeatherTime = 0;
+const WEATHER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+const MGM_HADISE_MAP: Record<string, { wmo: number; text: string }> = {
+  'A': { wmo: 0, text: 'Açık & Güneşli' },
+  'AB': { wmo: 1, text: 'Az Bulutlu' },
+  'PB': { wmo: 2, text: 'Parçalı Bulutlu' },
+  'CB': { wmo: 3, text: 'Çok Bulutlu' },
+  'HY': { wmo: 51, text: 'Hafif Yağmurlu' },
+  'Y': { wmo: 61, text: 'Yağmurlu' },
+  'KY': { wmo: 65, text: 'Kuvvetli Yağmurlu' },
+  'KKY': { wmo: 68, text: 'Karla Karışık Yağmurlu' },
+  'HKY': { wmo: 71, text: 'Hafif Kar Yağışlı' },
+  'K': { wmo: 73, text: 'Kar Yağışlı' },
+  'KYK': { wmo: 75, text: 'Yoğun Kar Yağışlı' },
+  'YKY': { wmo: 75, text: 'Yoğun Kar Yağışlı' },
+  'HSY': { wmo: 80, text: 'Hafif Sağanak Yağışlı' },
+  'SY': { wmo: 81, text: 'Sağanak Yağışlı' },
+  'KSY': { wmo: 82, text: 'Kuvvetli Sağanak Yağışlı' },
+  'MSY': { wmo: 80, text: 'Mevzi Sağanak Yağışlı' },
+  'DY': { wmo: 96, text: 'Dolu Yağışlı' },
+  'GSY': { wmo: 95, text: 'Gökgürültülü Sağanak Yağışlı' },
+  'KGSY': { wmo: 99, text: 'Kuvvetli Gökgürültülü Sağanak Yağışlı' },
+  'KGY': { wmo: 99, text: 'Kuvvetli Gökgürültülü Sağanak Yağışlı' },
+  'SIS': { wmo: 45, text: 'Sisli' },
+  'PUS': { wmo: 48, text: 'Puslu' },
+  'DNM': { wmo: 48, text: 'Dumanlı' },
+  'KF': { wmo: 48, text: 'Toz veya Kum Fırtınası' },
+  'R': { wmo: 2, text: 'Rüzgarlı' },
+  'GKR': { wmo: 2, text: 'Güneyli Kuvvetli Rüzgar' },
+  'KKR': { wmo: 2, text: 'Kuzeyli Kuvvetli Rüzgar' },
+  'SCK': { wmo: 0, text: 'Sıcak' },
+  'SGK': { wmo: 3, text: 'Soğuk' },
+  'HHY': { wmo: 61, text: 'Yağışlı' }
+};
+
+app.get('/api/weather', async (req, res) => {
+  try {
+    if (req.query.force !== 'true' && cachedWeatherData && Date.now() - cachedWeatherTime < WEATHER_CACHE_TTL) {
+      return res.json(cachedWeatherData);
+    }
+
+    const mgmHeaders = {
+      'Origin': 'https://www.mgm.gov.tr',
+      'Referer': 'https://www.mgm.gov.tr/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    };
+
+    try {
+      // 1. Primary: Fetch from MGM official Kilis station (İstasyon No: 17262) & forecasts (Tahmin No: 97901)
+      const [sondurumRes, gunlukRes, saatlikRes] = await Promise.all([
+        axiosInstance.get('https://servis.mgm.gov.tr/web/sondurumlar?istno=17262', { headers: mgmHeaders, timeout: 4500 }),
+        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/gunluk?istno=97901', { headers: mgmHeaders, timeout: 4500 }),
+        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/saatlik?istno=17262', { headers: mgmHeaders, timeout: 4500 })
+      ]);
+
+      const cur = (sondurumRes.data && sondurumRes.data[0]) || {};
+      const g = (gunlukRes.data && gunlukRes.data[0]) || {};
+      const s = (saatlikRes.data && saatlikRes.data[0]?.tahmin) || [];
+
+      if (cur && typeof cur.sicaklik === 'number') {
+        const hadiseKodu = (cur.hadiseKodu || 'A').toUpperCase();
+        const info = MGM_HADISE_MAP[hadiseKodu] || { wmo: 0, text: 'Açık' };
+
+        // Determine day or night for Kilis local time (Europe/Istanbul UTC+3)
+        const now = new Date();
+        const trHour = (now.getUTCHours() + 3) % 24;
+        const isDay = trHour >= 6 && trHour < 18 ? 1 : 0;
+
+        // Transform MGM 3-hourly predictions into hourlyList
+        const hourlyList = s.map((item: any, idx: number) => {
+          const d = new Date(item.tarih);
+          const itemHour = (d.getUTCHours() + 3) % 24;
+          const itemIsDay = itemHour >= 6 && itemHour < 18 ? 1 : 0;
+          const itemInfo = MGM_HADISE_MAP[(item.hadise || 'A').toUpperCase()] || { wmo: 0, text: 'Açık' };
+          return {
+            hourOffset: idx * 3,
+            label: idx === 0 ? 'Şu An' : `+${idx * 3} Saat`,
+            timeStr: `${String(itemHour).padStart(2, '0')}:00`,
+            temp: item.sicaklik,
+            apparentTemp: item.hissedilenSicaklik || item.sicaklik,
+            humidity: item.nem,
+            precipitationProb: item.hadise?.includes('Y') ? 65 : item.hadise?.includes('B') ? 20 : 5,
+            windSpeed: item.ruzgarHizi || 0,
+            windDirection: item.ruzgarYonu || 0,
+            surfacePressure: Math.round(cur.aktuelBasinc || 943),
+            uvIndex: itemIsDay ? 4 : 0,
+            weatherCode: itemInfo.wmo,
+            conditionText: itemInfo.text,
+            isDay: itemIsDay
+          };
+        });
+
+        // 5-day MGM official daily forecast
+        const dailyForecasts: any[] = [];
+        const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+        for (let i = 1; i <= 5; i++) {
+          const rawDate = g['tarihGun' + i];
+          if (rawDate) {
+            const dt = new Date(rawDate);
+            const dayName = dayNames[dt.getUTCDay()];
+            const dHadise = (g['hadiseGun' + i] || 'A').toUpperCase();
+            const dInfo = MGM_HADISE_MAP[dHadise] || { wmo: 0, text: 'Açık' };
+            dailyForecasts.push({
+              dayName,
+              dateStr: `${String(dt.getUTCDate()).padStart(2, '0')}.${String(dt.getUTCMonth() + 1).padStart(2, '0')}`,
+              hadise: dHadise,
+              conditionText: dInfo.text,
+              weatherCode: dInfo.wmo,
+              minTemp: g['enDusukGun' + i],
+              maxTemp: g['enYuksekGun' + i],
+              minHumidity: g['enDusukNemGun' + i],
+              maxHumidity: g['enYuksekNemGun' + i],
+              windSpeed: g['ruzgarHizGun' + i]
+            });
+          }
+        }
+
+        const mgmPayload = {
+          source: 'MGM Resmi Kilis İstasyonu (No: 17262)',
+          stationName: 'Kilis Merkez Meteoroloji İstasyonu',
+          observationTime: cur.veriZamani,
+          temperature: cur.sicaklik,
+          apparentTemperature: cur.hissedilenSicaklik ?? cur.sicaklik,
+          humidity: cur.nem,
+          windSpeed: cur.ruzgarHiz || 0,
+          windDirection: cur.ruzgarYon || 0,
+          surfacePressure: Math.round(cur.aktuelBasinc || 943),
+          seaLevelPressure: Math.round(cur.denizeIndirgenmisBasinc || 1014),
+          rainChance: cur.hadiseKodu?.includes('Y') ? 70 : 0,
+          rainChanceMax: g.hadiseGun1?.includes('Y') ? 75 : 10,
+          rain24h: cur.yagis24Saat || 0,
+          hadiseKodu: cur.hadiseKodu,
+          conditionText: info.text,
+          weathercode: info.wmo,
+          is_day: isDay,
+          tempMin: g.enDusukGun1 ?? cur.sicaklik,
+          tempMax: g.enYuksekGun1 ?? cur.sicaklik,
+          sunrise: '06:40',
+          sunset: '18:15',
+          uvIndexMax: isDay ? 5 : 0,
+          hourlyList: hourlyList.length > 0 ? hourlyList : undefined,
+          dailyForecasts: dailyForecasts.length > 0 ? dailyForecasts : undefined
+        };
+
+        cachedWeatherData = mgmPayload;
+        cachedWeatherTime = Date.now();
+        return res.json(mgmPayload);
+      }
+    } catch (mgmErr: any) {
+      console.warn('MGM primary weather fetch notice:', mgmErr.message);
+    }
+
+    // 2. High-precision Fallback: ECMWF model via Open-Meteo
+    const fallbackRes = await axiosInstance.get(
+      'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&models=ecmwf_ifs025&forecast_days=3&timezone=Europe%2FIstanbul',
+      { timeout: 5000 }
+    );
+    const data = fallbackRes.data;
+    const times = data.hourly?.time || [];
+    const currentTimeIso = data.current?.time || '';
+    const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
+    let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : 0;
+    if (baseIndex === -1) baseIndex = 0;
+
+    const currentHourlyRainChance = data.hourly?.precipitation_probability?.[baseIndex] ?? 0;
+    const dailyMaxRainChance = data.daily?.precipitation_probability_max?.[0] ?? currentHourlyRainChance;
+
+    const targetOffsets = [
+      { offset: 0, label: 'Şu An' },
+      { offset: 1, label: '+1 Saat' },
+      { offset: 2, label: '+2 Saat' },
+      { offset: 3, label: '+3 Saat' },
+      { offset: 4, label: '+4 Saat' },
+      { offset: 6, label: '+6 Saat' },
+      { offset: 8, label: '+8 Saat' },
+      { offset: 12, label: '+12 Saat' },
+      { offset: 24, label: '+24 Saat' }
+    ];
+
+    const hourlyList = targetOffsets
+      .map(item => {
+        const idx = baseIndex + item.offset;
+        if (idx < times.length) {
+          const timeRaw = times[idx];
+          return {
+            hourOffset: item.offset,
+            label: item.label,
+            timeStr: timeRaw.includes('T') ? timeRaw.split('T')[1].slice(0, 5) : timeRaw,
+            temp: data.hourly.temperature_2m[idx] ?? data.current.temperature_2m,
+            apparentTemp: data.hourly.apparent_temperature?.[idx] ?? data.current.temperature_2m,
+            humidity: data.hourly.relative_humidity_2m?.[idx] ?? data.current.relative_humidity_2m,
+            precipitationProb: data.hourly.precipitation_probability?.[idx] ?? 0,
+            windSpeed: data.hourly.wind_speed_10m?.[idx] ?? 0,
+            windDirection: data.hourly.wind_direction_10m?.[idx] ?? 0,
+            surfacePressure: data.hourly.surface_pressure?.[idx] ?? 1013,
+            uvIndex: data.hourly.uv_index?.[idx] ?? 0,
+            weatherCode: data.hourly.weather_code?.[idx] ?? 0,
+            isDay: data.hourly.is_day?.[idx] ?? 1
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    const fallbackPayload = {
+      source: 'ECMWF Avrupa Meteoroloji Modeli (Yedek)',
+      stationName: 'Kilis 7 Aralık Kampüsü',
+      temperature: data.current.temperature_2m,
+      apparentTemperature: data.current.apparent_temperature || data.current.temperature_2m,
+      humidity: data.current.relative_humidity_2m,
+      windSpeed: data.current.wind_speed_10m,
+      windDirection: data.current.wind_direction_10m || 0,
+      surfacePressure: data.current.surface_pressure || 1013,
+      rainChance: currentHourlyRainChance,
+      rainChanceMax: dailyMaxRainChance,
+      weathercode: data.current.weather_code,
+      is_day: data.current.is_day,
+      tempMin: data.daily.temperature_2m_min?.[0] ?? data.current.temperature_2m,
+      tempMax: data.daily.temperature_2m_max?.[0] ?? data.current.temperature_2m,
+      sunrise: data.daily.sunrise?.[0] || '06:40',
+      sunset: data.daily.sunset?.[0] || '18:15',
+      uvIndexMax: data.daily.uv_index_max?.[0] || 0,
+      hourlyList
+    };
+
+    cachedWeatherData = fallbackPayload;
+    cachedWeatherTime = Date.now();
+    res.json(fallbackPayload);
+  } catch (err: any) {
+    console.error('Weather API error:', err);
+    if (cachedWeatherData) return res.json(cachedWeatherData);
+    res.status(500).json({ error: 'Hava durumu alınamadı' });
+  }
+});
+
 app.get('/api/calendar', async (req, res) => {
   try {
     if (req.query.force !== 'true' && Date.now() - cachedCalendarTime < CALENDAR_CACHE_TTL && cachedCalendar.length > 0) {

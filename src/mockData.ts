@@ -655,6 +655,9 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 export const CACHE_TTL = {
   ANNOUNCEMENTS: 0,                   // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
   NEWS: 0,                            // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  DEPT_ANNOUNCEMENTS: 12 * 60 * 60 * 1000, // 12 saat -> Bölüm/fakülte duyuruları önbelleği
+  DEPT_NEWS: 12 * 60 * 60 * 1000,     // 12 saat -> Bölüm/fakülte haberleri önbelleği
+  WEATHER: 10 * 60 * 1000,            // 10 dakika -> MGM Kilis istasyonu hava durumu
   MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir (sunucuyu yormaz)
   CALENDAR: 30 * 24 * 60 * 60 * 1000, // 30 gün -> Akademik takvim dönemliktir, önbellekten çalışır
   BOLOGNA: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Bologna ders planları dönemliktir, önbellekten çalışır

@@ -24,7 +24,9 @@ import {
   Thermometer,
   Info,
   ArrowLeft,
-  RotateCcw
+  RotateCcw,
+  Calendar,
+  ShieldCheck
 } from 'lucide-react';
 
 export interface HourlyForecastItem {
@@ -60,6 +62,23 @@ export interface DetailedWeatherInfo {
   sunset: string;
   uvIndexMax: number;
   hourlyList: HourlyForecastItem[];
+  source?: string;
+  stationName?: string;
+  observationTime?: string;
+  conditionText?: string;
+  rain24h?: number;
+  dailyForecasts?: {
+    dayName: string;
+    dateStr: string;
+    hadise: string;
+    conditionText: string;
+    weatherCode: number;
+    minTemp: number;
+    maxTemp: number;
+    minHumidity?: number;
+    maxHumidity?: number;
+    windSpeed?: number;
+  }[];
 }
 
 interface WeatherDetailModalProps {
@@ -217,7 +236,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-xs text-amber-300 font-semibold tracking-wide truncate">
                   <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                  <span id="weather-modal-title" className="truncate">Kilis 7 Aralık Kampüsü &bull; Canlı Hava</span>
+                  <span id="weather-modal-title" className="truncate">{weather.stationName || "Kilis 7 Aralık Kampüsü"} &bull; Canlı Hava</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -257,8 +276,14 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                   </div>
                   <div className="text-[11px] font-semibold text-amber-200 mt-1 flex items-center gap-1.5 flex-wrap">
                     <span className="px-1.5 py-0.5 rounded-md bg-white/15 text-amber-200 text-[10px] sm:text-xs font-semibold border border-white/10">
-                      {currentCondition.text}
+                      {isCurrentTime && weather.conditionText ? weather.conditionText : currentCondition.text}
                     </span>
+                    {weather.source && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-medium border border-emerald-500/30">
+                        <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span className="truncate">{weather.source}</span>
+                      </span>
+                    )}
                     {!isCurrentTime ? (
                       <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-bold border border-amber-400/40">
                         {activeLabel} ({activeTimeStr})
@@ -470,6 +495,52 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                   </div>
                 </div>
               </div>
+
+              {/* ================= 2.5. 5 GÜNLÜK RESMİ TAHMİN (MGM) ================= */}
+              {weather.dailyForecasts && weather.dailyForecasts.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                      5 Günlük Resmi Tahmin (MGM)
+                    </span>
+                    <span className="text-[10px] text-stone-400 font-normal lowercase">
+                      Kilis İstasyonu
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                    {weather.dailyForecasts.map((d, dIdx) => {
+                      const dCond = getWeatherConditionInfo(d.weatherCode, 1);
+                      const DIcon = dCond.Icon;
+                      return (
+                        <div 
+                          key={dIdx} 
+                          className="bg-[#1e3440] border border-white/10 rounded-xl p-2 flex flex-col items-center justify-between text-center"
+                        >
+                          <div>
+                            <div className="text-[11px] font-bold text-amber-300 leading-tight">{d.dayName}</div>
+                            <div className="text-[9px] text-stone-400 font-mono mt-0.5">{d.dateStr}</div>
+                          </div>
+
+                          <div className="my-1.5 p-1 rounded-lg bg-white/5 flex items-center justify-center">
+                            <DIcon className={`w-5 h-5 ${dCond.color}`} />
+                          </div>
+
+                          <div>
+                            <div className="text-[11px] font-bold text-white">
+                              {Math.round(d.minTemp)}° / {Math.round(d.maxTemp)}°
+                            </div>
+                            <div className="text-[9px] text-stone-300 truncate max-w-[85px] mt-0.5" title={d.conditionText}>
+                              {d.conditionText}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ================= 3. KAMPÜS TAVSİYESİ ================= */}
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 sm:p-3 flex items-start gap-2">
