@@ -119,6 +119,11 @@ export function getWeatherConditionInfo(code: number, isDay: number) {
 
 export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh, isRefreshing = false }: WeatherDetailModalProps) {
   const [selectedHourOffset, setSelectedHourOffset] = useState<number>(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset selected hour on open
   useEffect(() => {
@@ -129,7 +134,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
 
   // Prevent background scroll and support Escape key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || typeof document === 'undefined') return;
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -147,10 +152,11 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || !weather) return null;
+  if (!isOpen || !weather || !mounted || typeof document === 'undefined') return null;
 
   // Active selected forecast item or fallback to current
-  const selectedItem = weather.hourlyList.find(item => item.hourOffset === selectedHourOffset) || weather.hourlyList[0];
+  const hourlyList = Array.isArray(weather.hourlyList) ? weather.hourlyList : [];
+  const selectedItem = hourlyList.find(item => item.hourOffset === selectedHourOffset) || hourlyList[0];
   
   const activeTemp = selectedItem ? selectedItem.temp : weather.temperature;
   const activeApparentTemp = selectedItem ? selectedItem.apparentTemp : weather.apparentTemperature;
@@ -355,78 +361,80 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {/* ================= 1. SAATLİK TAHMİN (1, 2, 3, 4, 6, 8, 12, 24 SAAT) ================= */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    Saatlik Tahmin (Detay için saate dokunun)
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] text-amber-300/80 font-medium lowercase tracking-normal">
-                    kaydırın &rarr;
-                  </span>
-                </div>
+              {hourlyList.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      Saatlik Tahmin (Detay için saate dokunun)
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] text-amber-300/80 font-medium lowercase tracking-normal">
+                      kaydırın &rarr;
+                    </span>
+                  </div>
 
-                {/* Horizontal Scroll with stable rendering preventing black screen flickering */}
-                <div 
-                  className="flex items-stretch gap-1.5 sm:gap-2 overflow-x-auto overscroll-x-contain pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
-                  style={{ 
-                    WebkitOverflowScrolling: 'touch', 
-                    touchAction: 'pan-x',
-                    contain: 'content',
-                    willChange: 'scroll-position'
-                  }}
-                >
-                  {weather.hourlyList.map((item, idx) => {
-                    const cond = getWeatherConditionInfo(item.weatherCode, item.isDay);
-                    const IconComponent = cond.Icon;
-                    const isSelected = item.hourOffset === selectedHourOffset;
+                  {/* Horizontal Scroll with stable rendering preventing black screen flickering */}
+                  <div 
+                    className="flex items-stretch gap-1.5 sm:gap-2 overflow-x-auto overscroll-x-contain pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent select-none"
+                    style={{ 
+                      WebkitOverflowScrolling: 'touch', 
+                      touchAction: 'pan-x',
+                      contain: 'content',
+                      willChange: 'scroll-position'
+                    }}
+                  >
+                    {hourlyList.map((item, idx) => {
+                      const cond = getWeatherConditionInfo(item.weatherCode, item.isDay);
+                      const IconComponent = cond.Icon;
+                      const isSelected = item.hourOffset === selectedHourOffset;
 
-                    return (
-                      <button
-                        type="button"
-                        key={idx}
-                        onClick={() => setSelectedHourOffset(item.hourOffset)}
-                        className={`shrink-0 w-[78px] sm:w-[84px] flex flex-col items-center justify-between p-2 rounded-xl border transition-all text-center cursor-pointer active:scale-95 ${
-                          isSelected
-                            ? 'bg-amber-500/30 border-amber-400 ring-2 ring-amber-400/50 shadow-md scale-[1.02]'
-                            : 'bg-[#1e3440] border-white/10 hover:border-amber-400/40 hover:bg-[#254252]'
-                        }`}
-                        style={{ contain: 'paint' }}
-                        aria-pressed={isSelected}
-                      >
-                        <div>
-                          <div className={`text-[10px] font-bold leading-none ${isSelected ? 'text-amber-200' : 'text-amber-300'}`}>
-                            {item.label}
+                      return (
+                        <button
+                          type="button"
+                          key={idx}
+                          onClick={() => setSelectedHourOffset(item.hourOffset)}
+                          className={`shrink-0 w-[78px] sm:w-[84px] flex flex-col items-center justify-between p-2 rounded-xl border transition-all text-center cursor-pointer active:scale-95 ${
+                            isSelected
+                              ? 'bg-amber-500/30 border-amber-400 ring-2 ring-amber-400/50 shadow-md scale-[1.02]'
+                              : 'bg-[#1e3440] border-white/10 hover:border-amber-400/40 hover:bg-[#254252]'
+                          }`}
+                          style={{ contain: 'paint' }}
+                          aria-pressed={isSelected}
+                        >
+                          <div>
+                            <div className={`text-[10px] font-bold leading-none ${isSelected ? 'text-amber-200' : 'text-amber-300'}`}>
+                              {item.label}
+                            </div>
+                            <div className="text-[9px] text-stone-300 font-mono mt-0.5">
+                              {item.timeStr}
+                            </div>
                           </div>
-                          <div className="text-[9px] text-stone-300 font-mono mt-0.5">
-                            {item.timeStr}
+
+                          <div className={`my-1 p-1 rounded-md ${isSelected ? 'bg-amber-400/20' : 'bg-white/5'}`}>
+                            <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 ${cond.color}`} />
                           </div>
-                        </div>
 
-                        <div className={`my-1 p-1 rounded-md ${isSelected ? 'bg-amber-400/20' : 'bg-white/5'}`}>
-                          <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 ${cond.color}`} />
-                        </div>
+                          <div className="text-xs font-extrabold text-white leading-tight">
+                            {Math.round(item.temp)}°C
+                          </div>
 
-                        <div className="text-xs font-extrabold text-white leading-tight">
-                          {Math.round(item.temp)}°C
-                        </div>
-
-                        {/* Micro Metrics: Yağış İhtimali ve Rüzgar Hızı */}
-                        <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[8px] sm:text-[9px]">
-                          <span className="flex items-center gap-0.5 text-indigo-300 font-semibold" title="Yağış İhtimali">
-                            <Umbrella className="w-2.5 h-2.5 text-indigo-400" />
-                            %{item.precipitationProb}
-                          </span>
-                          <span className="flex items-center gap-0.5 text-stone-300 font-medium" title="Rüzgar Hızı">
-                            <Wind className="w-2.5 h-2.5 text-teal-300" />
-                            {Math.round(item.windSpeed)}k
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                          {/* Micro Metrics: Yağış İhtimali ve Rüzgar Hızı */}
+                          <div className="mt-1 pt-1 border-t border-white/10 w-full flex items-center justify-around text-[8px] sm:text-[9px]">
+                            <span className="flex items-center gap-0.5 text-indigo-300 font-semibold" title="Yağış İhtimali">
+                              <Umbrella className="w-2.5 h-2.5 text-indigo-400" />
+                              %{item.precipitationProb}
+                            </span>
+                            <span className="flex items-center gap-0.5 text-stone-300 font-medium" title="Rüzgar Hızı">
+                              <Wind className="w-2.5 h-2.5 text-teal-300" />
+                              {Math.round(item.windSpeed)}k
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* ================= 2. DETAYLI ATMOSFER METRİKLERİ ================= */}
               <div className="space-y-1.5">
