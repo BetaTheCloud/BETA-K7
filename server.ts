@@ -1000,15 +1000,15 @@ app.get('/api/weather', async (req, res) => {
 
     try {
       // 1. Primary: Fetch from MGM official Kilis station (İstasyon No: 17262) & forecasts (Tahmin No: 97901)
-      const [sondurumRes, gunlukRes, saatlikRes] = await Promise.all([
-        axiosInstance.get('https://servis.mgm.gov.tr/web/sondurumlar?istno=17262', { headers: mgmHeaders, timeout: 4500 }),
-        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/gunluk?istno=97901', { headers: mgmHeaders, timeout: 4500 }),
-        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/saatlik?istno=17262', { headers: mgmHeaders, timeout: 4500 })
+      const [sondurumRes, gunlukRes, saatlikRes] = await Promise.allSettled([
+        axiosInstance.get('https://servis.mgm.gov.tr/web/sondurumlar?istno=17262', { headers: mgmHeaders, timeout: 6500 }),
+        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/gunluk?istno=97901', { headers: mgmHeaders, timeout: 6500 }),
+        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/saatlik?istno=17262', { headers: mgmHeaders, timeout: 6500 })
       ]);
 
-      const cur = (sondurumRes.data && sondurumRes.data[0]) || {};
-      const g = (gunlukRes.data && gunlukRes.data[0]) || {};
-      const s = (saatlikRes.data && saatlikRes.data[0]?.tahmin) || [];
+      const cur = (sondurumRes.status === 'fulfilled' && sondurumRes.value.data && sondurumRes.value.data[0]) || {};
+      const g = (gunlukRes.status === 'fulfilled' && gunlukRes.value.data && gunlukRes.value.data[0]) || {};
+      const s = (saatlikRes.status === 'fulfilled' && saatlikRes.value.data && saatlikRes.value.data[0]?.tahmin) || [];
 
       if (cur && typeof cur.sicaklik === 'number') {
         const hadiseKodu = (cur.hadiseKodu || 'A').toUpperCase();

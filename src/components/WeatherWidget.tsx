@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { 
   Cloud, 
@@ -15,7 +15,8 @@ import {
   Umbrella,
   Clock,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
 import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
 import { getApiUrl, safeFetch } from '../config';
@@ -41,14 +42,18 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const [detailedWeather, setDetailedWeather] = useState<DetailedWeatherInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    async function fetchWeather() {
+  const fetchWeather = useCallback(async (force = false) => {
+    if (force) {
+      setIsRefreshing(true);
+    }
+    try {
+      // 1. Primary: Fetch from backend /api/weather (MGM Official Kilis Station No: 17262)
       try {
-        // 1. Primary: Fetch from backend /api/weather (MGM Official Kilis Station No: 17262)
-        try {
-          const apiRes = await safeFetch(getApiUrl('/api/weather'));
+        const queryParam = force ? '?force=true' : '';
+        const apiRes = await safeFetch(getApiUrl(`/api/weather${queryParam}`));
           if (apiRes.ok) {
             const mgmData = await apiRes.json();
             if (mgmData && typeof mgmData.temperature === 'number') {
@@ -175,19 +180,30 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         setError(true);
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
-    }
-    fetchWeather();
+    },
+    [onWeatherChange]
+  );
+
+  useEffect(() => {
+    fetchWeather(false);
+
+    // Otomatik arka plan güncellemesi: Her 10 dakikada bir (600,000 ms) sessizce yenile
+    const intervalId = setInterval(() => {
+      fetchWeather(false);
+    }, 10 * 60 * 1000);
 
     const handleGlobalRefresh = () => {
-      fetchWeather();
+      fetchWeather(true);
     };
     window.addEventListener('k7_force_refreshed', handleGlobalRefresh);
 
     return () => {
+      clearInterval(intervalId);
       window.removeEventListener('k7_force_refreshed', handleGlobalRefresh);
     };
-  }, []);
+  }, [fetchWeather]);
 
   if (loading) {
     return (
@@ -373,8 +389,8 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               {weather.conditionText || theme.text}
             </span>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30" title="Meteoroloji Genel Müdürlüğü Kilis İstasyonu (Canlı)">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              MGM Kilis
+              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+              {isRefreshing ? 'Tazeleniyor...' : (weather.source?.includes('MGM') ? 'MGM Kilis' : 'Canlı')}
             </span>
             <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
               <Clock className="w-2.5 h-2.5" />
@@ -410,6 +426,8 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         weather={detailedWeather}
+        onRefresh={() => fetchWeather(true)}
+        isRefreshing={isRefreshing}
       />
     </>
   );

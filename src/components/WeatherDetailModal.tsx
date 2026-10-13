@@ -25,6 +25,7 @@ import {
   Info,
   ArrowLeft,
   RotateCcw,
+  RefreshCw,
   Calendar,
   ShieldCheck
 } from 'lucide-react';
@@ -85,6 +86,8 @@ interface WeatherDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   weather: DetailedWeatherInfo | null;
+  onRefresh?: () => Promise<void> | void;
+  isRefreshing?: boolean;
 }
 
 export function getWeatherConditionInfo(code: number, isDay: number) {
@@ -114,7 +117,7 @@ export function getWeatherConditionInfo(code: number, isDay: number) {
   }
 }
 
-export default function WeatherDetailModal({ isOpen, onClose, weather }: WeatherDetailModalProps) {
+export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh, isRefreshing = false }: WeatherDetailModalProps) {
   const [selectedHourOffset, setSelectedHourOffset] = useState<number>(0);
 
   // Reset selected hour on open
@@ -176,6 +179,19 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
       return isoString;
     }
   };
+
+  // Format observation time in Turkish local time
+  const formatObsTime = (isoStr?: string) => {
+    if (!isoStr) return null;
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
+    } catch {
+      return null;
+    }
+  };
+  const obsTimeDisplay = formatObsTime(weather.observationTime);
 
   // UV index evaluation
   const getUvLevel = (uv: number) => {
@@ -240,6 +256,18 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {onRefresh && (
+                    <button
+                      onClick={onRefresh}
+                      disabled={isRefreshing}
+                      className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-semibold border border-emerald-500/40 flex items-center gap-1 transition-all active:scale-95 cursor-pointer disabled:opacity-60"
+                      title="MGM'den canlı veriyi sıfırdan anında çek"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshing ? 'Yenileniyor...' : 'Canlı Yenile'}</span>
+                    </button>
+                  )}
+
                   {!isCurrentTime && (
                     <button
                       onClick={() => setSelectedHourOffset(0)}
@@ -291,6 +319,11 @@ export default function WeatherDetailModal({ isOpen, onClose, weather }: Weather
                     ) : (
                       <span className="text-[10px] sm:text-[11px] text-stone-300 font-normal">
                         {Math.round(weather.tempMin)}° / {Math.round(weather.tempMax)}°
+                      </span>
+                    )}
+                    {isCurrentTime && obsTimeDisplay && (
+                      <span className="text-[10px] text-emerald-200/90 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title="Kilis Meteoroloji İstasyonunun Son Ölçüm Saati (TSI)">
+                        Ölçüm: {obsTimeDisplay}
                       </span>
                     )}
                   </div>
