@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
   getAnnouncements,
@@ -42,6 +42,13 @@ export default function Home() {
   });
 
   const [weatherInfo, setWeatherInfo] = useState<{ code: number; isDay: number } | null>(null);
+
+  const handleWeatherChange = useCallback((code: number, isDay: number) => {
+    setWeatherInfo((prev) => {
+      if (prev && prev.code === code && prev.isDay === isDay) return prev;
+      return { code, isDay };
+    });
+  }, []);
 
   // Modal State
   const [selectedItem, setSelectedItem] = useState<DetailModalItem | null>(null);
@@ -188,7 +195,7 @@ export default function Home() {
         </div>
         
         <div className="z-10 w-full sm:w-auto flex justify-center shrink-0">
-          <WeatherWidget onWeatherChange={(code, isDay) => setWeatherInfo({ code, isDay })} />
+          <WeatherWidget onWeatherChange={handleWeatherChange} />
         </div>
       </section>
 

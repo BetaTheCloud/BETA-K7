@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Cloud, 
@@ -19,7 +19,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
-import { getApiUrl, safeFetch } from '../config';
+import { getApiUrl } from '../config';
 
 interface WeatherData {
   temperature: number;
@@ -45,7 +45,16 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
+  const onWeatherChangeRef = useRef(onWeatherChange);
+  useEffect(() => {
+    onWeatherChangeRef.current = onWeatherChange;
+  }, [onWeatherChange]);
+
+  const isFetchingRef = useRef(false);
+
   const fetchWeather = useCallback(async (force = false) => {
+    if (isFetchingRef.current && !force) return;
+    isFetchingRef.current = true;
     if (force) {
       setIsRefreshing(true);
     }
@@ -53,8 +62,16 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
       // 1. Primary: Fetch from backend /api/weather (MGM Official Kilis Station No: 17262)
       try {
         const queryParam = force ? '?force=true' : '';
-        const apiRes = await safeFetch(getApiUrl(`/api/weather${queryParam}`));
-          if (apiRes.ok) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6500);
+        const apiRes = await fetch(getApiUrl(`/api/weather${queryParam}`), {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (apiRes.ok) {
+          const contentType = apiRes.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
             const mgmData = await apiRes.json();
             if (mgmData && typeof mgmData.temperature === 'number') {
               setWeather({
@@ -69,20 +86,22 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
                 source: mgmData.source
               });
               setDetailedWeather(mgmData);
-              if (onWeatherChange) {
-                onWeatherChange(mgmData.weathercode ?? 0, mgmData.is_day ?? 1);
-              }
+              onWeatherChangeRef.current?.(mgmData.weathercode ?? 0, mgmData.is_day ?? 1);
               setLoading(false);
               return;
             }
           }
-        } catch (serverErr) {
-          console.warn('Backend /api/weather notice, attempting direct fallback:', serverErr);
         }
+      } catch (serverErr) {
+        console.warn('Backend /api/weather notice, attempting direct fallback:', serverErr);
+      }
 
-        // 2. High-precision Client Fallback: ECMWF European model via Open-Meteo
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&models=ecmwf_ifs025&forecast_days=3&timezone=Europe%2FIstanbul';
-        const res = await fetch(url);
+      // 2. High-precision Client Fallback: ECMWF European model via Open-Meteo
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&models=ecmwf_ifs025&forecast_days=3&timezone=Europe%2FIstanbul';
+      const fallbackController = new AbortController();
+      const fallbackTimer = setTimeout(() => fallbackController.abort(), 7000);
+      const res = await fetch(url, { signal: fallbackController.signal });
+      clearTimeout(fallbackTimer);
         if (!res.ok) throw new Error('Weather fetch failed');
         const data = await res.json();
 
@@ -172,18 +191,17 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           hourlyList
         });
         
-        if (onWeatherChange) {
-          onWeatherChange(data.current.weather_code, data.current.is_day);
-        }
+        onWeatherChangeRef.current?.(data.current.weather_code, data.current.is_day);
       } catch (err) {
         console.error(err);
         setError(true);
       } finally {
+        isFetchingRef.current = false;
         setLoading(false);
         setIsRefreshing(false);
       }
     },
-    [onWeatherChange]
+    []
   );
 
   useEffect(() => {
