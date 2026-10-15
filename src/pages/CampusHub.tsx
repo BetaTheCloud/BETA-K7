@@ -87,6 +87,7 @@ import { PhonebookEntry, AcademicStaffMember, StaffUnitCategory, CampusEvent, Ca
 import LoadingState from '../components/LoadingState';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
+import ScheduleManagerModal from '../components/ScheduleManagerModal';
 import toast from 'react-hot-toast';
 import { cn, cleanDuplicateTitle } from '../lib/utils';
 import { openExternalUrl } from '../lib/openExternal';
@@ -97,6 +98,7 @@ export default function CampusHub() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   const getTabFromLocation = (): TabKey => {
     const path = location.pathname.replace(/^\//, '');
@@ -406,9 +408,9 @@ export default function CampusHub() {
     { key: 'transport', label: 'Ulaşım', icon: Bus, color: 'text-blue-600 dark:text-blue-400' },
     { key: 'forms', label: 'Dilekçe & Form', icon: FileText, color: 'text-amber-600 dark:text-amber-400' },
     { key: 'library', label: 'Kütüphane', icon: BookOpen, color: 'text-indigo-600 dark:text-indigo-400' },
-    { key: 'sports', label: 'Spor Tesisleri & Havuz', icon: Trophy, color: 'text-green-600 dark:text-green-400' },
+    { key: 'sports', label: 'Spor', icon: Trophy, color: 'text-green-600 dark:text-green-400' },
     { key: 'hotel', label: 'Uygulama Oteli', icon: Hotel, color: 'text-cyan-600 dark:text-cyan-400' },
-    { key: 'map', label: 'Yerleşkeler', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
+    { key: 'map', label: 'Harita', icon: MapPin, color: 'text-red-600 dark:text-red-400' },
   ];
 
   // Category meta helper
@@ -789,9 +791,9 @@ export default function CampusHub() {
                     Görüntüle <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Spor Tesisleri & Havuz</h3>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Spor</h3>
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Yarı olimpik yüzme havuzu, fitness & spor salonu ve halı saha seans saatleri ile ücret tarifeleri.
+                  Tesisler, yarı olimpik yüzme havuzu, fitness & spor salonu ve halı saha seans saatleri ile ücret tarifeleri.
                 </p>
               </div>
 
@@ -827,9 +829,28 @@ export default function CampusHub() {
                     Görüntüle <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
-                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Kampüs Yerleşkeleri</h3>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Harita</h3>
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Merkez, Karataş ve Mercidabık fakülteleri, amfileri ve Google Haritalar rotası.
+                  Yerleşkeler: Merkez, Karataş ve Mercidabık fakülteleri, amfileri ve Google Haritalar rotası.
+                </p>
+              </div>
+
+              {/* 9. Ders & Sınav Programı */}
+              <div
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg transition-all"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs text-stone-400 dark:text-white/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1">
+                    Ajandam <ChevronRight className="w-4 h-4" />
+                  </span>
+                </div>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Derslerim</h3>
+                <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
+                  Kişisel haftalık ders çizelgeniz, derslik, amfi, ders hocaları ve yaklaşan sınav takviminiz.
                 </p>
               </div>
             </div>
@@ -1119,13 +1140,6 @@ export default function CampusHub() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
-                    <Link
-                      to={`/news?tab=department&dept=${selectedStaffFaculty}`}
-                      className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <Newspaper className="w-3 h-3" />
-                      <span>Bölüm Haberleri</span>
-                    </Link>
                     {activeStaffFacultyConfig.sourceUrl && (
                       <a
                         href={activeStaffFacultyConfig.sourceUrl}
@@ -3254,6 +3268,12 @@ export default function CampusHub() {
         </AnimatePresence>,
         document.body
       )}
+
+      {/* Personal Schedule & Exam Manager Modal */}
+      <ScheduleManagerModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+      />
     </motion.div>
   );
 }

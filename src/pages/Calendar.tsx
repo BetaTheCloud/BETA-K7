@@ -123,16 +123,26 @@ export default function Calendar() {
     >
       <header className="mb-8 border-b border-[#e6e2d6] dark:border-teal-700/50 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <button
-            onClick={() => {
-              if (window.history.length > 1) navigate(-1);
-              else navigate('/');
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
-            <span>Geri Menüye Dön</span>
-          </button>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <button
+              onClick={() => {
+                if (window.history.length > 1) navigate(-1);
+                else navigate('/');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
+              <span>Geri Menüye Dön</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/schedule')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shadow-sm"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Kişisel Ders & Sınav Programım →</span>
+            </button>
+          </div>
           <h2 className="text-3xl font-display font-extrabold text-stone-900 dark:text-white flex items-center gap-3 tracking-tight">
             <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/20">
               <CalendarIcon className="w-6 h-6 text-amber-600 dark:text-amber-500" strokeWidth={1.5} />

@@ -1,14 +1,20 @@
-import { useState } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Sun, Moon, Landmark, Server, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, Landmark, Settings, ArrowLeft } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { PWAInstallButton } from './PWAInstallButton';
-import ApiConfigModal from './ApiConfigModal';
+import AppSettingsModal from './AppSettingsModal';
 import SyncStatusBadge from './SyncStatusBadge';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'widgets' | 'font' | 'server'>('widgets');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -21,6 +27,18 @@ export default function Header() {
       navigate('/');
     }
   };
+
+  useEffect(() => {
+    const handleOpenSettingsEvent = (e: any) => {
+      const tab = e?.detail?.tab === 'server' ? 'server' : e?.detail?.tab === 'font' ? 'font' : 'widgets';
+      setSettingsInitialTab(tab);
+      setIsSettingsOpen(true);
+    };
+    window.addEventListener('k7_open_settings', handleOpenSettingsEvent);
+    return () => {
+      window.removeEventListener('k7_open_settings', handleOpenSettingsEvent);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-30 bg-[#fcfbf9]/90 dark:bg-[#264653]/90 backdrop-blur-xl border-b border-[#e6e2d6]/80 dark:border-white/10 transition-colors pt-safe">
@@ -60,13 +78,17 @@ export default function Header() {
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           <SyncStatusBadge />
 
+          {/* App Settings: Customizable Widgets & Password-Protected Server Config */}
           <button
-            onClick={() => setIsApiModalOpen(true)}
-            title="Sunucu / API Ayarı"
-            className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-500 dark:text-white/60 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            aria-label="API Ayarı"
+            onClick={() => {
+              setSettingsInitialTab('widgets');
+              setIsSettingsOpen(true);
+            }}
+            title="Uygulama Ayarları (Widget Yönetimi & Sunucu)"
+            className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            aria-label="Ayarlar"
           >
-            <Server className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={1.5} />
+            <Settings className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={1.6} />
           </button>
           
           <PWAInstallButton />
@@ -86,10 +108,11 @@ export default function Header() {
 
       </div>
 
-      {/* API Config & Live Test Modal */}
-      <ApiConfigModal 
-        isOpen={isApiModalOpen} 
-        onClose={() => setIsApiModalOpen(false)} 
+      {/* App Settings Modal (Widget Management & Protected Server/API) */}
+      <AppSettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        initialTab={settingsInitialTab}
       />
     </header>
   );

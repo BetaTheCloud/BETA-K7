@@ -116,7 +116,7 @@ export default function Layout() {
       <div className="flex-1 flex flex-col md:ml-64 relative min-h-screen">
         <Header />
         
-        <main className="flex-1 px-4 py-5 pb-20 md:pb-8 max-w-4xl mx-auto w-full">
+        <main className="flex-1 px-4 py-5 pb-24 md:pb-8 max-w-4xl mx-auto w-full">
           <Outlet />
         </main>
         

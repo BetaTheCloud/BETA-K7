@@ -148,12 +148,24 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         ];
 
         const hourlyList: HourlyForecastItem[] = [];
+        const now = new Date();
+        let trHour = (now.getUTCHours() + 3) % 24;
+        let trMinute = now.getUTCMinutes();
+        try {
+          const trStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Istanbul' });
+          const parts = trStr.split(':').map(Number);
+          if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+            trHour = parts[0];
+            trMinute = parts[1];
+          }
+        } catch {}
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const liveNowTimeStr = `${pad(trHour)}:${pad(trMinute)}`;
 
         for (const item of targetOffsets) {
           const idx = baseIndex + item.offset;
           if (idx < times.length) {
-            const timeRaw = times[idx];
-            const timeStr = timeRaw.includes('T') ? timeRaw.split('T')[1].slice(0, 5) : timeRaw;
+            const timeStr = item.offset === 0 ? liveNowTimeStr : `${pad((trHour + item.offset) % 24)}:00`;
             hourlyList.push({
               hourOffset: item.offset,
               label: item.label,

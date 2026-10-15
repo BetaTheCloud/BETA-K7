@@ -3,6 +3,10 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { warmupBackendServer } from './config';
+import { getStoredFontTheme, applyFontTheme } from './lib/fontStorage';
+
+// Apply saved user font theme
+applyFontTheme(getStoredFontTheme());
 
 // Wake up backend server cold start early on initial page load
 warmupBackendServer();

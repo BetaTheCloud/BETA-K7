@@ -154,8 +154,73 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
 
   if (!isOpen || !weather || !mounted || typeof document === 'undefined') return null;
 
-  // Active selected forecast item or fallback to current
-  const hourlyList = Array.isArray(weather.hourlyList) ? weather.hourlyList : [];
+  // Preserve +1, +2, +3, +4, +6, +8, +12, +24 hourly forecast system
+  const TARGET_OFFSETS = [
+    { offset: 0, label: 'Şu An' },
+    { offset: 1, label: '+1 Saat' },
+    { offset: 2, label: '+2 Saat' },
+    { offset: 3, label: '+3 Saat' },
+    { offset: 4, label: '+4 Saat' },
+    { offset: 6, label: '+6 Saat' },
+    { offset: 8, label: '+8 Saat' },
+    { offset: 12, label: '+12 Saat' },
+    { offset: 24, label: '+24 Saat' }
+  ];
+
+  // Exact Turkey local time calculation (Europe/Istanbul UTC+3)
+  const now = new Date();
+  let trHour = (now.getUTCHours() + 3) % 24;
+  let trMinute = now.getUTCMinutes();
+  try {
+    const trStr = now.toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Europe/Istanbul'
+    });
+    const parts = trStr.split(':').map(Number);
+    if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+      trHour = parts[0];
+      trMinute = parts[1];
+    }
+  } catch {}
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const liveNowTimeStr = `${pad(trHour)}:${pad(trMinute)}`;
+
+  const rawHourly = Array.isArray(weather.hourlyList) ? weather.hourlyList : [];
+  const hourlyList: HourlyForecastItem[] = TARGET_OFFSETS.map((t) => {
+    const existing = rawHourly.find(item => item.hourOffset === t.offset);
+    const baseItem = existing || rawHourly.reduce((prev, curr) => 
+      Math.abs(curr.hourOffset - t.offset) < Math.abs(prev.hourOffset - t.offset) ? curr : prev
+    , rawHourly[0] || ({
+      hourOffset: t.offset,
+      label: t.label,
+      timeStr: '',
+      temp: weather.temperature,
+      apparentTemp: weather.apparentTemperature,
+      humidity: weather.humidity,
+      precipitationProb: weather.rainChance,
+      windSpeed: weather.windSpeed,
+      windDirection: weather.windDirection,
+      surfacePressure: weather.surfacePressure,
+      uvIndex: weather.uvIndexMax,
+      weatherCode: weather.weathercode,
+      isDay: weather.is_day
+    } as HourlyForecastItem));
+
+    // Offset 0 (Şu An) displays current live clock time; future offsets display correct future hours
+    const computedTimeStr = t.offset === 0 
+      ? liveNowTimeStr 
+      : `${pad((trHour + t.offset) % 24)}:00`;
+
+    return {
+      ...baseItem,
+      hourOffset: t.offset,
+      label: t.label,
+      timeStr: computedTimeStr
+    };
+  });
+
   const selectedItem = hourlyList.find(item => item.hourOffset === selectedHourOffset) || hourlyList[0];
   
   const activeTemp = selectedItem ? selectedItem.temp : weather.temperature;
@@ -227,7 +292,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
     <AnimatePresence>
       {isOpen && weather && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+5.35rem)] sm:pt-20 pb-[calc(env(safe-area-inset-bottom,0px)+5.20rem)] sm:pb-10 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[100] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] sm:pt-6 pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] sm:pb-6 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="weather-modal-title"
@@ -247,7 +312,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg max-h-full flex flex-col shadow-2xl relative z-10 overflow-hidden"
+            className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-xl max-h-[96vh] flex flex-col shadow-2xl relative z-10 overflow-hidden"
             style={{ contain: 'layout' }}
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
@@ -256,9 +321,9 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
             {/* Top Compact Header with safe clearance */}
             <div className="sticky top-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-[#264653] to-[#1a343f] border-b border-white/10 shrink-0 shadow-sm">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-amber-300 font-semibold tracking-wide truncate">
+                <div className="flex items-center gap-1.5 text-xs text-amber-300 font-semibold tracking-wide shrink-0">
                   <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                  <span id="weather-modal-title" className="truncate">{weather.stationName || "Kilis 7 Aralık Kampüsü"} &bull; Canlı Hava</span>
+                  <span id="weather-modal-title" className="font-bold">Kilis Merkez</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -537,21 +602,21 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                 </div>
               </div>
 
-              {/* ================= 2.5. 5 GÜNLÜK RESMİ TAHMİN (MGM) ================= */}
+              {/* ================= 2.5. 4 GÜNLÜK RESMİ TAHMİN (MGM) ================= */}
               {weather.dailyForecasts && weather.dailyForecasts.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                      5 Günlük Resmi Tahmin (MGM)
+                      4 Günlük Resmi Tahmin (MGM)
                     </span>
-                    <span className="text-[10px] text-stone-400 font-normal lowercase">
+                    <span className="text-[10px] text-stone-300 font-medium">
                       Kilis İstasyonu
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                    {weather.dailyForecasts.map((d, dIdx) => {
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {weather.dailyForecasts.slice(0, 4).map((d, dIdx) => {
                       const dCond = getWeatherConditionInfo(d.weatherCode, 1);
                       const DIcon = dCond.Icon;
                       return (

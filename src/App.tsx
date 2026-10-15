@@ -10,6 +10,7 @@ import Announcements from './pages/Announcements';
 import News from './pages/News';
 import Menu from './pages/Menu';
 import Calendar from './pages/Calendar';
+import SchedulePage from './pages/SchedulePage';
 import Bologna from './pages/Bologna';
 import CampusHub from './pages/CampusHub';
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="campus-map" element={<CampusHub />} />
           <Route path="menu" element={<Menu />} />
           <Route path="calendar" element={<Calendar />} />
+          <Route path="schedule" element={<SchedulePage />} />
           <Route path="bologna" element={<Bologna />} />
         </Route>
       </Routes>

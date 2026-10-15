@@ -999,16 +999,21 @@ app.get('/api/weather', async (req, res) => {
     };
 
     try {
-      // 1. Primary: Fetch from MGM official Kilis station (İstasyon No: 17262) & forecasts (Tahmin No: 97901)
-      const [sondurumRes, gunlukRes, saatlikRes] = await Promise.allSettled([
+      // 1. Primary: Fetch from MGM official Kilis station (İstasyon No: 17262), forecasts (Tahmin No: 97901) and hourly predictions
+      const [sondurumRes, gunlukRes, saatlikRes, openMeteoRes] = await Promise.allSettled([
         axiosInstance.get('https://servis.mgm.gov.tr/web/sondurumlar?istno=17262', { headers: mgmHeaders, timeout: 6500 }),
         axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/gunluk?istno=97901', { headers: mgmHeaders, timeout: 6500 }),
-        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/saatlik?istno=17262', { headers: mgmHeaders, timeout: 6500 })
+        axiosInstance.get('https://servis.mgm.gov.tr/web/tahminler/saatlik?istno=17262', { headers: mgmHeaders, timeout: 6500 }),
+        axiosInstance.get(
+          'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&current=time&forecast_days=3&timezone=Europe%2FIstanbul',
+          { timeout: 5000 }
+        )
       ]);
 
       const cur = (sondurumRes.status === 'fulfilled' && sondurumRes.value.data && sondurumRes.value.data[0]) || {};
       const g = (gunlukRes.status === 'fulfilled' && gunlukRes.value.data && gunlukRes.value.data[0]) || {};
       const s = (saatlikRes.status === 'fulfilled' && saatlikRes.value.data && saatlikRes.value.data[0]?.tahmin) || [];
+      const omData = (openMeteoRes.status === 'fulfilled' && openMeteoRes.value.data) || null;
 
       if (cur && typeof cur.sicaklik === 'number') {
         const hadiseKodu = (cur.hadiseKodu || 'A').toUpperCase();
@@ -1018,35 +1023,123 @@ app.get('/api/weather', async (req, res) => {
         const now = new Date();
         const trHour = (now.getUTCHours() + 3) % 24;
         const isDay = trHour >= 6 && trHour < 18 ? 1 : 0;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const liveNowStr = `${pad(trHour)}:${pad(now.getUTCMinutes())}`;
 
-        // Transform MGM 3-hourly predictions into hourlyList
-        const hourlyList = s.map((item: any, idx: number) => {
-          const d = new Date(item.tarih);
-          const itemHour = (d.getUTCHours() + 3) % 24;
-          const itemIsDay = itemHour >= 6 && itemHour < 18 ? 1 : 0;
-          const itemInfo = MGM_HADISE_MAP[(item.hadise || 'A').toUpperCase()] || { wmo: 0, text: 'Açık' };
-          return {
-            hourOffset: idx * 3,
-            label: idx === 0 ? 'Şu An' : `+${idx * 3} Saat`,
-            timeStr: `${String(itemHour).padStart(2, '0')}:00`,
-            temp: item.sicaklik,
-            apparentTemp: item.hissedilenSicaklik || item.sicaklik,
-            humidity: item.nem,
-            precipitationProb: item.hadise?.includes('Y') ? 65 : item.hadise?.includes('B') ? 20 : 5,
-            windSpeed: item.ruzgarHizi || 0,
-            windDirection: item.ruzgarYonu || 0,
-            surfacePressure: Math.round(cur.aktuelBasinc || 943),
-            uvIndex: itemIsDay ? 4 : 0,
-            weatherCode: itemInfo.wmo,
-            conditionText: itemInfo.text,
-            isDay: itemIsDay
-          };
-        });
+        // Build +1, +2, +3, +4, +6, +8, +12, +24 hourly forecast system
+        const targetOffsets = [
+          { offset: 0, label: 'Şu An' },
+          { offset: 1, label: '+1 Saat' },
+          { offset: 2, label: '+2 Saat' },
+          { offset: 3, label: '+3 Saat' },
+          { offset: 4, label: '+4 Saat' },
+          { offset: 6, label: '+6 Saat' },
+          { offset: 8, label: '+8 Saat' },
+          { offset: 12, label: '+12 Saat' },
+          { offset: 24, label: '+24 Saat' }
+        ];
 
-        // 5-day MGM official daily forecast
+        let hourlyList: any[] = [];
+
+        if (omData?.hourly?.time) {
+          const times: string[] = omData.hourly.time;
+          const currentTimeIso: string = omData.current?.time || '';
+          const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
+          let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : 0;
+          if (baseIndex === -1) baseIndex = 0;
+
+          hourlyList = targetOffsets.map(item => {
+            const idx = baseIndex + item.offset;
+            const timeStr = item.offset === 0 ? liveNowStr : `${pad((trHour + item.offset) % 24)}:00`;
+            const itemIsDay = ((trHour + item.offset) % 24) >= 6 && ((trHour + item.offset) % 24) < 18 ? 1 : 0;
+
+            if (item.offset === 0) {
+              // Exact live observation from MGM Kilis station
+              return {
+                hourOffset: 0,
+                label: 'Şu An',
+                timeStr,
+                temp: cur.sicaklik,
+                apparentTemp: cur.hissedilenSicaklik ?? cur.sicaklik,
+                humidity: cur.nem,
+                precipitationProb: cur.hadiseKodu?.includes('Y') ? 70 : (omData.hourly.precipitation_probability?.[idx] ?? 5),
+                windSpeed: cur.ruzgarHiz || (omData.hourly.wind_speed_10m?.[idx] ?? 0),
+                windDirection: cur.ruzgarYon || (omData.hourly.wind_direction_10m?.[idx] ?? 0),
+                surfacePressure: Math.round(cur.aktuelBasinc || 943),
+                uvIndex: isDay ? (omData.hourly.uv_index?.[idx] ?? 4) : 0,
+                weatherCode: info.wmo,
+                conditionText: info.text,
+                isDay
+              };
+            }
+
+            return {
+              hourOffset: item.offset,
+              label: item.label,
+              timeStr,
+              temp: omData.hourly.temperature_2m?.[idx] ?? cur.sicaklik,
+              apparentTemp: omData.hourly.apparent_temperature?.[idx] ?? cur.sicaklik,
+              humidity: omData.hourly.relative_humidity_2m?.[idx] ?? cur.nem,
+              precipitationProb: omData.hourly.precipitation_probability?.[idx] ?? 0,
+              windSpeed: omData.hourly.wind_speed_10m?.[idx] ?? (cur.ruzgarHiz || 0),
+              windDirection: omData.hourly.wind_direction_10m?.[idx] ?? (cur.ruzgarYon || 0),
+              surfacePressure: Math.round(omData.hourly.surface_pressure?.[idx] || cur.aktuelBasinc || 943),
+              uvIndex: omData.hourly.uv_index?.[idx] ?? (itemIsDay ? 3 : 0),
+              weatherCode: omData.hourly.weather_code?.[idx] ?? 0,
+              isDay: omData.hourly.is_day?.[idx] ?? itemIsDay
+            };
+          });
+        } else if (Array.isArray(s) && s.length > 0) {
+          // Fallback using MGM 3-hourly predictions interpolated to target offsets
+          hourlyList = targetOffsets.map(item => {
+            const mgmIdx = Math.min(s.length - 1, Math.round(item.offset / 3));
+            const mgmItem = s[mgmIdx] || {};
+            const itemHour = (trHour + item.offset) % 24;
+            const itemIsDay = itemHour >= 6 && itemHour < 18 ? 1 : 0;
+            const itemInfo = MGM_HADISE_MAP[(mgmItem.hadise || 'A').toUpperCase()] || info;
+
+            if (item.offset === 0) {
+              return {
+                hourOffset: 0,
+                label: 'Şu An',
+                timeStr: liveNowStr,
+                temp: cur.sicaklik,
+                apparentTemp: cur.hissedilenSicaklik ?? cur.sicaklik,
+                humidity: cur.nem,
+                precipitationProb: cur.hadiseKodu?.includes('Y') ? 70 : 5,
+                windSpeed: cur.ruzgarHiz || 0,
+                windDirection: cur.ruzgarYon || 0,
+                surfacePressure: Math.round(cur.aktuelBasinc || 943),
+                uvIndex: isDay ? 4 : 0,
+                weatherCode: info.wmo,
+                conditionText: info.text,
+                isDay
+              };
+            }
+
+            return {
+              hourOffset: item.offset,
+              label: item.label,
+              timeStr: `${String(itemHour).padStart(2, '0')}:00`,
+              temp: mgmItem.sicaklik ?? cur.sicaklik,
+              apparentTemp: mgmItem.hissedilenSicaklik || mgmItem.sicaklik || cur.sicaklik,
+              humidity: mgmItem.nem ?? cur.nem,
+              precipitationProb: mgmItem.hadise?.includes('Y') ? 65 : mgmItem.hadise?.includes('B') ? 20 : 5,
+              windSpeed: mgmItem.ruzgarHizi || cur.ruzgarHiz || 0,
+              windDirection: mgmItem.ruzgarYonu || cur.ruzgarYon || 0,
+              surfacePressure: Math.round(cur.aktuelBasinc || 943),
+              uvIndex: itemIsDay ? 3 : 0,
+              weatherCode: itemInfo.wmo,
+              conditionText: itemInfo.text,
+              isDay: itemIsDay
+            };
+          });
+        }
+
+        // 4-day MGM official daily forecast (4 gün)
         const dailyForecasts: any[] = [];
         const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 4; i++) {
           const rawDate = g['tarihGun' + i];
           if (rawDate) {
             const dt = new Date(rawDate);
@@ -1134,11 +1227,15 @@ app.get('/api/weather', async (req, res) => {
       .map(item => {
         const idx = baseIndex + item.offset;
         if (idx < times.length) {
-          const timeRaw = times[idx];
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const nowFallback = new Date();
+          const trHourFallback = (nowFallback.getUTCHours() + 3) % 24;
+          const liveNowFallback = `${pad(trHourFallback)}:${pad(nowFallback.getUTCMinutes())}`;
+          const timeStr = item.offset === 0 ? liveNowFallback : `${pad((trHourFallback + item.offset) % 24)}:00`;
           return {
             hourOffset: item.offset,
             label: item.label,
-            timeStr: timeRaw.includes('T') ? timeRaw.split('T')[1].slice(0, 5) : timeRaw,
+            timeStr,
             temp: data.hourly.temperature_2m[idx] ?? data.current.temperature_2m,
             apparentTemp: data.hourly.apparent_temperature?.[idx] ?? data.current.temperature_2m,
             humidity: data.hourly.relative_humidity_2m?.[idx] ?? data.current.relative_humidity_2m,

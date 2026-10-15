@@ -786,7 +786,7 @@ export default function News() {
                           : "bg-white/60 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:bg-stone-100 dark:hover:bg-white/10 border-stone-200/60 dark:border-white/10"
                       )}
                     >
-                      ✨ Fakülte Geneli (Tüm Bölümler)
+                      Fakülte Geneli (Tüm Bölümler)
                     </button>
 
                     {activeFacultyGroup.departments.map((d) => {
