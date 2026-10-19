@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DirectoryUnit, DirectorySection, DirectoryContact } from '../types';
-import { getPhoneDirectory, syncPhoneDirectoryUnit, FALLBACK_PHONE_DIRECTORY } from '../mockData';
+import { getPhoneDirectory, syncPhoneDirectoryUnit, FALLBACK_PHONE_DIRECTORY, CACHE_TTL } from '../mockData';
 import { cn } from '../lib/utils';
 import { openExternalUrl } from '../lib/openExternal';
 import CustomSelectPicker, { SelectOption } from './CustomSelectPicker';
@@ -99,14 +99,43 @@ export default function PhoneDirectoryView() {
 
   const directoryUnitOptions: SelectOption[] = useMemo(() => {
     return filteredUnits.map((u) => {
-      const contactCount = u.sections.reduce((acc, s) => acc + s.contacts.length, 0);
       return {
         value: u.id,
-        label: u.name,
-        badge: `${contactCount} Personel`
+        label: u.name
       };
     });
   }, [filteredUnits]);
+
+  // Live fetch / sync data for clicked unit with server overload protection
+  const handleUnitSelect = async (unitId: string) => {
+    setSelectedUnitId(unitId);
+    if (unitId) {
+      const existing = units.find(u => u.id === unitId);
+      const lastSyncKey = `k7_unit_last_sync_${unitId}`;
+      const lastSync = typeof window !== 'undefined' ? Number(localStorage.getItem(lastSyncKey) || 0) : 0;
+      const isFresh = (Date.now() - lastSync) < CACHE_TTL.PHONEBOOK;
+
+      // Sunucu koruması: Birim zaten yüklüyse ve 7 gün içinde senkronize edilmişse tekrar sunucuyu yorma
+      if (existing && existing.sections && existing.sections.length > 0 && isFresh) {
+        return;
+      }
+
+      try {
+        setIsSyncing(true);
+        const res = await syncPhoneDirectoryUnit(unitId, false);
+        if (res && res.success) {
+          const refreshed = await getPhoneDirectory();
+          if (refreshed && refreshed.length > 0) {
+            setUnits(refreshed);
+          }
+        }
+      } catch (err) {
+        console.warn('Live unit sync failed:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
 
   // If a unit is selected, update expanded sections when switching unit
   useEffect(() => {
@@ -191,7 +220,7 @@ export default function PhoneDirectoryView() {
     if (!activeUnit || isSyncing) return;
     setIsSyncing(true);
     try {
-      const res = await syncPhoneDirectoryUnit(activeUnit.id);
+      const res = await syncPhoneDirectoryUnit(activeUnit.id, true);
       if (res && res.success) {
         toast.success(`${activeUnit.name} rehber bilgileri güncellendi.`);
         const refreshed = await getPhoneDirectory();
@@ -465,10 +494,10 @@ export default function PhoneDirectoryView() {
               title="Birim veya Fakülte Seçimi"
               options={directoryUnitOptions}
               value={selectedUnitId}
-              onChange={(unitId) => setSelectedUnitId(unitId)}
+              onChange={(unitId) => handleUnitSelect(unitId)}
               placeholder={`-- Lütfen Birim veya Fakülte Seçiniz (${filteredUnits.length} Birim) --`}
               clearable={!!selectedUnitId}
-              onClear={() => setSelectedUnitId('')}
+              onClear={() => handleUnitSelect('')}
             />
 
             {/* Quick Chips & Reset Selection */}

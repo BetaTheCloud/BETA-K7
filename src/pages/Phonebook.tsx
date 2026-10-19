@@ -72,7 +72,7 @@ export default function Phonebook() {
     }, 2500);
   };
 
-  // SelectOption lists for CustomSelectPicker
+  // SelectOption lists for CustomSelectPicker (Personel sayıları kaldırıldı)
   const unitDepartmentOptions: SelectOption[] = useMemo(() => {
     const map = new Map<string, number>();
     phonebookData.forEach((p) => {
@@ -81,16 +81,15 @@ export default function Phonebook() {
     });
 
     const options: SelectOption[] = [
-      { value: 'all', label: 'Tüm Birimler ve Dekanlıklar', badge: `${phonebookData.length} Dahili` }
+      { value: 'all', label: 'Tüm Birimler ve Dekanlıklar' }
     ];
 
     Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
-      .forEach(([dept, count]) => {
+      .forEach(([dept]) => {
         options.push({
           value: dept,
-          label: dept,
-          badge: `${count} Dahili`
+          label: dept
         });
       });
 
@@ -105,21 +104,56 @@ export default function Phonebook() {
     });
 
     const options: SelectOption[] = [
-      { value: 'all', label: 'Tüm Fakülte ve İdari Birimler', badge: `${staffData.length} Personel` }
+      { value: 'all', label: 'Tüm Fakülte ve İdari Birimler' }
     ];
 
     Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
-      .forEach(([fac, count]) => {
+      .forEach(([fac]) => {
         options.push({
           value: fac,
-          label: fac,
-          badge: `${count} Akademisyen`
+          label: fac
         });
       });
 
     return options;
   }, [staffData]);
+
+  // Live fetch when department is selected in Phonebook
+  const handleUnitDepartmentChange = async (dept: string) => {
+    setSelectedUnitDepartment(dept);
+    if (dept && dept !== 'all') {
+      try {
+        const liveData = await getPhonebook(dept);
+        if (liveData && liveData.length > 0) {
+          setPhonebookData((prev) => {
+            const others = prev.filter(p => p.department !== dept);
+            return [...others, ...liveData];
+          });
+        }
+      } catch (err) {
+        console.warn('Live fetch for phonebook unit failed:', err);
+      }
+    }
+  };
+
+  // Live fetch when faculty is selected in Staff
+  const handleStaffFacultyChange = async (fac: string) => {
+    setSelectedStaffFaculty(fac);
+    if (fac && fac !== 'all') {
+      try {
+        const liveStaff = await getStaff(fac);
+        if (liveStaff && liveStaff.length > 0) {
+          setStaffData((prev) => {
+            const others = prev.filter(s => (s.facultyName || 'Diğer / Rektörlük') !== fac);
+            return [...others, ...liveStaff];
+          });
+        }
+      } catch (err) {
+        console.warn('Live fetch for staff faculty failed:', err);
+      }
+    }
+  };
 
   // Filtered Unit Phonebook
   const filteredUnits = useMemo(() => {
@@ -323,10 +357,10 @@ export default function Phonebook() {
               title="Birim veya Dekanlık Seçimi"
               options={unitDepartmentOptions}
               value={selectedUnitDepartment}
-              onChange={(val) => setSelectedUnitDepartment(val)}
+              onChange={(val) => handleUnitDepartmentChange(val)}
               placeholder="-- Tüm Birimler ve Dekanlıklar --"
               clearable={selectedUnitDepartment !== 'all'}
-              onClear={() => setSelectedUnitDepartment('all')}
+              onClear={() => handleUnitDepartmentChange('all')}
             />
           </div>
 
@@ -509,10 +543,10 @@ export default function Phonebook() {
               title="Fakülte / İdari Birim Seçimi"
               options={staffFacultyOptions}
               value={selectedStaffFaculty}
-              onChange={(val) => setSelectedStaffFaculty(val)}
+              onChange={(val) => handleStaffFacultyChange(val)}
               placeholder="-- Tüm Fakülte ve İdari Birimler --"
               clearable={selectedStaffFaculty !== 'all'}
-              onClear={() => setSelectedStaffFaculty('all')}
+              onClear={() => handleStaffFacultyChange('all')}
             />
           </div>
 

@@ -693,22 +693,23 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 
 // ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
 export const CACHE_TTL = {
-  ANNOUNCEMENTS: 0,                   // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
-  NEWS: 0,                            // 0ms -> Kritik ve anlık: Uygulama açılışında her zaman canlı çekilir
+  ANNOUNCEMENTS: 0,                   // 0ms -> Uygulama her açıldığında canlı çekilir (önceki veri varsa anında ekrana basılır)
+  NEWS: 0,                            // 0ms -> Uygulama her açıldığında canlı çekilir (önceki veri varsa anında ekrana basılır)
+  EVENTS: 0,                          // 0ms -> Etkinlikler: Uygulama her açıldığında canlı çekilir (önceki veri anında ekranda gösterilir)
   DEPT_ANNOUNCEMENTS: 12 * 60 * 60 * 1000, // 12 saat -> Bölüm/fakülte duyuruları önbelleği
   DEPT_NEWS: 12 * 60 * 60 * 1000,     // 12 saat -> Bölüm/fakülte haberleri önbelleği
   WEATHER: 10 * 60 * 1000,            // 10 dakika -> MGM Kilis İstasyonu hava durumu
-  MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir (sunucuyu yormaz)
-  CALENDAR: 30 * 24 * 60 * 60 * 1000, // 30 gün -> Akademik takvim dönemliktir, önbellekten çalışır
-  BOLOGNA: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Bologna ders planları dönemliktir, önbellekten çalışır
-  PHONEBOOK: 14 * 24 * 60 * 60 * 1000,// 14 gün -> Telefon rehberi önbellekten çalışır
-  TRANSPORT: 30 * 24 * 60 * 60 * 1000,// 30 gün -> Ulaşım bilgileri önbellekten çalışır
-  LIBRARY: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Kütüphane rehberi önbellekten çalışır
-  SPORTS: 30 * 24 * 60 * 60 * 1000,   // 30 gün -> Spor tesisleri önbellekten çalışır
-  HOTEL: 30 * 24 * 60 * 60 * 1000,    // 30 gün -> Uygulama oteli önbellekten çalışır
-  MAP: 30 * 24 * 60 * 60 * 1000,      // 30 gün -> Kampüs haritası & yerleşkeler önbellekten çalışır
-  STAFF: 30 * 24 * 60 * 60 * 1000,    // 30 gün -> Akademik personel rehberi önbellekten çalışır
-  FORMS: 30 * 24 * 60 * 60 * 1000     // 30 gün -> Matbu formlar önbellekten çalışır
+  MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir
+  CALENDAR: 14 * 24 * 60 * 60 * 1000, // 14 gün -> Akademik takvim
+  BOLOGNA: 7 * 24 * 60 * 60 * 1000,   // 7 gün -> Bologna ders planları ve programları
+  PHONEBOOK: 7 * 24 * 60 * 60 * 1000, // 7 gün -> Telefon rehberi
+  STAFF: 7 * 24 * 60 * 60 * 1000,     // 7 gün -> Akademik personel rehberi
+  FORMS: 14 * 24 * 60 * 60 * 1000,    // 14 gün -> Dilekçeler ve matbu formlar
+  TRANSPORT: 30 * 24 * 60 * 60 * 1000,// 30 gün -> Ulaşım bilgileri
+  LIBRARY: 30 * 24 * 60 * 60 * 1000,  // 30 gün -> Kütüphane rehberi
+  SPORTS: 30 * 24 * 60 * 60 * 1000,   // 30 gün -> Spor tesisleri
+  HOTEL: 30 * 24 * 60 * 60 * 1000,    // 30 gün -> Uygulama oteli
+  MAP: 30 * 24 * 60 * 60 * 1000       // 30 gün -> Kampüs haritası & yerleşkeler
 };
 
 interface CacheEnvelope<T> {
@@ -1145,12 +1146,22 @@ export const getPhoneDirectory = async (
   return list;
 };
 
-export const syncPhoneDirectoryUnit = async (unitId: string): Promise<{ success: boolean; count?: number; message?: string }> => {
+export const syncPhoneDirectoryUnit = async (unitId: string, force: boolean = false): Promise<{ success: boolean; count?: number; message?: string }> => {
+  const lastSyncKey = `k7_unit_last_sync_${unitId}`;
+  if (typeof window !== 'undefined' && !force) {
+    const lastTime = Number(localStorage.getItem(lastSyncKey) || 0);
+    if (Date.now() - lastTime < CACHE_TTL.PHONEBOOK) {
+      return { success: true, message: 'Önbellek güncel' };
+    }
+  }
   try {
-    const url = getApiUrl(`/api/phone-directory/sync?unitId=${encodeURIComponent(unitId)}`);
+    const url = getApiUrl(`/api/phone-directory/sync?unitId=${encodeURIComponent(unitId)}${force ? '&force=true' : ''}`);
     const res = await safeFetch(url);
     if (res.ok) {
       const json = await res.json();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(lastSyncKey, Date.now().toString());
+      }
       return json;
     }
   } catch (err: any) {
@@ -1163,8 +1174,15 @@ export const getStaff = async (
   faculty?: string,
   department?: string,
   query?: string,
-  category?: string
+  category?: string,
+  force: boolean = false
 ): Promise<AcademicStaffMember[]> => {
+  const cacheKey = `k7_cached_staff_${faculty || 'all'}_${department || 'all'}_${category || 'all'}_${query || ''}`;
+  const cached = getStoredWithTTL<AcademicStaffMember[]>(cacheKey, CACHE_TTL.STAFF, []);
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    return cached.data;
+  }
+
   try {
     const params = new URLSearchParams();
     if (faculty && faculty !== 'all') params.append('faculty', faculty);
@@ -1177,11 +1195,16 @@ export const getStaff = async (
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
+        setStoredWithTTL(cacheKey, data);
         return data;
       }
     }
   } catch (err) {
     console.warn("Personel listesi canlı alınamadı, yerleşik veri kullanılıyor:", err);
+  }
+
+  if (cached.data && cached.data.length > 0) {
+    return cached.data;
   }
 
   let list = ACADEMIC_STAFF_DATA;
@@ -1217,9 +1240,24 @@ export interface StaffSyncResult {
   data?: AcademicStaffMember[];
 }
 
-export const syncStaff = async (facultyId: string = 'all'): Promise<StaffSyncResult> => {
+export const syncStaff = async (facultyId: string = 'all', force: boolean = false): Promise<StaffSyncResult> => {
+  const cacheKey = `k7_cached_staff_${facultyId}`;
+  const cached = getStoredWithTTL<AcademicStaffMember[]>(cacheKey, CACHE_TTL.STAFF, []);
+  
+  // If not forcing, and cache is fresh, return cached result immediately (sunucu koruması)
+  if (!force && cached.isFresh && cached.data && cached.data.length > 0) {
+    const savedSync = typeof window !== 'undefined' ? Number(localStorage.getItem('k7_staff_last_sync_' + facultyId) || Date.now()) : Date.now();
+    return {
+      success: true,
+      facultyId,
+      count: cached.data.length,
+      lastSyncTime: savedSync,
+      data: cached.data
+    };
+  }
+
   try {
-    const url = getApiUrl(`/api/staff/sync?faculty=${encodeURIComponent(facultyId)}`);
+    const url = getApiUrl(`/api/staff/sync?faculty=${encodeURIComponent(facultyId)}${force ? '&force=true' : ''}`);
     const response = await safeFetch(url);
     if (response.ok) {
       const res = await response.json();
@@ -1228,6 +1266,9 @@ export const syncStaff = async (facultyId: string = 'all'): Promise<StaffSyncRes
           const now = res.lastSyncTime || Date.now();
           localStorage.setItem('k7_staff_last_sync_' + facultyId, now.toString());
           localStorage.setItem('k7_staff_last_sync_all', now.toString());
+          if (res.data && res.data.length > 0) {
+            setStoredWithTTL(cacheKey, res.data);
+          }
         }
         notifySyncSuccess('live');
         return res;
@@ -1236,6 +1277,17 @@ export const syncStaff = async (facultyId: string = 'all'): Promise<StaffSyncRes
   } catch (err) {
     console.warn('Personel senkronizasyon hatası:', err);
   }
+
+  if (cached.data && cached.data.length > 0) {
+    return {
+      success: true,
+      facultyId,
+      count: cached.data.length,
+      lastSyncTime: Date.now(),
+      data: cached.data
+    };
+  }
+
   return {
     success: false,
     count: 0,
@@ -1301,7 +1353,8 @@ export const getForms = async (
   faculty?: string,
   department?: string,
   category?: string,
-  q?: string
+  q?: string,
+  force: boolean = false
 ): Promise<CampusForm[]> => {
   const REQUIRED_FACULTIES = ['fen', 'gsf', 'iibf', 'ilahiyat', 'iletisim', 'itbf', 'egitim', 'mmf', 'spor', 'ubf', 'sbf', 'ziraat'];
   const isValidFormList = (list: any): list is CampusForm[] => {
@@ -1316,20 +1369,29 @@ export const getForms = async (
     });
   } catch {}
 
+  const isGeneral = !source && !faculty && !category && !q;
+  if (isGeneral && !force) {
+    const cachedObj = getStoredWithTTL<CampusForm[]>('k7_cached_forms_v5', CACHE_TTL.FORMS, []);
+    if (cachedObj.isFresh && isValidFormList(cachedObj.data)) {
+      return cachedObj.data;
+    }
+  }
+
   try {
     const params = new URLSearchParams();
     if (source && source !== 'all') params.append('source', source);
     if (faculty && faculty !== 'all' && faculty !== 'Tümü') params.append('faculty', faculty);
     if (category && category !== 'all' && category !== 'Tümü') params.append('category', category);
     if (q) params.append('q', q);
+    if (force) params.append('force', 'true');
 
     const queryStr = params.toString() ? `?${params.toString()}` : '';
     const response = await safeFetch(getApiUrl(`/api/forms${queryStr}`));
     if (response.ok) {
       const data = await response.json();
       if (isValidFormList(data)) {
-        if (!source && !faculty && !category && !q) {
-          setStored('k7_cached_forms_v5', data);
+        if (isGeneral) {
+          setStoredWithTTL('k7_cached_forms_v5', data);
         }
         return data;
       }
@@ -1338,7 +1400,7 @@ export const getForms = async (
     console.warn("Matbu formlar canlı alınamadı, yerleşik formlar kullanılıyor:", err);
   }
   
-  let cached = getStored('k7_cached_forms_v5', FALLBACK_FORMS);
+  let cached = getStoredWithTTL<CampusForm[]>('k7_cached_forms_v5', CACHE_TTL.FORMS, FALLBACK_FORMS).data;
   if (!isValidFormList(cached)) {
     cached = FALLBACK_FORMS;
   }

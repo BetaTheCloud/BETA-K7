@@ -31,7 +31,7 @@ export default function BottomNav() {
                 cn(
                   'flex flex-col items-center justify-center flex-1 h-full py-1 px-1 rounded-xl transition-all duration-200 active:scale-95 select-none relative group',
                   isActive
-                    ? 'bg-[#8a2a43]/10 dark:bg-white/12 text-[#8a2a43] dark:text-white font-bold shadow-2xs'
+                    ? 'bg-[#8a2a43] text-white font-bold shadow-xs'
                     : 'text-stone-600/80 dark:text-white/65 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/50 dark:hover:bg-white/5'
                 )
               }
@@ -47,9 +47,6 @@ export default function BottomNav() {
                   <span className="text-[10px] tracking-tight leading-none mt-1 font-sans">
                     {item.shortLabel}
                   </span>
-                  {isActive && (
-                    <span className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-[#8a2a43] dark:bg-white shadow-xs" />
-                  )}
                 </>
               )}
             </NavLink>

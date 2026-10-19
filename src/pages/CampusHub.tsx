@@ -65,6 +65,8 @@ import {
   getForms,
   getStaff,
   syncStaff,
+  getStoredWithTTL,
+  CACHE_TTL,
   formatStaffSyncDate,
   getTransportInfo,
   getLibraryInfo,
@@ -399,7 +401,7 @@ export default function CampusHub() {
       if (!facId) {
         facId = 'all';
       }
-      const result = await syncStaff(facId);
+      const result = await syncStaff(facId, true);
       if (result && result.success && result.data && result.data.length > 0) {
         if (facId === 'all') {
           setStaffList(result.data);
@@ -529,7 +531,7 @@ export default function CampusHub() {
     }
   };
 
-  const handleStaffFacultyChange = (facId: string) => {
+  const handleStaffFacultyChange = async (facId: string) => {
     setSelectedStaffFaculty(facId);
     setSelectedStaffDepartment('Tümü');
     if (facId) {
@@ -537,10 +539,40 @@ export default function CampusHub() {
       if (target && selectedStaffCategory !== 'all' && target.category !== selectedStaffCategory) {
         setSelectedStaffCategory(target.category);
       }
+
+      // Sunucu koruması: Önce TTL önbellek kontrolü (sunucuyu gereksiz yere yormaz)
+      const cached = getStoredWithTTL<AcademicStaffMember[]>(`k7_cached_staff_${facId}`, CACHE_TTL.STAFF, []);
+      if (cached.isFresh && cached.data && cached.data.length > 0) {
+        setStaffList((prev) => {
+          const others = prev.filter(s => s.facultyId.toLowerCase() !== facId.toLowerCase());
+          return [...others, ...cached.data];
+        });
+        const savedSync = localStorage.getItem('k7_staff_last_sync_' + facId);
+        if (savedSync) setStaffLastSyncTime(Number(savedSync));
+        return;
+      }
+
+      // Önbellekte yoksa veya süresi dolmuşsa korumalı canlı senkronizasyon
+      try {
+        setIsSyncingStaff(true);
+        const result = await syncStaff(facId, false);
+        if (result && result.success && result.data && result.data.length > 0) {
+          setStaffList((prev) => {
+            const others = prev.filter(s => s.facultyId.toLowerCase() !== facId.toLowerCase());
+            return [...others, ...result.data!];
+          });
+          const now = result.lastSyncTime || Date.now();
+          setStaffLastSyncTime(now);
+        }
+      } catch (err) {
+        console.warn('Live staff sync failed:', err);
+      } finally {
+        setIsSyncingStaff(false);
+      }
     }
   };
 
-  // Options for CustomSelectPicker in Staff tab
+  // Options for CustomSelectPicker in Staff tab (Personel sayıları kaldırıldı)
   const staffFacultySelectOptions: SelectOption[] = React.useMemo(() => {
     const opts: SelectOption[] = [];
     groupedUnits.forEach((group) => {
@@ -549,40 +581,34 @@ export default function CampusHub() {
         : group.items.filter(i => i.category === selectedStaffCategory);
 
       filteredItems.forEach((u) => {
-        const uCount = staffList.filter(s => s.facultyId === u.id).length;
         opts.push({
           value: u.id,
-          label: u.name,
-          badge: `${uCount} Personel`
+          label: u.name
         });
       });
     });
     return opts;
-  }, [groupedUnits, selectedStaffCategory, staffList]);
+  }, [groupedUnits, selectedStaffCategory]);
 
   const staffDepartmentSelectOptions: SelectOption[] = React.useMemo(() => {
     if (!selectedStaffFaculty) return [];
 
-    const totalInFaculty = staffList.filter(s => s.facultyId === selectedStaffFaculty).length;
     const opts: SelectOption[] = [
       {
         value: 'Tümü',
-        label: `Tüm Bölümler (${activeStaffFacultyConfig?.shortName || ''})`,
-        badge: `${totalInFaculty} Personel`
+        label: `Tüm Bölümler (${activeStaffFacultyConfig?.shortName || ''})`
       }
     ];
 
     availableStaffDepartments.filter(d => d !== 'Tümü').forEach((dept) => {
-      const count = staffList.filter(s => s.facultyId === selectedStaffFaculty && s.department === dept).length;
       opts.push({
         value: dept,
-        label: dept,
-        badge: `${count} Personel`
+        label: dept
       });
     });
 
     return opts;
-  }, [selectedStaffFaculty, activeStaffFacultyConfig, availableStaffDepartments, staffList]);
+  }, [selectedStaffFaculty, activeStaffFacultyConfig, availableStaffDepartments]);
 
   // Filtered staff list: when no faculty is selected AND no search query is typed, do NOT preview staff!
   const filteredStaff = React.useMemo(() => {

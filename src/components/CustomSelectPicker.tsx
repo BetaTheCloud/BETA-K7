@@ -50,7 +50,6 @@ export default function CustomSelectPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Find currently selected option object
   const selectedOption = useMemo(() => {
@@ -69,16 +68,10 @@ export default function CustomSelectPicker({
     });
   }, [options, searchTerm]);
 
-  // Auto-focus search input when modal opens
+  // Reset search term when modal opens without auto-focusing (prevents unwanted keyboard popup on mobile)
   useEffect(() => {
     if (isOpen) {
       setSearchTerm('');
-      const timer = setTimeout(() => {
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
-      }, 100);
-      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -146,11 +139,11 @@ export default function CustomSelectPicker({
         </div>
       </button>
 
-      {/* Portal Picker Modal (Theme Compatible Dropdown) */}
+      {/* Portal Picker Modal (Theme Compatible Dropdown mounted via DOM Portal) */}
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           {isOpen && (
-            <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden pointer-events-auto overscroll-contain">
+            <div className="fixed inset-0 z-[120] flex items-center justify-center p-3.5 sm:p-5 md:p-6 overflow-hidden pointer-events-auto overscroll-contain">
               {/* Backdrop */}
               <motion.div
                 key="picker-backdrop"
@@ -158,18 +151,18 @@ export default function CustomSelectPicker({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsOpen(false)}
-                className="fixed inset-0 bg-stone-950/70 backdrop-blur-xs transition-opacity"
+                className="fixed inset-0 bg-stone-950/75 backdrop-blur-xs transition-opacity"
               />
 
-              {/* Theme-Aligned Picker Dialog */}
+              {/* Theme-Aligned Symmetrical Picker Dialog (Equal margins, rounded all sides, floating cleanly above bottom bar) */}
               <motion.div
                 key="picker-card"
-                initial={{ opacity: 0, y: 24, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 24, scale: 0.98 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, scale: 0.95, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 14 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-lg h-[82dvh] sm:h-auto sm:max-h-[80vh] bg-[#fcfbf9] dark:bg-[#1d3540] border-t sm:border border-[#e6e2d6] dark:border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto"
+                className="relative w-full max-w-lg max-h-[82dvh] sm:max-h-[80vh] bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto"
               >
                 {/* Header */}
                 <div className="px-5 py-4 bg-gradient-to-br from-[#363d50] to-[#8a2a43] text-white border-b border-white/10 shrink-0 flex items-center justify-between gap-3">
@@ -197,18 +190,17 @@ export default function CustomSelectPicker({
                   </button>
                 </div>
 
-                {/* Search Bar (if enabled or >5 options) */}
+                {/* Search Bar (if enabled or >5 options) - User clicks to type, no auto-focus */}
                 {(searchable || options.length > 5) && (
                   <div className="p-3 bg-stone-100/80 dark:bg-black/25 border-b border-[#e6e2d6] dark:border-white/10 shrink-0">
                     <div className="relative">
                       <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 dark:text-white/40 pointer-events-none" />
                       <input
-                        ref={searchInputRef}
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder={searchPlaceholder}
-                        className="w-full pl-9 pr-9 py-2 rounded-xl bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-white/40 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-sans"
+                        className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white dark:bg-[#1f3844] border border-stone-200 dark:border-white/10 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 dark:placeholder-white/40 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-sans"
                       />
                       {searchTerm && (
                         <button
@@ -224,7 +216,7 @@ export default function CustomSelectPicker({
                 )}
 
                 {/* Options List */}
-                <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-1.5">
+                <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-1.5">
                   {filteredOptions.length === 0 ? (
                     <div className="py-12 text-center text-stone-400 dark:text-white/40 space-y-2">
                       <Building2 className="w-8 h-8 mx-auto stroke-1" />

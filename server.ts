@@ -1732,15 +1732,32 @@ app.get('/api/phone-directory', (req, res) => {
   }
 });
 
+const phoneUnitSyncTimeMap: Record<string, number> = {};
+
 app.get('/api/phone-directory/sync', async (req, res) => {
   try {
     const unitId = ((req.query.unitId || req.query.department_id || '') as string).trim();
+    const isForce = req.query.force === 'true';
     if (!unitId) {
       return res.json({ success: true, message: 'Veriler güncel', data: memoryPhoneDirectory });
     }
 
+    // Sunucu koruması: Son 30 dakika içinde çekilmişse ve zorlanmıyorsa bellekteki veriyi sun
+    const lastSync = phoneUnitSyncTimeMap[unitId] || 0;
+    const isFresh = (Date.now() - lastSync) < (30 * 60 * 1000);
+    const existingUnit = memoryPhoneDirectory.find(u => u.id === unitId);
+    if (!isForce && isFresh && existingUnit && existingUnit.sections && existingUnit.sections.length > 0) {
+      return res.json({
+        success: true,
+        message: 'Önbellekten sunuldu (sunucu koruması aktif)',
+        data: existingUnit,
+        cached: true
+      });
+    }
+
     const targetUrl = `https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi?department_id=${encodeURIComponent(unitId)}`;
     const response = await axiosInstance.get(targetUrl, { timeout: 9000 });
+    phoneUnitSyncTimeMap[unitId] = Date.now();
     const $ = cheerio.load(response.data);
 
     const subs: any[] = [];
@@ -1918,11 +1935,29 @@ setInterval(async () => {
 app.all(['/api/staff/sync'], async (req, res) => {
   try {
     const facultyId = ((req.query.faculty || req.body?.faculty || 'all') as string).toLowerCase().trim();
+    const isForce = req.query.force === 'true' || req.body?.force === true;
     
     // Find target faculty
     const targetFac = STAFF_FACULTIES_LIST.find(f => f.id.toLowerCase() === facultyId && f.id !== 'all');
     
     if (targetFac && targetFac.sourceUrl) {
+      const lastTime = facultyStaffSyncTimeMap[targetFac.id] || 0;
+      const isFresh = (Date.now() - lastTime) < (30 * 60 * 1000); // 30 dakika sunucu koruması
+      const existingStaff = syncedStaffData.filter(s => s.facultyId.toLowerCase() === targetFac.id.toLowerCase());
+
+      // Sunucu koruması: Son 30 dakika içinde çekilmişse ve zorlanmıyorsa bellekteki veriyi sun
+      if (!isForce && isFresh && existingStaff.length > 0) {
+        return res.json({
+          success: true,
+          facultyId: targetFac.id,
+          facultyName: targetFac.name,
+          count: existingStaff.length,
+          lastSyncTime: lastTime,
+          data: existingStaff,
+          cached: true
+        });
+      }
+
       const freshStaff = await scrapeFacultyStaffLive(targetFac);
       if (freshStaff.length > 0) {
         // Replace this faculty's staff in syncedStaffData

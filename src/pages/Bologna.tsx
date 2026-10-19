@@ -854,7 +854,14 @@ export default function Bologna() {
                                     <tr
                                       key={course.id}
                                       onClick={async () => {
-                                        if (!course.detailsLoaded && course.detailTarget && activeDepartment?.sUnitId) {
+                                        const detailKey = `k7_bologna_detail_${activeDepartment?.sUnitId}_${course.code}_${course.detailTarget}`;
+                                        const cached = getStoredWithTTL<any>(detailKey, CACHE_TTL.BOLOGNA, null);
+                                        if (cached.isFresh && cached.data) {
+                                          course.description = cached.data.description || course.description;
+                                          course.outcomes = cached.data.outcomes || [];
+                                          course.weeklyTopics = cached.data.weeklyTopics || [];
+                                          course.detailsLoaded = true;
+                                        } else if (!course.detailsLoaded && course.detailTarget && activeDepartment?.sUnitId) {
                                           setLoading(true);
                                           try {
                                             const res = await safeFetch(
@@ -870,6 +877,7 @@ export default function Bologna() {
                                               course.outcomes = details.outcomes || [];
                                               course.weeklyTopics = details.weeklyTopics || [];
                                               course.detailsLoaded = true;
+                                              setStoredWithTTL(detailKey, details);
                                             }
                                           } catch (err) {
                                             console.error("Course detail fetch error", err);

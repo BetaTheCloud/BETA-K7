@@ -140,11 +140,11 @@ export default function Home() {
     async function loadDashboardData() {
       try {
         const [announcementsData, newsData, eventsData, menuData, calendarData] = await Promise.all([
-          getAnnouncements(),
-          getNews(),
-          getEvents(),
-          getMenu(),
-          getCalendarEvents()
+          getAnnouncements(true), // Uygulama her açıldığında canlı çekilir
+          getNews(true),          // Uygulama her açıldığında canlı çekilir
+          getEvents(true),        // Uygulama her açıldığında canlı çekilir
+          getMenu(),              // 24 saat TTL (menü günlüktür)
+          getCalendarEvents()     // 14 gün TTL (akademik takvim)
         ]);
 
         if (!isMounted) return;
