@@ -9,6 +9,7 @@ import cors from 'cors';
 import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsData';
 import { ACADEMIC_STAFF_DATA, STAFF_FACULTIES_LIST } from './src/data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS, ACADEMIC_UNITS_WITH_DEPARTMENTS } from './src/data/departmentNewsData';
+import { PHONE_DIRECTORY_DATA, DirectoryUnit, DirectoryContact } from './src/data/phoneDirectoryData';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1470,6 +1471,11 @@ app.get('/api/detail', async (req, res) => {
     let contentHtml = '';
     
     const contentSelectors = [
+      '.event-detail-text',
+      '.event-detail-content',
+      '.event-content',
+      '.etkinlik-detail',
+      '.etkinlik-content',
       '.inner-page__content-description',
       '.announcement-detail-text',
       '.news-detail-text',
@@ -1655,6 +1661,154 @@ app.get('/api/phonebook', async (req, res) => {
     const query = ((req.query.q || req.query.search || '') as string).toLowerCase();
     const filtered = DEFAULT_PHONEBOOK.filter(p => p.name.toLowerCase().includes(query) || p.department.toLowerCase().includes(query));
     res.json(filtered.length > 0 ? filtered : DEFAULT_PHONEBOOK);
+  }
+});
+
+// --- YENİ TELEFON REHBERİ SİSTEMİ (https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi) ---
+let memoryPhoneDirectory: DirectoryUnit[] = [...PHONE_DIRECTORY_DATA];
+
+app.get('/api/phone-directory', (req, res) => {
+  try {
+    const q = ((req.query.q || req.query.search || '') as string).toLowerCase().trim();
+    const category = ((req.query.category || '') as string).toLowerCase().trim();
+    const unitId = ((req.query.unitId || req.query.department_id || '') as string).trim();
+    const subDeptId = ((req.query.subDeptId || req.query.sub_department_id || '') as string).trim();
+
+    let list = memoryPhoneDirectory;
+
+    if (category && category !== 'all' && category !== 'tümü') {
+      list = list.filter(u => u.category.toLowerCase() === category);
+    }
+
+    if (unitId) {
+      list = list.filter(u => u.id === unitId);
+    }
+
+    if (subDeptId && unitId) {
+      list = list.map(u => ({
+        ...u,
+        sections: u.sections.filter(s => s.subDepartmentId === subDeptId || s.id === subDeptId)
+      }));
+    }
+
+    if (q) {
+      list = list.map(unit => {
+        const matchesUnitName = unit.name.toLowerCase().includes(q);
+        const filteredSections = unit.sections.map(sec => {
+          const matchesSecHeader = sec.fullHeader.toLowerCase().includes(q) || sec.title.toLowerCase().includes(q);
+          const filteredContacts = sec.contacts.filter(c => {
+            return (
+              c.name.toLowerCase().includes(q) ||
+              (c.title && c.title.toLowerCase().includes(q)) ||
+              (c.role && c.role.toLowerCase().includes(q)) ||
+              (c.extension && c.extension.includes(q)) ||
+              (c.email && c.email.toLowerCase().includes(q)) ||
+              (c.phone && c.phone.includes(q))
+            );
+          });
+
+          if (matchesSecHeader) return sec;
+          if (filteredContacts.length > 0) return { ...sec, contacts: filteredContacts };
+          return null;
+        }).filter(Boolean) as typeof unit.sections;
+
+        if (matchesUnitName) return unit;
+        if (filteredSections.length > 0) return { ...unit, sections: filteredSections };
+        return null;
+      }).filter(Boolean) as DirectoryUnit[];
+    }
+
+    const totalContacts = list.reduce((acc, u) => acc + u.sections.reduce((sAcc, s) => sAcc + s.contacts.length, 0), 0);
+
+    res.json({
+      success: true,
+      totalUnits: list.length,
+      totalContacts,
+      data: list
+    });
+  } catch (err: any) {
+    console.error('Phone directory error:', err);
+    res.status(500).json({ success: false, error: err.message, data: PHONE_DIRECTORY_DATA });
+  }
+});
+
+app.get('/api/phone-directory/sync', async (req, res) => {
+  try {
+    const unitId = ((req.query.unitId || req.query.department_id || '') as string).trim();
+    if (!unitId) {
+      return res.json({ success: true, message: 'Veriler güncel', data: memoryPhoneDirectory });
+    }
+
+    const targetUrl = `https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi?department_id=${encodeURIComponent(unitId)}`;
+    const response = await axiosInstance.get(targetUrl, { timeout: 9000 });
+    const $ = cheerio.load(response.data);
+
+    const subs: any[] = [];
+    $('#phone-book-sub-department-select option').each((j, opt) => {
+      const sVal = $(opt).attr('value');
+      const sName = cleanDuplicateTitle($(opt).text());
+      if (sVal && sName && !sName.includes('-- Bölüm Seçiniz --')) {
+        let shortDeptName = sName;
+        if (sName.includes(' - ')) {
+          shortDeptName = sName.split(' - ').slice(1).join(' - ').trim();
+        }
+        subs.push({ id: sVal, fullName: sName, name: shortDeptName });
+      }
+    });
+
+    const sections: any[] = [];
+    $('.phone-book-container').each((cIdx, cEl) => {
+      const headerText = cleanDuplicateTitle($(cEl).find('.phone-book-header span:not(.phone-book-header-toggle)').text());
+      const contacts: any[] = [];
+      $(cEl).find('.phone-book-row').each((rIdx, rEl) => {
+        const name = cleanDuplicateTitle($(rEl).find('.phone-book-name-inner').text()) || cleanDuplicateTitle($(rEl).find('.phone-book-name').text());
+        if (!name) return;
+
+        const link = $(rEl).find('.phone-book-link-text').attr('href') || '';
+        const unvan = cleanDuplicateTitle($(rEl).find('[data-type=unvan] .phone-book-info-value').text());
+        const gorev = cleanDuplicateTitle($(rEl).find('[data-type=gorev] .phone-book-info-value').text());
+        const telefon = cleanDuplicateTitle($(rEl).find('[data-type=telefon] .phone-book-info-value').text()) || '0 (348) 814 26 66';
+        const email = cleanDuplicateTitle($(rEl).find('[data-type=email] .phone-book-info-value a').text()) || cleanDuplicateTitle($(rEl).find('[data-type=email] .phone-book-info-value').text());
+        const dahili = cleanDuplicateTitle($(rEl).find('[data-type=dahili] .phone-book-info-value').text());
+
+        contacts.push({
+          id: `${unitId}-${cIdx}-${rIdx}`,
+          name,
+          title: unvan,
+          role: gorev,
+          phone: telefon,
+          extension: dahili,
+          email,
+          profileUrl: link || undefined
+        });
+      });
+
+      if (contacts.length > 0) {
+        let sectionTitle = headerText;
+        if (headerText.includes(' - ')) {
+          sectionTitle = headerText.split(' - ').slice(1).join(' - ').trim();
+        }
+        sections.push({
+          id: `sec-${unitId}-${cIdx}`,
+          fullHeader: headerText,
+          title: sectionTitle,
+          contacts
+        });
+      }
+    });
+
+    // Update in memory directory
+    const existingIdx = memoryPhoneDirectory.findIndex(u => u.id === unitId);
+    if (existingIdx >= 0 && sections.length > 0) {
+      memoryPhoneDirectory[existingIdx].subDepartments = subs.length > 0 ? subs : memoryPhoneDirectory[existingIdx].subDepartments;
+      memoryPhoneDirectory[existingIdx].sections = sections;
+      return res.json({ success: true, count: sections.reduce((acc, s) => acc + s.contacts.length, 0), unit: memoryPhoneDirectory[existingIdx] });
+    }
+
+    res.json({ success: true, message: 'Birim kadrosu senkronize edildi.' });
+  } catch (err: any) {
+    console.warn('Phone directory sync error:', err.message);
+    res.json({ success: false, error: err.message });
   }
 });
 
@@ -1896,6 +2050,17 @@ app.get('/api/events', async (req, res) => {
         const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
         let cleanDate = dateMatch ? dateMatch[1] : '';
 
+        // Extract summary / content text from event card
+        let summaryEl = $(el).find('.summary, .desc, .description, .content, .sub-title, p, .text-wrapper').not('.title-wrapper').first();
+        let content = summaryEl.text().replace(/\s+/g, ' ').trim();
+        if (!content || content === title) {
+          content = $(el).find('p').first().text().replace(/\s+/g, ' ').trim();
+        }
+
+        // Extract location if present
+        let locationEl = $(el).find('.location, .place, .location-text, .konum, .venue').first();
+        let location = locationEl.text().replace(/\s+/g, ' ').trim();
+
         if (!title || title.length < 5 || title.toLowerCase().includes('tüm etkinlikler')) return;
 
         const hrefKey = href.toLowerCase();
@@ -1906,6 +2071,13 @@ app.get('/api/events', async (req, res) => {
           }
           if (!existing.img && img) existing.img = img;
           if (!existing.date && cleanDate) existing.date = cleanDate;
+          if (!existing.content && content) {
+            existing.content = content;
+            existing.description = content;
+          }
+          if ((!existing.location || existing.location.includes('referans')) && location) {
+            existing.location = location;
+          }
         } else {
           const imgKey = img ? img.toLowerCase() : '';
           if (imgKey && seenImages.has(imgKey)) return;
@@ -1915,7 +2087,9 @@ app.get('/api/events', async (req, res) => {
             id: `event-${eventsMap.size + 1}`,
             title,
             date: cleanDate || '02 Ekim 2026',
-            location: 'Konum için bilgi afişini referans alın.',
+            location: location || 'Konum için bilgi afişini referans alın.',
+            content: content || title,
+            description: content || title,
             url: href,
             img,
             category: 'Etkinlik'
@@ -1932,18 +2106,74 @@ app.get('/api/events', async (req, res) => {
       return res.json(events);
     }
 
-    // Fallback events
-    res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi' },
-      { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sempozyum' },
-      { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Konferans' }
-    ]);
+    // Fallback events with detailed descriptions
+    const fallbackEvents = [
+      {
+        id: 'ev-1',
+        title: "Gazze'de Öğrenci Olmak: Resim Sergisi",
+        date: '02 Ekim 2026',
+        location: 'Muallim Rıfat Eğitim Fakültesi Fuaye Alanı',
+        category: 'Sergi',
+        content: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin zorlu eğitim mücadelesini konu alan resim ve fotoğraf sergisi, Üniversitemiz Muallim Rıfat Eğitim Fakültesi Fuaye Alanında tüm akademisyen, öğrenci ve Kilis halkının ziyaretine açılmıştır.",
+        description: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin eğitim mücadelesini konu alan sergi.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      },
+      {
+        id: 'ev-2',
+        title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri',
+        date: '29 Eylül 2026',
+        location: '15 Temmuz Kongre ve Kültür Merkezi',
+        category: 'Fuar & Söyleşi',
+        content: "Kilis 7 Aralık Üniversitesi ve Kilis Belediyesi iş birliğiyle düzenlenen 1. Kilis Kitap Fuarı kapsamında seçkin yayınevleri, Türkiye'nin önde gelen yazarları, şairleri ve akademisyenleri imza günleri ve söyleşilerle okurlarla buluşuyor.",
+        description: "Yüzlerce yayınevi, akademisyen yazarların katılımıyla düzenlenen imza günleri ve panel söyleşileri.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      },
+      {
+        id: 'ev-3',
+        title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda',
+        date: '25 Eylül 2026',
+        location: 'Rektörlük Konferans Salonu',
+        category: 'Sempozyum',
+        content: "TÜBİTAK destekli Bilim İletişimi Buluşmaları serisinin ikincisi olan 'Kitap Kahramanları Aramızda' etkinliğinde edebiyat ve bilim dünyasından öne çıkan eserler, disiplinlerarası sunumlar ve atölye çalışmaları ile ele alınacaktır.",
+        description: "TÜBİTAK destekli bilim iletişimi etkinlikleri, disiplinlerarası sunumlar ve interaktif öğrenci atölyeleri.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      },
+      {
+        id: 'ev-4',
+        title: 'Modernleşmenin Kavşağında Türkiye Konferansı',
+        date: '20 Eylül 2026',
+        location: 'İnsan ve Toplum Bilimleri Fakültesi Amfi 1',
+        category: 'Konferans',
+        content: "İnsan ve Toplum Bilimleri Fakültesi Tarih Bölümü tarafından organize edilen konferansta, Türkiye'nin modernleşme süreci, sosyo-kültürel değişimler ve iktisadi dönüşümler uzman akademisyenlerin bildirileriyle değerlendirilecektir.",
+        description: "Tarih ve sosyoloji perspektifinden Türkiye'nin modernleşme süreci ve toplumsal dönüşümü.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      }
+    ];
+
+    res.json(fallbackEvents);
   } catch (error) {
     console.error('Events fetch error:', error);
     res.json([
-      { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi' },
-      { id: 'ev-2', title: '1. Kilis Kitap Fuarı: Program Akışı', date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi' }
+      {
+        id: 'ev-1',
+        title: "Gazze'de Öğrenci Olmak: Resim Sergisi",
+        date: '02 Ekim 2026',
+        location: 'Muallim Rıfat Eğitim Fakültesi Fuaye Alanı',
+        category: 'Sergi',
+        content: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin eğitim mücadelesini konu alan sergi.",
+        description: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin eğitim mücadelesini konu alan sergi.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      },
+      {
+        id: 'ev-2',
+        title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri',
+        date: '29 Eylül 2026',
+        location: '15 Temmuz Kongre ve Kültür Merkezi',
+        category: 'Fuar & Söyleşi',
+        content: "Yüzlerce yayınevi ve akademisyen yazarların katılımıyla düzenlenen imza günleri ve panel söyleşileri.",
+        description: "Yüzlerce yayınevi ve akademisyen yazarların katılımıyla düzenlenen imza günleri ve panel söyleşileri.",
+        url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+      }
     ]);
   }
 });
@@ -2292,7 +2522,10 @@ app.get('/api/campus-map', (req, res) => {
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

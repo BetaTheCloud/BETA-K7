@@ -17,8 +17,10 @@ import {
   Grid3X3,
   BookOpen,
   Filter,
+  AlertTriangle
 } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
+import { getOverlappingCourses } from '../../lib/scheduleStorage';
 
 interface WeeklyTimetableProps {
   courses: CourseItem[];
@@ -97,17 +99,17 @@ export default function WeeklyTimetable({
   }, [filteredCourses]);
 
   return (
-    <div className="space-y-4">
-      {/* Grade Selector & Filter Controls Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 shadow-sm">
-        {/* Sınıf Seçici: 1. Sınıf, 2. Sınıf, 3. Sınıf, 4. Sınıf, Tümü */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+    <div className="space-y-5">
+      {/* Grade Selector & Filter Controls Bar (Option 2: Birleştirilmiş Filtre Çubuğu) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200/80 dark:border-white/10 shadow-xs">
+        {/* Sınıf Seçici: Segmented Control */}
+        <div className="flex items-center p-1 rounded-xl bg-stone-100 dark:bg-white/5 overflow-x-auto scrollbar-none">
           <button
             onClick={() => onGradeChange(0)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               selectedGrade === 0
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5'
+                ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-xs font-bold'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Tüm Sınıflar
@@ -116,10 +118,10 @@ export default function WeeklyTimetable({
             <button
               key={g}
               onClick={() => onGradeChange(g)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedGrade === g
-                  ? 'bg-amber-600 text-white shadow-sm font-semibold'
-                  : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-white/5'
+                  ? 'bg-amber-600 text-white shadow-xs font-bold'
+                  : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
               }`}
             >
               {g}. Sınıf
@@ -128,26 +130,26 @@ export default function WeeklyTimetable({
         </div>
 
         {/* View mode & Only enrolled toggle */}
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
           <button
             onClick={() => onToggleOnlyEnrolled(!onlyEnrolled)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
               onlyEnrolled
-                ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
-                : 'bg-stone-50 dark:bg-white/5 border-stone-200 dark:border-white/10 text-stone-600 dark:text-stone-300'
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold'
+                : 'bg-stone-50 dark:bg-white/5 border-stone-200/80 dark:border-white/10 text-stone-600 dark:text-stone-300 hover:border-stone-300'
             }`}
           >
             <Star className={`w-3.5 h-3.5 ${onlyEnrolled ? 'fill-amber-500 text-amber-500' : ''}`} />
-            Sadece Seçtiklerim
+            <span>Sadece Seçtiklerim</span>
           </button>
 
-          <div className="flex p-0.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10">
+          <div className="flex p-0.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200/80 dark:border-white/10">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg text-xs transition-colors ${
+              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-2xs font-bold'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-white'
               }`}
               title="Haftalık Tablo"
             >
@@ -155,10 +157,10 @@ export default function WeeklyTimetable({
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg text-xs transition-colors ${
+              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-white dark:bg-white/10 text-stone-900 dark:text-white shadow-sm'
-                  : 'text-stone-500 hover:text-stone-800'
+                  ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-2xs font-bold'
+                  : 'text-stone-500 hover:text-stone-800 dark:hover:text-white'
               }`}
               title="Günlük Liste"
             >
@@ -175,7 +177,7 @@ export default function WeeklyTimetable({
             Bu sınıf için henüz ders bulunmuyor
           </p>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-            Yukarıdaki "Belge Yükle" butonunu kullanarak fakültenizin Word, Excel veya PDF ders programını aktarabilir veya el ile ders ekleyebilirsiniz.
+            Yukarıdaki "+ Ders Ekle" veya "Metinden İçe Aktar" butonunu kullanarak derslerinizi ekleyebilirsiniz.
           </p>
         </div>
       ) : viewMode === 'grid' ? (
@@ -218,82 +220,95 @@ export default function WeeklyTimetable({
                       Ders yok
                     </div>
                   ) : (
-                    dayCourses.map((course) => (
-                      <motion.div
-                        key={course.id}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="group relative p-2.5 rounded-xl border border-stone-200/80 dark:border-white/10 hover:border-amber-500/40 bg-stone-50/70 dark:bg-white/[0.03] transition-all hover:shadow-sm"
-                        style={{ borderLeftWidth: '3.5px', borderLeftColor: course.color || '#0284c7' }}
-                      >
-                        {/* Course header */}
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <div className="min-w-0 flex-1">
-                            {course.courseCode && (
-                              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 block truncate">
-                                {course.courseCode}
+                    dayCourses.map((course) => {
+                      const overlapping = getOverlappingCourses(course, dayCourses);
+                      return (
+                        <motion.div
+                          key={course.id}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="group relative p-2.5 rounded-xl border border-stone-200/80 dark:border-white/10 hover:border-amber-500/40 bg-stone-50/70 dark:bg-white/[0.03] transition-all hover:shadow-sm"
+                          style={{ borderLeftWidth: '3.5px', borderLeftColor: course.color || '#0284c7' }}
+                        >
+                          {/* Course header */}
+                          <div className="flex items-start justify-between gap-1 mb-1">
+                            <div className="min-w-0 flex-1">
+                              {course.courseCode && (
+                                <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 block truncate">
+                                  {course.courseCode}
+                                </span>
+                              )}
+                              <h4 className="text-xs font-semibold text-stone-900 dark:text-white leading-tight">
+                                {course.courseName}
+                              </h4>
+                            </div>
+
+                            {/* Quick Star */}
+                            <button
+                              onClick={() => onToggleEnroll(course.id)}
+                              className="p-1 text-stone-300 hover:text-amber-500 transition-colors"
+                              title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 ${
+                                  course.isEnrolled ? 'fill-amber-500 text-amber-500' : ''
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          {/* Time & Classroom */}
+                          <div className="space-y-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+                            <div className="flex items-center gap-1 font-medium text-stone-700 dark:text-stone-300">
+                              <Clock className="w-3 h-3 text-stone-400" />
+                              <span>{course.startTime} - {course.endTime}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-stone-400" />
+                              <span className="truncate">{course.classroom}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-stone-400" />
+                              <span className="truncate">{course.instructor}</span>
+                            </div>
+                          </div>
+
+                          {/* Overlap Badge */}
+                          {overlapping.length > 0 && (
+                            <div className="mt-1 flex items-center gap-1 text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/25">
+                              <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span className="truncate">
+                                Çakışma: {overlapping.map((o) => o.courseCode || o.courseName).join(', ')}
                               </span>
-                            )}
-                            <h4 className="text-xs font-semibold text-stone-900 dark:text-white leading-tight">
-                              {course.courseName}
-                            </h4>
-                          </div>
+                            </div>
+                          )}
 
-                          {/* Quick Star */}
-                          <button
-                            onClick={() => onToggleEnroll(course.id)}
-                            className="p-1 text-stone-300 hover:text-amber-500 transition-colors"
-                            title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
-                          >
-                            <Star
-                              className={`w-3.5 h-3.5 ${
-                                course.isEnrolled ? 'fill-amber-500 text-amber-500' : ''
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        {/* Time & Classroom */}
-                        <div className="space-y-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-                          <div className="flex items-center gap-1 font-medium text-stone-700 dark:text-stone-300">
-                            <Clock className="w-3 h-3 text-stone-400" />
-                            <span>{course.startTime} - {course.endTime}</span>
+                          {/* Grade badge */}
+                          <div className="mt-1.5 flex items-center justify-between pt-1 border-t border-stone-200/50 dark:border-white/5">
+                            <span className="text-[9px] font-medium text-stone-400">
+                              {course.gradeLabel}
+                            </span>
+                            
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => onEditCourse(course)}
+                                className="p-0.5 text-stone-400 hover:text-stone-700 dark:hover:text-white"
+                                title="Düzenle"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteCourse(course.id)}
+                                className="p-0.5 text-stone-400 hover:text-rose-600"
+                                title="Sil"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-stone-400" />
-                            <span className="truncate">{course.classroom}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3 text-stone-400" />
-                            <span className="truncate">{course.instructor}</span>
-                          </div>
-                        </div>
-
-                        {/* Grade badge */}
-                        <div className="mt-1.5 flex items-center justify-between pt-1 border-t border-stone-200/50 dark:border-white/5">
-                          <span className="text-[9px] font-medium text-stone-400">
-                            {course.gradeLabel}
-                          </span>
-                          
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => onEditCourse(course)}
-                              className="p-0.5 text-stone-400 hover:text-stone-700 dark:hover:text-white"
-                              title="Düzenle"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => onDeleteCourse(course.id)}
-                              className="p-0.5 text-stone-400 hover:text-rose-600"
-                              title="Sil"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
+                        </motion.div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -334,41 +349,54 @@ export default function WeeklyTimetable({
                 {activeDayTab} günü için ders bulunmuyor.
               </div>
             ) : (
-              (coursesByDay[activeDayTab] || []).map((course) => (
-                <div
-                  key={course.id}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 shadow-sm flex items-center justify-between gap-3"
-                  style={{ borderLeftWidth: '4px', borderLeftColor: course.color || '#0284c7' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-stone-300">
-                        {course.gradeLabel}
-                      </span>
-                      {course.courseCode && (
-                        <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
-                          {course.courseCode}
+              (coursesByDay[activeDayTab] || []).map((course) => {
+                const dayList = coursesByDay[activeDayTab] || [];
+                const overlapping = getOverlappingCourses(course, dayList);
+                return (
+                  <div
+                    key={course.id}
+                    className="p-3.5 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 shadow-sm flex items-center justify-between gap-3"
+                    style={{ borderLeftWidth: '4px', borderLeftColor: course.color || '#0284c7' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-stone-300">
+                          {course.gradeLabel}
                         </span>
+                        {course.courseCode && (
+                          <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
+                            {course.courseCode}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-semibold text-stone-900 dark:text-white truncate">
+                        {course.courseName}
+                      </h3>
+
+                      {overlapping.length > 0 && (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span className="truncate">
+                            Aynı saatte çakışan ders: {overlapping.map((o) => o.courseCode || o.courseName).join(', ')}
+                          </span>
+                        </div>
                       )}
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 dark:text-stone-400 mt-1">
+                        <span className="flex items-center gap-1 font-medium text-stone-700 dark:text-stone-300">
+                          <Clock className="w-3.5 h-3.5" />
+                          {course.startTime} - {course.endTime}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {course.classroom}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <User className="w-3.5 h-3.5" />
+                          {course.instructor}
+                        </span>
+                      </div>
                     </div>
-                    <h3 className="text-sm font-semibold text-stone-900 dark:text-white truncate">
-                      {course.courseName}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 dark:text-stone-400 mt-1">
-                      <span className="flex items-center gap-1 font-medium text-stone-700 dark:text-stone-300">
-                        <Clock className="w-3.5 h-3.5" />
-                        {course.startTime} - {course.endTime}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {course.classroom}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <User className="w-3.5 h-3.5" />
-                        {course.instructor}
-                      </span>
-                    </div>
-                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -396,8 +424,9 @@ export default function WeeklyTimetable({
                     </button>
                   </div>
                 </div>
-              ))
-            )}
+              );
+            })
+          )}
           </div>
         </div>
       )}

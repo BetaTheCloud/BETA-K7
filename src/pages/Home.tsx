@@ -42,7 +42,11 @@ import {
   RotateCcw,
   CheckCircle2,
   ShieldCheck,
-  HeartHandshake
+  HeartHandshake,
+  Bus,
+  Hotel,
+  Landmark,
+  CalendarClock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
@@ -56,12 +60,18 @@ import {
   getHomeWidgetConfigs,
   saveHomeWidgetConfigs,
   moveWidget,
+  moveVisibleWidget,
   toggleWidgetVisibility,
   resetHomeWidgetConfigs,
   WidgetConfig,
   WidgetId,
   WIDGETS_CHANGED_EVENT
 } from '../lib/widgetStorage';
+import {
+  QuickServiceConfig,
+  getQuickServicesConfigs,
+  QUICK_SERVICES_CHANGED_EVENT
+} from '../lib/quickServicesStorage';
 import { parseDateToTimestamp, getTodayMenuInfo, TodayMenuInfo, cleanDuplicateTitle } from '../lib/utils';
 import { getPinnedUnit } from '../lib/pinnedStorage';
 import toast from 'react-hot-toast';
@@ -93,6 +103,7 @@ export default function Home() {
 
   // Widget Customization State
   const [widgetConfigs, setWidgetConfigs] = useState<WidgetConfig[]>(() => getHomeWidgetConfigs());
+  const [quickServices, setQuickServices] = useState<QuickServiceConfig[]>(() => getQuickServicesConfigs());
   const [inlineEditMode, setInlineEditMode] = useState(false);
 
   const handleWeatherChange = useCallback((code: number, isDay: number) => {
@@ -185,6 +196,21 @@ export default function Home() {
     };
   }, []);
 
+  // Sync quick services configuration events
+  useEffect(() => {
+    const handleQuickServicesChange = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setQuickServices(e.detail);
+      } else {
+        setQuickServices(getQuickServicesConfigs());
+      }
+    };
+    window.addEventListener(QUICK_SERVICES_CHANGED_EVENT, handleQuickServicesChange);
+    return () => {
+      window.removeEventListener(QUICK_SERVICES_CHANGED_EVENT, handleQuickServicesChange);
+    };
+  }, []);
+
   useEffect(() => {
     const handleOpenSchedule = () => setIsScheduleManagerOpen(true);
     window.addEventListener('k7_open_schedule', handleOpenSchedule);
@@ -194,21 +220,25 @@ export default function Home() {
   }, []);
 
   const handleInlineMove = (id: WidgetId, direction: 'up' | 'down') => {
-    const updated = moveWidget(widgetConfigs, id, direction);
-    setWidgetConfigs(updated);
-    saveHomeWidgetConfigs(updated);
+    setWidgetConfigs((prev) => {
+      const updated = moveVisibleWidget(prev, id, direction);
+      saveHomeWidgetConfigs(updated);
+      return updated;
+    });
   };
 
   const handleInlineHide = (id: WidgetId, title: string) => {
-    const visibleCount = widgetConfigs.filter((c) => c.visible).length;
-    if (visibleCount <= 1) {
-      toast.error('En az bir widget görünür kalmalıdır!');
-      return;
-    }
-    const updated = toggleWidgetVisibility(widgetConfigs, id);
-    setWidgetConfigs(updated);
-    saveHomeWidgetConfigs(updated);
-    toast.success(`"${title}" widget'ı gizlendi`);
+    setWidgetConfigs((prev) => {
+      const visibleCount = prev.filter((c) => c.visible).length;
+      if (visibleCount <= 1) {
+        toast.error('En az bir widget görünür kalmalıdır!');
+        return prev;
+      }
+      const updated = toggleWidgetVisibility(prev, id);
+      saveHomeWidgetConfigs(updated);
+      toast.success(`"${title}" widget'ı gizlendi`);
+      return updated;
+    });
   };
 
   const handleResetWidgets = () => {
@@ -392,7 +422,89 @@ export default function Home() {
           </div>
         );
 
-      case 'quick_services':
+      case 'quick_services': {
+        const visibleServices = quickServices.filter((s) => s.visible);
+
+        const getQuickIcon = (iconName: string) => {
+          const props = { className: 'w-5 h-5' };
+          switch (iconName) {
+            case 'GraduationCap': return <GraduationCap {...props} />;
+            case 'Users': return <Users {...props} />;
+            case 'Calendar': return <Calendar {...props} />;
+            case 'MapPin': return <MapPin {...props} />;
+            case 'Trophy': return <Trophy {...props} />;
+            case 'ChefHat': return <ChefHat {...props} />;
+            case 'FileText': return <FileText {...props} />;
+            case 'BookOpen': return <BookOpen {...props} />;
+            case 'Bus': return <Bus {...props} />;
+            case 'Hotel': return <Hotel {...props} />;
+            case 'Landmark': return <Landmark {...props} />;
+            case 'CalendarClock': return <CalendarClock {...props} />;
+            case 'PhoneCall': return <PhoneCall {...props} />;
+            default: return <LayoutGrid {...props} />;
+          }
+        };
+
+        const getColorClasses = (colorName: string) => {
+          switch (colorName) {
+            case 'emerald':
+              return {
+                bg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                border: 'hover:border-emerald-500/50'
+              };
+            case 'rose':
+              return {
+                bg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                border: 'hover:border-rose-500/50'
+              };
+            case 'red':
+              return {
+                bg: 'bg-red-500/10 text-red-600 dark:text-red-400',
+                border: 'hover:border-red-500/50'
+              };
+            case 'green':
+              return {
+                bg: 'bg-green-500/10 text-green-600 dark:text-green-400',
+                border: 'hover:border-green-500/50'
+              };
+            case 'orange':
+              return {
+                bg: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+                border: 'hover:border-orange-500/50'
+              };
+            case 'indigo':
+              return {
+                bg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+                border: 'hover:border-indigo-500/50'
+              };
+            case 'blue':
+              return {
+                bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                border: 'hover:border-blue-500/50'
+              };
+            case 'cyan':
+              return {
+                bg: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+                border: 'hover:border-cyan-500/50'
+              };
+            case 'purple':
+              return {
+                bg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+                border: 'hover:border-purple-500/50'
+              };
+            case 'teal':
+              return {
+                bg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+                border: 'hover:border-teal-500/50'
+              };
+            default:
+              return {
+                bg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                border: 'hover:border-amber-500/50'
+              };
+          }
+        };
+
         return (
           <div key={widget.id} className="relative">
             {inlineHeader}
@@ -401,7 +513,13 @@ export default function Home() {
                 icon={LayoutGrid}
                 theme="amber"
                 title="Hızlı Kampüs Servisleri"
-                subtitle="En Çok Kullanılan 8 Kısayol"
+                subtitle={`En Çok Kullanılan ${visibleServices.length} Kısayol`}
+                secondaryAction={{
+                  label: 'Kısayolları Düzenle',
+                  onClick: () => {
+                    window.dispatchEvent(new CustomEvent('k7_open_settings', { detail: { tab: 'quick_services' } }));
+                  }
+                }}
                 action={{
                   label: 'Tüm Servisler',
                   href: '/campus',
@@ -410,98 +528,53 @@ export default function Home() {
               />
 
               <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsScheduleManagerOpen(true)}
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/50 hover:shadow-md transition-all active:scale-95 cursor-pointer"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <GraduationCap className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Derslerim</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Ajandam</span>
-                </button>
+                {visibleServices.map((service) => {
+                  const colors = getColorClasses(service.colorName);
 
-                <Link
-                  to="/campus?tab=directory"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-emerald-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Personel</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Akademi&İdari</span>
-                </Link>
+                  if (service.isModal) {
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => setIsScheduleManagerOpen(true)}
+                        className={`group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 ${colors.border} hover:shadow-md transition-all active:scale-95 cursor-pointer`}
+                      >
+                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2`}>
+                          {getQuickIcon(service.iconName)}
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight truncate max-w-full">
+                          {service.title}
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40 truncate max-w-full">
+                          {service.subtitle}
+                        </span>
+                      </button>
+                    );
+                  }
 
-                <Link
-                  to="/campus?tab=events"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-rose-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Etkinlikler</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Kültür & Sanat</span>
-                </Link>
-
-                <Link
-                  to="/campus?tab=map"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-red-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <MapPin className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Harita</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Yerleşkeler</span>
-                </Link>
-
-                <Link
-                  to="/campus?tab=sports"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-green-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <Trophy className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Spor</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Tesisler</span>
-                </Link>
-
-                <Link
-                  to="/menu"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-amber-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <ChefHat className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Yemekhane</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Günün Menüsü</span>
-                </Link>
-
-                <Link
-                  to="/campus?tab=forms"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-orange-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Dilekçeler</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Matbu Form</span>
-                </Link>
-
-                <Link
-                  to="/campus?tab=library"
-                  className="group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-indigo-500/50 hover:shadow-md transition-all active:scale-95"
-                >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight">Kütüphane</span>
-                  <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40">Kitap & Saatler</span>
-                </Link>
+                  return (
+                    <Link
+                      key={service.id}
+                      to={service.to}
+                      className={`group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 ${colors.border} hover:shadow-md transition-all active:scale-95`}
+                    >
+                      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2`}>
+                        {getQuickIcon(service.iconName)}
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight truncate max-w-full">
+                        {service.title}
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40 truncate max-w-full">
+                        {service.subtitle}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           </div>
         );
+      }
 
       case 'menu':
         return (
@@ -831,14 +904,30 @@ export default function Home() {
                       className="p-4 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-purple-500/50 hover:shadow-md transition-all block group h-full"
                     >
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/20">
                           {item.term || 'Akademik Takvim'}
                         </span>
-                        <span className="text-[11px] font-semibold text-stone-500 dark:text-white/60 tabular-nums">
-                          {item.date}
+                        <span className="text-[11px] font-bold text-stone-600 dark:text-white/80 tabular-nums">
+                          {(() => {
+                            if (!item.date) return '';
+                            const d1 = new Date(item.date);
+                            if (isNaN(d1.getTime())) return item.date;
+                            if (item.endDate && item.endDate !== item.date) {
+                              const d2 = new Date(item.endDate);
+                              if (!isNaN(d2.getTime())) {
+                                const m1 = d1.toLocaleDateString('tr-TR', { month: 'short' });
+                                const m2 = d2.toLocaleDateString('tr-TR', { month: 'short' });
+                                if (m1 === m2) {
+                                  return `${d1.getDate()}-${d2.getDate()} ${m1}`;
+                                }
+                                return `${d1.getDate()} ${m1} - ${d2.getDate()} ${m2}`;
+                              }
+                            }
+                            return d1.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+                          })()}
                         </span>
                       </div>
-                      <h4 className="font-semibold text-xs sm:text-sm text-stone-900 dark:text-white line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                      <h4 className="font-semibold text-xs sm:text-sm text-stone-900 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                         {item.title}
                       </h4>
                     </Link>

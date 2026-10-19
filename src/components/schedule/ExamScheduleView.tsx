@@ -32,6 +32,7 @@ interface ExamScheduleViewProps {
   onDeleteExam: (id: string) => void;
   onlyEnrolled: boolean;
   onToggleOnlyEnrolled: (val: boolean) => void;
+  onOpenImport?: () => void;
 }
 
 export default function ExamScheduleView({
@@ -43,6 +44,7 @@ export default function ExamScheduleView({
   onDeleteExam,
   onlyEnrolled,
   onToggleOnlyEnrolled,
+  onOpenImport,
 }: ExamScheduleViewProps) {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,6 +170,7 @@ export default function ExamScheduleView({
 
         {/* Actions & Filters */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
+
           <button
             onClick={() => onToggleOnlyEnrolled(!onlyEnrolled)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -222,7 +225,7 @@ export default function ExamScheduleView({
             Sınav kaydı bulunamadı
           </p>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-            Fakültenizin sınav takvim dosyasını yükleyerek veya manuel sınav ekleyerek listeyi doldurabilirsiniz.
+            Manuel sınav ekleyerek veya metinden içe aktararak sınav takviminizi doldurabilirsiniz.
           </p>
         </div>
       ) : (

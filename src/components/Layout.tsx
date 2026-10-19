@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useLocation, Link } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
-import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid, Users, HelpCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
@@ -9,6 +9,7 @@ import { OfflineIndicator } from './OfflineIndicator';
 import { ServerColdStartAlert } from './ServerColdStartAlert';
 import K7Logo from './K7Logo';
 import { openExternalUrl } from '../lib/openExternal';
+import WelcomeGuideModal from './WelcomeGuideModal';
 
 export default function Layout() {
   const { pathname, search } = useLocation();
@@ -58,6 +59,7 @@ export default function Layout() {
 
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
+    { to: '/directory', label: 'Personel', icon: Users },
     { to: '/news', label: 'Haberler', icon: Newspaper },
     { to: '/campus', label: 'Kampüs Hizmetleri', icon: LayoutGrid },
     { to: '/announcements', label: 'Duyurular', icon: Megaphone },
@@ -76,6 +78,7 @@ export default function Layout() {
       />
       <OfflineIndicator />
       <ServerColdStartAlert />
+      <WelcomeGuideModal />
       
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 bg-[#fcfbf9] dark:bg-[#264653] border-r border-[#e6e2d6] dark:border-white/10 z-40">
@@ -99,10 +102,10 @@ export default function Layout() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 font-medium tracking-wide text-sm',
+                  'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 font-medium tracking-wide text-sm',
                   isActive
-                    ? 'bg-stone-100 text-stone-900 dark:bg-white/5 dark:text-amber-500'
-                    : 'text-stone-500 hover:bg-[#f4f1ea] hover:text-stone-900 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-stone-200'
+                    ? 'bg-[#8a2a43]/10 text-[#8a2a43] dark:bg-[#8a2a43]/25 dark:text-white font-bold'
+                    : 'text-stone-500 hover:bg-stone-100 dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-stone-200'
                 )
               }
             >
@@ -111,6 +114,21 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <div className="p-4 border-t border-[#e6e2d6] dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'))}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/5 dark:hover:bg-white/10 text-stone-700 dark:text-white/80 text-xs font-semibold transition-all cursor-pointer border border-stone-200/60 dark:border-white/10"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-amber-500" />
+              <span>Karşılama & Rehber</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold">
+              Tur
+            </span>
+          </button>
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col md:ml-64 relative min-h-screen">

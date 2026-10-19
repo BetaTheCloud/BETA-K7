@@ -51,61 +51,146 @@ export function extractGradeFromCourseCode(code: string): number {
 }
 
 /**
- * Advanced Grade detection from text snippets, table cells, or headings
- * Recognizes: 1. Sınıf, 1.SINIF, I. Sınıf, 1. Yarıyıl, 3. Yarıyıl, Birinci Sınıf, Sınıf: 2, etc.
+ * Advanced Grade detection from text snippets, table cells, sheet names, or headings.
+ * Handles:
+ * - Unicode Roman numerals: Ⅰ, Ⅱ, Ⅲ, Ⅳ (U+2160 - U+2163) and ⅰ, ⅱ, ⅲ, ⅳ (U+2170 - U+2173)
+ * - ASCII Roman numerals: I, II, III, IV (case-insensitive)
+ * - Standalone numbers: "1", "2", "3", "4", "1.", "2.", "3.", "4."
+ * - Formats: "1. Sınıf", "1.SINIF", "I. Sınıf", "Ⅰ. Sınıf", "1. Yarıyıl", "3. Yarıyıl", "Sınıf: 2", "Snf: I", "Bölüm Ⅲ"
+ * - Words: "Birinci Sınıf", "İkinci Sınıf", "Üçüncü Sınıf", "Dördüncü Sınıf"
+ */
+let idCounter = 0;
+export function generateUniqueId(prefix: string = 'item'): string {
+  idCounter++;
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${idCounter}-${Math.random().toString(36).substring(2, 8)}`;
+}
+
+/**
+ * Detect Grade from file name (e.g. "1_sinif_program.docx", "Sinif_II.pdf", "Ⅲ.sınıf.xlsx")
+ */
+export function detectGradeFromFileName(fileName: string): number {
+  if (!fileName) return 0;
+  const clean = fileName.replace(/\.[a-zA-Z0-9]+$/, '').replace(/[_-]/g, ' ');
+  return detectGradeFromText(clean);
+}
+
+/**
+ * Advanced Grade detection from text snippets, table cells, sheet names, or headings.
+ * Handles:
+ * - Unicode Roman numerals: Ⅰ, Ⅱ, Ⅲ, Ⅳ (U+2160 - U+2163) and ⅰ, ⅱ, ⅲ, ⅳ (U+2170 - U+2173)
+ * - ASCII Roman numerals: I, II, III, IV (case-insensitive)
+ * - Standalone numbers: "1", "2", "3", "4", "1.", "2.", "3.", "4."
+ * - Isolated numerals: "sadece Ⅰ", "sadece Ⅱ", "sadece Ⅲ", "sadece Ⅳ"
+ * - Formats: "1. Sınıf", "1.SINIF", "1. Sınıflar", "I. Sınıf", "Ⅰ. Sınıf", "1. Yarıyıl", "Sınıf: 2", "Snf: I", "Bölüm Ⅲ"
+ * - Words: "Birinci Sınıf", "İkinci Sınıf", "Üçüncü Sınıf", "Dördüncü Sınıf"
  */
 export function detectGradeFromText(text: string): number {
   if (!text) return 0;
   const raw = text.trim();
-  const normalized = raw
-    .toLowerCase()
-    .replace(/İ/g, 'i')
-    .replace(/I/g, 'ı')
+  if (!raw) return 0;
+
+  // 1. Direct match for standalone single digit or Roman numeral in cell/header
+  // Unicode Roman numerals (e.g. Ⅰ, Ⅱ, Ⅲ, Ⅳ)
+  if (/^[Ⅰⅰ]\.?$/.test(raw)) return 1;
+  if (/^[Ⅱⅱ]\.?$/.test(raw)) return 2;
+  if (/^[Ⅲⅲ]\.?$/.test(raw)) return 3;
+  if (/^[Ⅳⅳ]\.?$/.test(raw)) return 4;
+
+  // Exact single digit in a grade cell ("1", "2", "3", "4", "1.", "2.", etc.)
+  if (/^[1-4]\.?$/.test(raw)) return parseInt(raw, 10);
+
+  // Standalone ASCII Roman numerals: "I", "II", "III", "IV", "I.", "II.", "III.", "IV."
+  if (/^(?:I|i)\.?$/.test(raw)) return 1;
+  if (/^(?:II|ii)\.?$/.test(raw)) return 2;
+  if (/^(?:III|iii)\.?$/.test(raw)) return 3;
+  if (/^(?:IV|iv)\.?$/.test(raw)) return 4;
+
+  // Standalone or bounded Unicode Roman numeral anywhere: e.g. "sadece Ⅰ", "Grup Ⅱ", "Dersler (Ⅲ)"
+  const unicodeBounded = raw.match(/(?:^|\b|\s|[(\[\-–—])([ⅠⅡⅢⅣⅰⅱⅲⅳ])\.?(?:$|\b|\s|[)\]\-–.:])/);
+  if (unicodeBounded) {
+    const ch = unicodeBounded[1];
+    if (ch === 'Ⅰ' || ch === 'ⅰ') return 1;
+    if (ch === 'Ⅱ' || ch === 'ⅱ') return 2;
+    if (ch === 'Ⅲ' || ch === 'ⅲ') return 3;
+    if (ch === 'Ⅳ' || ch === 'ⅳ') return 4;
+  }
+
+  // Parenthesized: "(1)", "(2)", "(3)", "(4)", "(I)", "(II)", "(III)", "(IV)", "(Ⅰ)", "(Ⅱ)", "(Ⅲ)", "(Ⅳ)"
+  const parenMatch = raw.match(/^\s*\(\s*([1-4]|IV|III|II|I|iv|iii|ii|i|[ⅠⅡⅢⅣⅰⅱⅲⅳ])\s*\.?\s*\)\s*$/i);
+  if (parenMatch) {
+    const p = parenMatch[1];
+    if (p === '4' || /^iv$/i.test(p) || p === 'Ⅳ' || p === 'ⅳ') return 4;
+    if (p === '3' || /^iii$/i.test(p) || p === 'Ⅲ' || p === 'ⅲ') return 3;
+    if (p === '2' || /^ii$/i.test(p) || p === 'Ⅱ' || p === 'ⅱ') return 2;
+    if (p === '1' || /^i$/i.test(p) || p === 'Ⅰ' || p === 'ⅰ') return 1;
+  }
+
+  // 2. Normalize text: replace Unicode Roman Numerals with their standard numbers first
+  let norm = raw
+    .replace(/[Ⅰⅰ]/g, ' 1 ')
+    .replace(/[Ⅱⅱ]/g, ' 2 ')
+    .replace(/[Ⅲⅲ]/g, ' 3 ')
+    .replace(/[Ⅳⅳ]/g, ' 4 ')
     .replace(/\s+/g, ' ');
 
-  // Exact single digit in a grade cell ("1", "2", "3", "4")
-  if (/^[1-4]$/.test(raw)) {
-    return parseInt(raw, 10);
+  // Standardize Turkish lowercasing for search
+  const lower = norm
+    .toLocaleLowerCase('tr')
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'i')
+    .replace(/ı/g, 'i');
+
+  // Word-based numbers: "birinci sinif", "ikinci sinif", etc.
+  if (/d[öo]rd[üu]nc[üu]\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 4;
+  if (/[üu][çc][üu]nc[üu]\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 3;
+  if (/ikinci\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 2;
+  if (/birinci\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 1;
+
+  // Roman numerals / digits followed by sınıf/snf (supports plural sınıflar): "IV. Sınıf", "III. Sınıflar", "1.Sınıflar"
+  if (/(?:^|\b|\s)(?:iv|4)\s*\.?\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 4;
+  if (/(?:^|\b|\s)(?:iii|3)\s*\.?\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 3;
+  if (/(?:^|\b|\s)(?:ii|2)\s*\.?\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 2;
+  if (/(?:^|\b|\s)(?:i|1)\s*\.?\s*s[ıi]n[ıi]f(?:lar)?/i.test(lower)) return 1;
+
+  // Sınıf label followed by Roman numeral or digit: "Sınıf: IV", "Sınıf: III", "Sınıflar: 2", "Sınıf 1", etc.
+  const sinifPostRoman = lower.match(/s[ıi]n[ıi]f(?:lar)?\s*[:=\-]?\s*(iv|iii|ii|i|[1-4])\b/i);
+  if (sinifPostRoman) {
+    const val = sinifPostRoman[1];
+    if (val === '4' || val === 'iv') return 4;
+    if (val === '3' || val === 'iii') return 3;
+    if (val === '2' || val === 'ii') return 2;
+    if (val === '1' || val === 'i') return 1;
   }
 
-  // Roman Numerals
-  if (/\b(?:iv|4)\s*\.?\s*s[ıi]n[ıi]f\b/i.test(normalized) || /\bd[öo]rd[üu]nc[üu]\s*s[ıi]n[ıi]f\b/i.test(normalized)) {
-    return 4;
-  }
-  if (/\b(?:iii|3)\s*\.?\s*s[ıi]n[ıi]f\b/i.test(normalized) || /\b[üu][çc][üu]nc[üu]\s*s[ıi]n[ıi]f\b/i.test(normalized)) {
-    return 3;
-  }
-  if (/\b(?:ii|2)\s*\.?\s*s[ıi]n[ıi]f\b/i.test(normalized) || /\bikinci\s*s[ıi]n[ıi]f\b/i.test(normalized)) {
-    return 2;
-  }
-  if (/\b(?:i|1)\s*\.?\s*s[ıi]n[ıi]f\b/i.test(normalized) || /\bbirinci\s*s[ıi]n[ıi]f\b/i.test(normalized)) {
-    return 1;
+  // Snf abbreviation: "1.snf", "2.snf", "I.snf", "IV.snf", etc.
+  const snfMatch = lower.match(/(iv|iii|ii|i|[1-4])\s*\.?\s*snf\b/i);
+  if (snfMatch) {
+    const val = snfMatch[1];
+    if (val === '4' || val === 'iv') return 4;
+    if (val === '3' || val === 'iii') return 3;
+    if (val === '2' || val === 'ii') return 2;
+    if (val === '1' || val === 'i') return 1;
   }
 
   // Yarıyıl / Dönem detection (1-2. yarıyıl = 1. sınıf, 3-4 = 2. sınıf, 5-6 = 3. sınıf, 7-8 = 4. sınıf)
-  const semesterMatch = normalized.match(/\b([1-8])\s*\.?\s*(?:yary[ıi]l|yarıyıl|d[öo]nem)\b/i);
+  const semesterMatch = lower.match(/\b([1-8]|viii|vii|vi|v|iv|iii|ii|i)\s*\.?\s*(?:yariyil|yaryil|donem|dönem)\b/i);
   if (semesterMatch) {
-    const sem = parseInt(semesterMatch[1], 10);
-    const g = Math.ceil(sem / 2);
-    if (g >= 1 && g <= 4) return g;
+    const romanMap: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8 };
+    const sStr = semesterMatch[1].toLowerCase();
+    const sem = romanMap[sStr] || parseInt(sStr, 10);
+    if (!isNaN(sem) && sem >= 1 && sem <= 8) {
+      const g = Math.ceil(sem / 2);
+      if (g >= 1 && g <= 4) return g;
+    }
   }
 
-  // Snf abbreviation (e.g. 1.Snf, 2.snf)
-  const snfMatch = normalized.match(/([1-4])\s*\.?\s*snf\b/i);
-  if (snfMatch) {
-    return parseInt(snfMatch[1], 10);
-  }
-
-  // Explicit label like "Sınıf : 2" or "Sınıf:2"
-  const labelMatch = normalized.match(/s[ıi]n[ıi]f\s*[:=\-]?\s*([1-4])/i);
-  if (labelMatch) {
-    return parseInt(labelMatch[1], 10);
-  }
-
-  // General digit before/after sınıf
-  const m = normalized.match(/s[ıi]n[ıi]f\s*([1-4])/i) || normalized.match(/([1-4])\s*\.?\s*s[ıi]n[ıi]f/i);
-  if (m) {
-    const g = parseInt(m[1], 10);
+  // Generic digit before or after sınıf: "1. Sınıf", "Sınıf 1", etc.
+  const genDigit = lower.match(/([1-4])\s*\.?\s*s[ıi]n[ıi]f(?:lar)?/i) || lower.match(/s[ıi]n[ıi]f(?:lar)?\s*[:=\-]?\s*([1-4])/i);
+  if (genDigit) {
+    const g = parseInt(genDigit[1], 10);
     if (g >= 1 && g <= 4) return g;
   }
 
@@ -228,22 +313,211 @@ export function buildGradeSummary(courses: CourseItem[], exams: ExamItem[]): Det
 /**
  * Extract courses & exams from raw text lines with dynamic grade tracking
  */
+/**
+ * Extract classroom from text snippet
+ */
+export function extractClassroomFromText(text: string): string {
+  if (!text) return 'Derslik';
+  const paren = text.match(/\(([^)]+)\)/);
+  if (paren && paren[1].trim().length > 0) {
+    return paren[1].trim();
+  }
+  const kw = text.match(/\b(UZEK|EB-\d+|Lab\s*\d*|Amfi\s*\d*|Derslik\s*\d*|Spor\s*Salonu|Müh\.\s*Fak\.\s*Lab\.)\b/i);
+  if (kw) return kw[1].trim();
+
+  return 'Derslik';
+}
+
+/**
+ * Extract instructor name from text snippet
+ */
+export function extractInstructorFromText(text: string): string {
+  if (!text) return 'Ders Sorumlusu';
+  const m = text.match(/(?:Prof\.|Doç\.|Dr\.|Öğr\.\s*Gör\.|Arş\.\s*Gör\.)\s+[A-ZÇĞİÖŞÜa-zçğıöşü\s.]+/i);
+  if (m) {
+    return m[0].trim();
+  }
+  return 'Ders Sorumlusu';
+}
+
+/**
+ * Extract course code from text snippet
+ */
+export function extractCourseCodeFromText(text: string): string {
+  if (!text) return '';
+  const m = text.match(/\b([A-Za-zÇĞİÖŞÜ]{2,6}\s*[-_]?\s*\d{3,7}|\d{7})\b/);
+  if (m) {
+    return m[1].replace(/\s+/g, '');
+  }
+  return '';
+}
+
+/**
+ * Clean course name by removing code, instructor, classroom, and paren references
+ */
+export function cleanCourseName(text: string, courseCode?: string, instructor?: string, classroom?: string): string {
+  if (!text) return 'Ders';
+  let name = text;
+
+  if (courseCode) name = name.replace(courseCode, ' ');
+  if (instructor && instructor !== 'Ders Sorumlusu') name = name.replace(instructor, ' ');
+  if (classroom && classroom !== 'Derslik') name = name.replace(classroom, ' ');
+
+  name = name.replace(/\([^)]*\)/g, ' ');
+  name = name.replace(/(?:Prof\.|Doç\.|Dr\.|Öğr\.\s*Gör\.|Arş\.\s*Gör\.)/gi, ' ');
+  name = name.replace(/\b[A-Za-zÇĞİÖŞÜ]{2,6}\s*[-_]?\s*\d{3,7}\b/g, ' ');
+  name = name.replace(/\b\d{7}\b/g, ' ');
+  name = name.replace(/\b\d{1,2}[:.]\d{2}\b/g, ' ');
+  name = name.replace(/[\t,;:|\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return name || 'Ders';
+}
+
+/**
+ * Extract courses & exams from raw text lines with matrix and line parser
+ */
 export function parseRawTextLines(
   text: string,
   initialGrade: number = 0,
   forcedGrade?: number
 ): { courses: CourseItem[]; exams: ExamItem[] } {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (!text || !text.trim()) return { courses: [], exams: [] };
+
+  const rawLines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   const courses: CourseItem[] = [];
   const exams: ExamItem[] = [];
 
+  // Check if text has columnar table structure (day header row with 2+ days)
+  let dayColMap: { colIndex: number; day: DayOfWeek }[] = [];
+  let headerRowIndex = -1;
+
+  for (let i = 0; i < Math.min(rawLines.length, 25); i++) {
+    const line = rawLines[i];
+    const parts = line.split(/[\t|]/).map((p) => p.trim());
+    const cols: { colIndex: number; day: DayOfWeek }[] = [];
+
+    parts.forEach((part, colIdx) => {
+      const day = detectDayFromText(part);
+      if (day) {
+        cols.push({ colIndex: colIdx, day });
+      }
+    });
+
+    if (cols.length >= 2) {
+      dayColMap = cols;
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  // IF COLUMNAR TABLE DETECTED:
+  if (dayColMap.length >= 2) {
+    let currentGrade = forcedGrade !== undefined && forcedGrade > 0 ? forcedGrade : initialGrade;
+    let currentTimeSlot: { start: string; end: string } | null = null;
+    let cellBuffers: Record<number, string[]> = {};
+
+    const flushCellBuffers = () => {
+      if (!currentTimeSlot) return;
+      dayColMap.forEach(({ colIndex, day }) => {
+        const lines = cellBuffers[colIndex];
+        if (lines && lines.length > 0) {
+          const combined = lines.join('\n').trim();
+          if (combined.length > 1 && !combined.includes('---')) {
+            const extracted = extractCoursesFromCellText(
+              combined,
+              day,
+              currentTimeSlot!.start,
+              currentTimeSlot!.end,
+              currentGrade
+            );
+            courses.push(...extracted);
+          }
+        }
+      });
+      cellBuffers = {};
+    };
+
+    for (let i = headerRowIndex + 1; i < rawLines.length; i++) {
+      const line = rawLines[i];
+
+      // Grade section header check (e.g. "I. SINIF", "II. SINIF", "III. SINIF", "IV. SINIF")
+      if (!forcedGrade || forcedGrade === 0) {
+        const detected = detectGradeFromText(line);
+        if (detected > 0 && (line.toLowerCase().includes('sınıf') || line.toLowerCase().includes('sinif') || line.length < 15)) {
+          flushCellBuffers();
+          currentGrade = detected;
+          currentTimeSlot = null;
+          continue;
+        }
+      }
+
+      // Check if line or line pair is a time slot
+      const timeRange = extractTimeRange(line);
+      let nextLineTime: string | null = null;
+
+      // Handle split time format: line N = "08:10", line N+1 = "09:00"
+      if (!timeRange && /^\d{1,2}[:.]\d{2}$/.test(line) && i + 1 < rawLines.length) {
+        const nextLine = rawLines[i + 1].trim();
+        if (/^\d{1,2}[:.]\d{2}$/.test(nextLine)) {
+          nextLineTime = nextLine;
+        }
+      }
+
+      if (timeRange || nextLineTime) {
+        flushCellBuffers();
+        let startTime = '09:00';
+        let endTime = '10:00';
+
+        if (timeRange) {
+          startTime = timeRange.start;
+          endTime = timeRange.end || '10:00';
+        } else if (nextLineTime) {
+          startTime = standardizeTime(line);
+          endTime = standardizeTime(nextLineTime);
+          i++; // Skip end time line
+        }
+
+        currentTimeSlot = { start: startTime, end: endTime };
+        continue;
+      }
+
+      // If inside a time slot, parse tabbed cells or vertical block lines
+      if (currentTimeSlot) {
+        const parts = line.split('\t');
+        if (parts.length > 1) {
+          parts.forEach((part, colIdx) => {
+            const trimmed = part.trim();
+            if (trimmed) {
+              if (!cellBuffers[colIdx]) cellBuffers[colIdx] = [];
+              cellBuffers[colIdx].push(trimmed);
+            }
+          });
+        } else {
+          const trimmed = line.trim();
+          if (trimmed && dayColMap.length > 0) {
+            const activeCol = dayColMap[0].colIndex;
+            if (!cellBuffers[activeCol]) cellBuffers[activeCol] = [];
+            cellBuffers[activeCol].push(trimmed);
+          }
+        }
+      }
+    }
+
+    // Flush any remaining cell buffers
+    flushCellBuffers();
+
+    if (courses.length > 0) {
+      return { courses, exams };
+    }
+  }
+
+  // FALLBACK LINE-BY-LINE PARSER
   let currentGrade = forcedGrade !== undefined && forcedGrade > 0 ? forcedGrade : initialGrade;
   let currentDay: DayOfWeek = 'Pazartesi';
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
 
-    // Check for grade section change if not strictly forced
     if (!forcedGrade || forcedGrade === 0) {
       const detected = detectGradeFromText(line);
       if (detected > 0) {
@@ -251,89 +525,52 @@ export function parseRawTextLines(
       }
     }
 
-    // Check for day header
     const day = detectDayFromText(line);
     if (day && line.length < 35 && !line.includes(':')) {
       currentDay = day;
       continue;
     }
 
-    // Check if line looks like an Exam line (contains date and time)
     const dateStr = extractDate(line);
     const timeRange = extractTimeRange(line);
 
     if (dateStr) {
       const examType = detectExamType(line);
-      const parts = line.split(/[\t,|;]/).map((p) => p.trim()).filter(Boolean);
+      const classroom = extractClassroomFromText(line);
+      const courseCode = extractCourseCodeFromText(line);
 
-      const roomMatch = line.match(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*|Derslik\s*\d*)\b/i);
-      const classroom = roomMatch ? roomMatch[1] : parts.length > 3 ? parts[parts.length - 1] : 'Belirtilmedi';
-
-      let courseCode = '';
-      const codeMatch = line.match(/\b([A-Za-zÇĞİÖŞÜ]{2,5}\s*[-_]?\s*\d{3,4})\b/);
-      if (codeMatch) {
-        courseCode = codeMatch[1].replace(/\s+/g, '');
-      }
-
-      // If current grade is 0, attempt code inference
       let finalGrade = currentGrade;
       if (finalGrade === 0 && courseCode) {
         const inferred = extractGradeFromCourseCode(courseCode);
         if (inferred > 0) finalGrade = inferred;
       }
 
-      let courseName = line
-        .replace(dateStr, '')
-        .replace(timeRange?.start || '', '')
-        .replace(timeRange?.end || '', '')
-        .replace(/vize|final|bütünleme|mazeret|ara\s*sınav/gi, '')
-        .replace(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*|Derslik\s*\d*)\b/gi, '')
-        .replace(/[,\-:|\t]+/g, ' ')
-        .trim();
-
-      if (courseName.length < 3 && parts.length > 1) {
-        courseName = parts[1];
-      }
+      const instructor = extractInstructorFromText(line);
+      const courseName = cleanCourseName(line, courseCode, instructor, classroom);
 
       exams.push({
-        id: `exam-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        id: generateUniqueId('exam'),
         grade: finalGrade,
         gradeLabel: finalGrade === 0 ? 'Genel' : `${finalGrade}. Sınıf`,
         examType,
         courseCode,
-        courseName: courseName.slice(0, 80) || 'Ders Sınavı',
+        courseName,
         date: dateStr,
         startTime: timeRange?.start || '10:00',
         endTime: timeRange?.end || '11:30',
         classroom,
-        instructor: 'Ders Sorumlusu',
+        instructor,
         isEnrolled: true,
       });
       continue;
     }
 
-    // Check if line looks like a Course entry (time range present)
     if (timeRange && timeRange.start) {
-      const codeMatch = line.match(/\b([A-Za-zÇĞİÖŞÜ]{2,5}\s*[-_]?\s*\d{3,4})\b/);
-      const courseCode = codeMatch ? codeMatch[1].replace(/\s+/g, '') : '';
+      const courseCode = extractCourseCodeFromText(line);
+      const classroom = extractClassroomFromText(line);
+      const instructor = extractInstructorFromText(line);
+      const courseName = cleanCourseName(line, courseCode, instructor, classroom);
 
-      const roomMatch = line.match(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*|Derslik\s*\d*)\b/i);
-      const classroom = roomMatch ? roomMatch[1] : 'Derslik';
-
-      let courseName = line
-        .replace(/(\d{1,2}:\d{2})\s*[-–/]\s*(\d{1,2}:\d{2})/g, '')
-        .replace(/(\d{1,2}:\d{2})/g, '')
-        .replace(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*|Derslik\s*\d*)\b/gi, '')
-        .replace(courseCode, '')
-        .replace(/[,\-:|\t]+/g, ' ')
-        .trim();
-
-      if (courseName.length < 3) courseName = 'Ders';
-
-      const instructorMatch = line.match(/(Prof\.|Doç\.|Dr\.|Öğr\.\s*Gör\.)\s+[A-ZÇĞİÖŞÜa-zçğıöşü\s]+/);
-      const instructor = instructorMatch ? instructorMatch[0].trim() : 'Öğretim Elemanı';
-
-      // Fallback grade inference from courseCode
       let finalGrade = currentGrade;
       if (finalGrade === 0 && courseCode) {
         const inferred = extractGradeFromCourseCode(courseCode);
@@ -341,14 +578,14 @@ export function parseRawTextLines(
       }
 
       courses.push({
-        id: `course-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        id: generateUniqueId('course'),
         grade: finalGrade,
         gradeLabel: finalGrade === 0 ? 'Ortak / Seçmeli' : `${finalGrade}. Sınıf`,
         day: currentDay,
         startTime: timeRange.start,
         endTime: timeRange.end || '10:15',
         courseCode,
-        courseName: courseName.slice(0, 80),
+        courseName,
         classroom,
         instructor,
         isEnrolled: true,
@@ -361,12 +598,77 @@ export function parseRawTextLines(
 }
 
 /**
+ * Extract one or more courses from a timetable cell.
+ * Handles parallel courses, multiple sections (şube), and elective courses scheduled in the same cell.
+ */
+export function extractCoursesFromCellText(
+  cellText: string,
+  day: DayOfWeek,
+  startTime: string,
+  endTime: string,
+  tableGrade: number
+): CourseItem[] {
+  if (!cellText || cellText.trim().length < 2 || cellText.includes('---')) return [];
+
+  const raw = cellText.trim();
+
+  const segments = raw
+    .split(/(?=(?:\b[A-Za-zÇĞİÖŞÜ]{2,6}\s*[-_]?\s*\d{3,7}\b|\b\d{7}\b))/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 2 && !s.includes('---'));
+
+  const coursesToReturn: CourseItem[] = [];
+
+  const processSegment = (seg: string) => {
+    const courseCode = extractCourseCodeFromText(seg);
+    const classroom = extractClassroomFromText(seg);
+    const instructor = extractInstructorFromText(seg);
+    const courseName = cleanCourseName(seg, courseCode, instructor, classroom);
+
+    let cellGrade = tableGrade;
+    if (cellGrade === 0 && courseCode) {
+      const inferred = extractGradeFromCourseCode(courseCode);
+      if (inferred > 0) cellGrade = inferred;
+    }
+    const detectedInSeg = detectGradeFromText(seg);
+    if (detectedInSeg > 0) cellGrade = detectedInSeg;
+
+    if (courseName && courseName.length >= 2) {
+      coursesToReturn.push({
+        id: generateUniqueId('course'),
+        grade: cellGrade,
+        gradeLabel: cellGrade === 0 ? 'Ortak / Seçmeli' : `${cellGrade}. Sınıf`,
+        day,
+        startTime,
+        endTime,
+        courseCode,
+        courseName,
+        classroom,
+        instructor,
+        isEnrolled: true,
+        color: getRandomColor(courseName),
+      });
+    }
+  };
+
+  if (segments.length > 1) {
+    segments.forEach((seg) => processSegment(seg));
+  } else {
+    processSegment(raw);
+  }
+
+  return coursesToReturn;
+}
+
+/**
  * Parse Word (.docx) file
  * Enhanced to detect:
- * 1. "Sınıf" column in tables
- * 2. Preceding headers / section titles
- * 3. Mid-table subheaders
- * 4. Course code Bologna-level inference
+ * 1. File-name grade inference (e.g. 1.sinif.docx, Sinif_II.docx)
+ * 2. "Sınıf" column in tables
+ * 3. Preceding headers / section titles (supports Roman numerals: Ⅰ, Ⅱ, Ⅲ, Ⅳ)
+ * 4. Mid-table subheaders
+ * 5. Course code Bologna-level inference
+ * 6. Parallel courses in the same time cell
  */
 export async function parseWordFile(file: File, forcedGrade?: number): Promise<ParsedDocumentResult> {
   const arrayBuffer = await file.arrayBuffer();
@@ -376,6 +678,9 @@ export async function parseWordFile(file: File, forcedGrade?: number): Promise<P
   const courses: CourseItem[] = [];
   const exams: ExamItem[] = [];
 
+  // Default initial grade from filename if available
+  const fileNameGrade = detectGradeFromFileName(file.name);
+
   if (typeof window !== 'undefined' && window.DOMParser) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -383,7 +688,7 @@ export async function parseWordFile(file: File, forcedGrade?: number): Promise<P
 
     tables.forEach((table) => {
       // Find nearest preceding heading for class detection
-      let detectedGrade = forcedGrade || 0;
+      let detectedGrade = forcedGrade || fileNameGrade || 0;
       if (!forcedGrade || forcedGrade === 0) {
         let el: Element | null = table.previousElementSibling;
         let lookbackCount = 0;
@@ -431,7 +736,7 @@ export async function parseWordFile(file: File, forcedGrade?: number): Promise<P
           const cells = Array.from(rows[r].querySelectorAll('td')).map((c) => (c.textContent || '').trim());
           if (cells.length === 0) continue;
 
-          // Check if row itself is a class subheader (e.g. colspan row: "2. SINIF DERS PROGRAMI")
+          // Check if row itself is a class subheader (e.g. colspan row: "2. SINIF DERS PROGRAMI" or "Ⅲ. SINIF")
           const fullRowText = cells.join(' ');
           const rowGrade = detectGradeFromText(fullRowText);
           if (rowGrade > 0 && cells.length <= 2) {
@@ -447,29 +752,8 @@ export async function parseWordFile(file: File, forcedGrade?: number): Promise<P
           dayColumns.forEach(({ colIndex, day }) => {
             const cellText = cells[colIndex];
             if (cellText && cellText.length > 2 && !cellText.includes('---')) {
-              const codeMatch = cellText.match(/\b([A-Za-zÇĞİÖŞÜ]{2,5}\s*[-_]?\s*\d{3,4})\b/);
-              const courseCode = codeMatch ? codeMatch[1].replace(/\s+/g, '') : '';
-
-              // Determine grade for this specific course
-              let cellGrade = currentTableGrade;
-              if (cellGrade === 0 && courseCode) {
-                cellGrade = extractGradeFromCourseCode(courseCode);
-              }
-
-              courses.push({
-                id: `course-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-                grade: cellGrade,
-                gradeLabel: cellGrade === 0 ? 'Ortak / Seçmeli' : `${cellGrade}. Sınıf`,
-                day,
-                startTime,
-                endTime,
-                courseCode,
-                courseName: cellText.split('\n')[0].replace(courseCode, '').trim() || cellText,
-                classroom: (cellText.match(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*)\b/i) || [])[1] || 'Derslik',
-                instructor: (cellText.match(/(Prof\.|Doç\.|Dr\.|Öğr\.\s*Gör\.)\s+[A-ZÇĞİÖŞÜa-zçğıöşü\s]+/) || [])[0] || 'Ders Sorumlusu',
-                isEnrolled: true,
-                color: getRandomColor(cellText),
-              });
+              const cellCourses = extractCoursesFromCellText(cellText, day, startTime, endTime, currentTableGrade);
+              courses.push(...cellCourses);
             }
           });
         }
@@ -533,8 +817,9 @@ export async function parseExcelFile(file: File, forcedGrade?: number): Promise<
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) return;
 
-    // Detect grade from sheet name if not forced
-    let sheetGrade = forcedGrade || detectGradeFromText(sheetName);
+    // Detect grade from filename or sheet name if not forced
+    const fileNameGrade = detectGradeFromFileName(file.name);
+    let sheetGrade = forcedGrade || detectGradeFromText(sheetName) || fileNameGrade || 0;
 
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     if (!rows || rows.length === 0) return;
@@ -578,7 +863,7 @@ export async function parseExcelFile(file: File, forcedGrade?: number): Promise<
         const row = rows[r];
         if (!row || row.length === 0) continue;
 
-        // Check for inline grade switch (e.g. row says "2. SINIF DERSLERİ")
+        // Check for inline grade switch (e.g. row says "2. SINIF DERSLERİ" or "Ⅲ. SINIF")
         const rowStr = row.join(' ');
         const gradeInRow = detectGradeFromText(rowStr);
         if (gradeInRow > 0 && (!forcedGrade || forcedGrade === 0)) {
@@ -593,28 +878,8 @@ export async function parseExcelFile(file: File, forcedGrade?: number): Promise<
         dayCols.forEach(({ colIndex, day }) => {
           const cellVal = String(row[colIndex] || '').trim();
           if (cellVal.length > 2 && !cellVal.includes('---')) {
-            const codeMatch = cellVal.match(/\b([A-Za-zÇĞİÖŞÜ]{2,5}\s*[-_]?\s*\d{3,4})\b/);
-            const courseCode = codeMatch ? codeMatch[1].replace(/\s+/g, '') : '';
-
-            let itemGrade = currentGrade;
-            if (itemGrade === 0 && courseCode) {
-              itemGrade = extractGradeFromCourseCode(courseCode);
-            }
-
-            courses.push({
-              id: `course-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-              grade: itemGrade,
-              gradeLabel: itemGrade === 0 ? 'Ortak / Seçmeli' : `${itemGrade}. Sınıf`,
-              day,
-              startTime,
-              endTime,
-              courseCode,
-              courseName: cellVal.split('\n')[0].replace(courseCode, '').trim() || cellVal,
-              classroom: (cellVal.match(/\b([A-ZÇĞİÖŞÜ]-\d{3}|Amfi\s*\d*|Lab\s*\d*)\b/i) || [])[1] || 'Derslik',
-              instructor: (cellVal.match(/(Prof\.|Doç\.|Dr\.|Öğr\.\s*Gör\.)\s+[A-ZÇĞİÖŞÜa-zçğıöşü\s]+/) || [])[0] || 'Ders Sorumlusu',
-              isEnrolled: true,
-              color: getRandomColor(cellVal),
-            });
+            const cellCourses = extractCoursesFromCellText(cellVal, day, startTime, endTime, currentGrade);
+            courses.push(...cellCourses);
           }
         });
       }
@@ -653,7 +918,7 @@ export async function parseExcelFile(file: File, forcedGrade?: number): Promise<
  * Parse PDF (.pdf) file
  * Enhanced multi-grade separation:
  * - Line-by-line Y coordinate sorting
- * - Dynamic class-switch tracking down each page
+ * - Dynamic class-switch tracking down each page (supports Roman numerals Ⅰ Ⅱ Ⅲ Ⅳ)
  * - Bologna course code inference
  */
 export async function parsePdfFile(file: File, forcedGrade?: number): Promise<ParsedDocumentResult> {
@@ -664,7 +929,8 @@ export async function parsePdfFile(file: File, forcedGrade?: number): Promise<Pa
   const courses: CourseItem[] = [];
   const exams: ExamItem[] = [];
 
-  let currentGrade = forcedGrade || 0;
+  const fileNameGrade = detectGradeFromFileName(file.name);
+  let currentGrade = forcedGrade || fileNameGrade || 0;
 
   for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
     const page = await pdfDoc.getPage(pageNum);
@@ -712,15 +978,132 @@ export async function parsePdfFile(file: File, forcedGrade?: number): Promise<Pa
 }
 
 /**
- * Parse plain text or copied clipboard table
+ * Convert file to Base64 string for API transmission
  */
-export function parsePlainText(text: string, defaultGrade: number = 0, forcedGrade?: number): ParsedDocumentResult {
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
+/**
+ * AI-powered Schedule Parser using Gemini Multimodal
+ */
+export async function parseScheduleWithAI(
+  file?: File,
+  rawText?: string,
+  forcedGrade?: number
+): Promise<ParsedDocumentResult> {
+  try {
+    let fileData: string | undefined;
+    let mimeType: string | undefined;
+    let fileName = file ? file.name : 'Metin / Belge';
+
+    if (file) {
+      fileData = await fileToBase64(file);
+      mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : file.name.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : file.name.endsWith('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'image/jpeg');
+    }
+
+    const response = await fetch('/api/parse-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: rawText,
+        fileData,
+        mimeType,
+        fileName,
+        forcedGrade,
+      }),
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Yapay zekâ ayrıştırma başarısız oldu.');
+    }
+
+    const rawCourses = Array.isArray(data.courses) ? data.courses : [];
+    const rawExams = Array.isArray(data.exams) ? data.exams : [];
+
+    const courses: CourseItem[] = rawCourses.map((c: any) => {
+      const g = forcedGrade && forcedGrade > 0 ? forcedGrade : Number(c.grade) || 0;
+      return {
+        id: generateUniqueId('course'),
+        courseCode: c.courseCode || '',
+        courseName: c.courseName || 'Ders',
+        day: (c.day as DayOfWeek) || 'Pazartesi',
+        startTime: c.startTime || '09:00',
+        endTime: c.endTime || '10:00',
+        classroom: c.classroom || 'Derslik',
+        instructor: c.instructor || 'Ders Sorumlusu',
+        color: getRandomColor(c.courseName || 'Ders'),
+        grade: g,
+        gradeLabel: g === 0 ? 'Ortak / Seçmeli' : `${g}. Sınıf`,
+      };
+    });
+
+    const exams: ExamItem[] = rawExams.map((e: any) => {
+      const g = forcedGrade && forcedGrade > 0 ? forcedGrade : Number(e.grade) || 0;
+      return {
+        id: generateUniqueId('exam'),
+        courseCode: e.courseCode || '',
+        courseName: e.courseName || 'Sınav',
+        date: e.date || new Date().toISOString().split('T')[0],
+        startTime: e.startTime || '10:00',
+        endTime: e.endTime || '11:30',
+        classroom: e.classroom || 'Derslik',
+        instructor: e.instructor || 'Ders Sorumlusu',
+        examType: (e.examType as ExamType) || 'vize',
+        grade: g,
+        gradeLabel: g === 0 ? 'Ortak / Seçmeli' : `${g}. Sınıf`,
+      };
+    });
+
+    const detectedGrades = buildGradeSummary(courses, exams);
+    const detectedType = exams.length > courses.length ? 'exam' : courses.length > 0 ? 'course' : 'mixed';
+
+    return {
+      fileName,
+      detectedType,
+      detectedGrades,
+      courses,
+      exams,
+    };
+  } catch (err: any) {
+    console.error('parseScheduleWithAI error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Parse image files (.png, .jpg, .jpeg, .webp) using Gemini AI Vision
+ */
+export async function parseImageFile(file: File, forcedGrade?: number): Promise<ParsedDocumentResult> {
+  return parseScheduleWithAI(file, undefined, forcedGrade);
+}
+
+/**
+ * Parse plain text or copied clipboard table locally without AI
+ */
+export async function parsePlainText(text: string, defaultGrade: number = 0, forcedGrade?: number): Promise<ParsedDocumentResult> {
   const parsed = parseRawTextLines(text, defaultGrade, forcedGrade);
+
   const detectedGrades = buildGradeSummary(parsed.courses, parsed.exams);
   const detectedType = parsed.exams.length > parsed.courses.length ? 'exam' : parsed.courses.length > 0 ? 'course' : 'mixed';
 
   return {
-    fileName: 'Kopyala-Yapıştır Metni',
+    fileName: 'Metin Listesi',
     detectedType,
     detectedGrades,
     courses: parsed.courses,

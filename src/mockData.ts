@@ -9,17 +9,21 @@ import {
   DepartmentAnnouncementItem,
   CampusEvent,
   CampusForm,
-  CampusBuilding
+  CampusBuilding,
+  DirectoryUnit,
+  DirectoryContact
 } from './types';
 import { getApiUrl, safeFetch } from './config';
 import { cleanDuplicateTitle } from './lib/utils';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';
+import { PHONE_DIRECTORY_DATA } from './data/phoneDirectoryData';
 
 // ================= FALLBACK DATA =================
 
 export const FALLBACK_STAFF: AcademicStaffMember[] = ACADEMIC_STAFF_DATA;
+export const FALLBACK_PHONE_DIRECTORY: DirectoryUnit[] = PHONE_DIRECTORY_DATA;
 export { FALLBACK_DEPARTMENT_ANNOUNCEMENTS };
 
 export const FALLBACK_ANNOUNCEMENTS: Announcement[] = [
@@ -202,10 +206,46 @@ export const FALLBACK_PHONEBOOK: PhonebookEntry[] = [
 ];
 
 export const FALLBACK_EVENTS: CampusEvent[] = [
-  { id: 'ev-1', title: "Gazze'de Öğrenci Olmak: Resim Sergisi", date: '02 Ekim 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sergi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-2', title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri', date: '29 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Fuar & Söyleşi', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-3', title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda', date: '25 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Sempozyum', url: 'https://www.kilis.edu.tr/tr/etkinlikler' },
-  { id: 'ev-4', title: 'Modernleşmenin Kavşağında Türkiye Konferansı', date: '20 Eylül 2026', location: 'Konum için bilgi afişini referans alın.', category: 'Konferans', url: 'https://www.kilis.edu.tr/tr/etkinlikler' }
+  {
+    id: 'ev-1',
+    title: "Gazze'de Öğrenci Olmak: Resim Sergisi",
+    date: '02 Ekim 2026',
+    location: 'Muallim Rıfat Eğitim Fakültesi Fuaye Alanı',
+    category: 'Sergi',
+    content: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin zorlu eğitim mücadelesini konu alan resim ve fotoğraf sergisi, Üniversitemiz Muallim Rıfat Eğitim Fakültesi Fuaye Alanında tüm akademisyen, öğrenci ve Kilis halkının ziyaretine açılmıştır.",
+    description: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin eğitim mücadelesini konu alan sergi.",
+    url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+  },
+  {
+    id: 'ev-2',
+    title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri',
+    date: '29 Eylül 2026',
+    location: '15 Temmuz Kongre ve Kültür Merkezi',
+    category: 'Fuar & Söyleşi',
+    content: "Kilis 7 Aralık Üniversitesi ve Kilis Belediyesi iş birliğiyle düzenlenen 1. Kilis Kitap Fuarı kapsamında seçkin yayınevleri, Türkiye'nin önde gelen yazarları, şairleri ve akademisyenleri imza günleri ve söylesilerle okurlarla buluşuyor.",
+    description: "Yüzlerce yayınevi, akademisyen yazarların katılımıyla düzenlenen imza günleri ve panel söyleşileri.",
+    url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+  },
+  {
+    id: 'ev-3',
+    title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda',
+    date: '25 Eylül 2026',
+    location: 'Rektörlük Konferans Salonu',
+    category: 'Sempozyum',
+    content: "TÜBİTAK destekli Bilim İletişimi Buluşmaları serisinin ikincisi olan 'Kitap Kahramanları Aramızda' etkinliğinde edebiyat ve bilim dünyasından öne çıkan eserler, disiplinlerarası sunumlar ve atölye çalışmaları ile ele alınacaktır.",
+    description: "TÜBİTAK destekli bilim iletişimi etkinlikleri, disiplinlerarası sunumlar ve interaktif öğrenci atölyeleri.",
+    url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+  },
+  {
+    id: 'ev-4',
+    title: 'Modernleşmenin Kavşağında Türkiye Konferansı',
+    date: '20 Eylül 2026',
+    location: 'İnsan ve Toplum Bilimleri Fakültesi Amfi 1',
+    category: 'Konferans',
+    content: "İnsan ve Toplum Bilimleri Fakültesi Tarih Bölümü tarafından organize edilen konferansta, Türkiye'nin modernleşme süreci, sosyo-kültürel değişimler ve iktisadi dönüşümler uzman akademisyenlerin bildirileriyle değerlendirilecektir.",
+    description: "Tarih ve sosyoloji perspektifinden Türkiye'nin modernleşme süreci ve toplumsal dönüşümü.",
+    url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+  }
 ];
 
 export const FALLBACK_FORMS: CampusForm[] = AUTHENTIC_FORMS_DATA;
@@ -1035,6 +1075,88 @@ export const getPhonebook = async (query: string = ''): Promise<PhonebookEntry[]
   if (!query) return base;
   const q = query.toLowerCase();
   return base.filter(p => p.name.toLowerCase().includes(q) || p.department.toLowerCase().includes(q) || p.extension.includes(q));
+};
+
+export const getPhoneDirectory = async (
+  query: string = '',
+  category: string = 'all',
+  unitId: string = ''
+): Promise<DirectoryUnit[]> => {
+  const cacheKey = 'k7_cached_phone_directory_v2';
+  try {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    if (category && category !== 'all') params.append('category', category);
+    if (unitId) params.append('unitId', unitId);
+
+    const url = getApiUrl(`/api/phone-directory${params.toString() ? `?${params.toString()}` : ''}`);
+    const res = await safeFetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
+        if (!query && (!category || category === 'all') && !unitId) {
+          setStoredWithTTL(cacheKey, json.data);
+        }
+        return json.data;
+      }
+    }
+  } catch (err) {
+    console.warn('Telefon rehberi canlı alınamadı, yerleşik veriler kullanılıyor:', err);
+  }
+
+  const cached = getStoredWithTTL<DirectoryUnit[]>(cacheKey, 14 * 24 * 60 * 60 * 1000, FALLBACK_PHONE_DIRECTORY);
+  let list = cached.data && cached.data.length > 0 ? cached.data : FALLBACK_PHONE_DIRECTORY;
+
+  if (category && category !== 'all') {
+    list = list.filter(u => u.category.toLowerCase() === category.toLowerCase());
+  }
+
+  if (unitId) {
+    list = list.filter(u => u.id === unitId);
+  }
+
+  if (query) {
+    const q = query.toLowerCase().trim();
+    list = list.map(unit => {
+      const matchesUnit = unit.name.toLowerCase().includes(q);
+      const filteredSections = unit.sections.map(sec => {
+        const matchesSec = sec.fullHeader.toLowerCase().includes(q) || sec.title.toLowerCase().includes(q);
+        const filteredContacts = sec.contacts.filter(c => {
+          return (
+            c.name.toLowerCase().includes(q) ||
+            (c.title && c.title.toLowerCase().includes(q)) ||
+            (c.role && c.role.toLowerCase().includes(q)) ||
+            (c.extension && c.extension.includes(q)) ||
+            (c.email && c.email.toLowerCase().includes(q)) ||
+            (c.phone && c.phone.includes(q))
+          );
+        });
+        if (matchesSec) return sec;
+        if (filteredContacts.length > 0) return { ...sec, contacts: filteredContacts };
+        return null;
+      }).filter(Boolean) as typeof unit.sections;
+
+      if (matchesUnit) return unit;
+      if (filteredSections.length > 0) return { ...unit, sections: filteredSections };
+      return null;
+    }).filter(Boolean) as DirectoryUnit[];
+  }
+
+  return list;
+};
+
+export const syncPhoneDirectoryUnit = async (unitId: string): Promise<{ success: boolean; count?: number; message?: string }> => {
+  try {
+    const url = getApiUrl(`/api/phone-directory/sync?unitId=${encodeURIComponent(unitId)}`);
+    const res = await safeFetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      return json;
+    }
+  } catch (err: any) {
+    console.warn('Telefon rehberi senkron hatası:', err);
+  }
+  return { success: false, message: 'Bağlantı kurulamadı' };
 };
 
 export const getStaff = async (

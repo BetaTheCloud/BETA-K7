@@ -179,9 +179,9 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         }}
       />
 
-      {/* Day Selector Pills */}
-      <div className="flex items-center justify-between gap-1.5 overflow-x-auto pb-0.5 scrollbar-none text-xs">
-        <div className="flex items-center gap-1">
+      {/* Day Selector Segmented Bar (Option 2) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center p-1 rounded-2xl bg-stone-100 dark:bg-white/5 border border-stone-200/80 dark:border-white/10 overflow-x-auto scrollbar-none text-xs">
           <motion.button
             whileTap={{ scale: 0.95 }}
             type="button"
@@ -189,10 +189,10 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
               setActiveViewDay(currentTodayDay);
               setShowOnlyExams(false);
             }}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeViewDay === currentTodayDay && !showOnlyExams
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Bugün ({currentTodayDay.slice(0, 3)})
@@ -205,10 +205,10 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
               setActiveViewDay(getTomorrowDay());
               setShowOnlyExams(false);
             }}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeViewDay === getTomorrowDay() && !showOnlyExams
-                ? 'bg-amber-500 text-stone-950 shadow-xs'
-                : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Yarın ({getTomorrowDay().slice(0, 3)})
@@ -217,7 +217,11 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
           {/* Quick day buttons */}
           {DAYS_OF_WEEK.map((day) => {
             if (day === currentTodayDay || day === getTomorrowDay()) return null;
-            const count = courses.filter((c) => c.day === day).length;
+            const count = courses.filter((c) => {
+              if (c.day !== day) return false;
+              if (selectedGradeFilter !== 'all' && c.grade !== selectedGradeFilter) return false;
+              return true;
+            }).length;
             return (
               <motion.button
                 key={day}
@@ -227,10 +231,10 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
                   setActiveViewDay(day);
                   setShowOnlyExams(false);
                 }}
-                className={`px-2.5 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap ${
                   activeViewDay === day && !showOnlyExams
-                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                    : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-200 dark:hover:bg-white/15'
+                    ? 'bg-amber-600 text-white font-bold shadow-xs'
+                    : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
                 }`}
               >
                 {day.slice(0, 3)}{' '}
@@ -245,7 +249,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
           whileTap={{ scale: 0.95 }}
           type="button"
           onClick={() => setShowOnlyExams(!showOnlyExams)}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+          className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 text-xs ${
             showOnlyExams
               ? 'bg-rose-600 text-white shadow-xs'
               : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 border border-rose-500/20'
@@ -259,40 +263,42 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         </motion.button>
       </div>
 
-      {/* 1.-2.-3.-4. Sınıf Minimalist Ayrımı */}
+      {/* 1.-2.-3.-4. Sınıf Segmented Filter */}
       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-xs">
         <span className="text-[11px] text-stone-400 font-semibold shrink-0 mr-1">Sınıf:</span>
-        <motion.button
-          whileTap={{ scale: 0.94 }}
-          type="button"
-          onClick={() => setSelectedGradeFilter('all')}
-          className={`px-2.5 py-0.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-            selectedGradeFilter === 'all'
-              ? 'bg-stone-800 dark:bg-white text-white dark:text-stone-900 font-bold'
-              : 'bg-stone-200/70 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/20'
-          }`}
-        >
-          Tümü
-        </motion.button>
-        {[1, 2, 3, 4].map((g) => {
-          const count = courses.filter((c) => c.grade === g).length;
-          return (
-            <motion.button
-              key={g}
-              whileTap={{ scale: 0.94 }}
-              type="button"
-              onClick={() => setSelectedGradeFilter(g)}
-              className={`px-2.5 py-0.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                selectedGradeFilter === g
-                  ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                  : 'bg-stone-200/70 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/20'
-              }`}
-            >
-              {g}. Sınıf{' '}
-              {count > 0 && <span className="tabular-nums text-[10px] opacity-75">({count})</span>}
-            </motion.button>
-          );
-        })}
+        <div className="flex items-center p-0.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            type="button"
+            onClick={() => setSelectedGradeFilter('all')}
+            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              selectedGradeFilter === 'all'
+                ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white font-bold shadow-2xs'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+            }`}
+          >
+            Tümü
+          </motion.button>
+          {[1, 2, 3, 4].map((g) => {
+            const count = courses.filter((c) => c.grade === g).length;
+            return (
+              <motion.button
+                key={g}
+                whileTap={{ scale: 0.94 }}
+                type="button"
+                onClick={() => setSelectedGradeFilter(g)}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  selectedGradeFilter === g
+                    ? 'bg-amber-600 text-white font-bold shadow-2xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
+                }`}
+              >
+                {g}. Sınıf{' '}
+                {count > 0 && <span className="tabular-nums text-[10px] opacity-75">({count})</span>}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Main Content Area with Spring Animated Transition */}

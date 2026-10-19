@@ -153,7 +153,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     }
   }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
 
-  // Lock body scroll when modal is open and bind Escape key
+  // Lock body scroll when modal is open and bind Escape key / header back event
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -162,10 +162,16 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
           onClose();
         }
       };
+      const handleHeaderBack = (e: Event) => {
+        e.preventDefault();
+        onClose();
+      };
       window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('k7_header_back', handleHeaderBack);
       return () => {
         document.body.style.overflow = 'unset';
         window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('k7_header_back', handleHeaderBack);
       };
     } else {
       document.body.style.overflow = 'unset';

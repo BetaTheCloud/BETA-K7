@@ -145,10 +145,17 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
       }
     };
 
+    const handleHeaderBack = (e: Event) => {
+      e.preventDefault();
+      onClose();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('k7_header_back', handleHeaderBack);
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('k7_header_back', handleHeaderBack);
     };
   }, [isOpen, onClose]);
 

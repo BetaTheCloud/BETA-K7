@@ -350,6 +350,26 @@ export function batchImportItems(
   saveStoredExams(finalExams);
 }
 
+// Helper to check if two time ranges overlap (e.g. "09:00-10:30" and "09:30-11:00")
+export function hasTimeOverlap(
+  c1: { startTime: string; endTime: string },
+  c2: { startTime: string; endTime: string }
+): boolean {
+  if (!c1.startTime || !c1.endTime || !c2.startTime || !c2.endTime) return false;
+  // Standard HH:MM strings compare lexicographically
+  return c1.startTime < c2.endTime && c2.startTime < c1.endTime;
+}
+
+// Helper to find all courses that conflict with a given course on the same day
+export function getOverlappingCourses(course: CourseItem, allCourses: CourseItem[]): CourseItem[] {
+  return allCourses.filter(
+    (other) =>
+      other.id !== course.id &&
+      other.day === course.day &&
+      hasTimeOverlap(course, other)
+  );
+}
+
 export function clearAllScheduleData(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -364,3 +384,4 @@ export function clearAllScheduleData(): void {
     console.error('Takvim verileri temizlenemedi:', err);
   }
 }
+

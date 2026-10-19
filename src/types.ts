@@ -143,6 +143,8 @@ export interface CampusEvent {
   title: string;
   date: string;
   location?: string;
+  content?: string;
+  description?: string;
   url?: string;
   img?: string;
   category?: string;
@@ -180,4 +182,39 @@ export interface CampusBuilding {
   description: string;
   mapsUrl: string;
   coordinates: { lat: number; lng: number };
+}
+
+export interface DirectoryContact {
+  id: string;
+  name: string;
+  title?: string;
+  role?: string;
+  phone: string;
+  extension?: string;
+  email?: string;
+  profileUrl?: string;
+  unitName: string;
+  sectionName: string;
+}
+
+export interface DirectorySection {
+  id: string;
+  subDepartmentId?: string;
+  fullHeader: string;
+  title: string;
+  contacts: DirectoryContact[];
+}
+
+export interface DirectorySubDepartment {
+  id: string;
+  fullName: string;
+  name: string;
+}
+
+export interface DirectoryUnit {
+  id: string;
+  name: string;
+  category: 'fakulte' | 'enstitu' | 'yuksekokul' | 'konservatuvar' | 'idari' | 'koordinatorluk' | 'other';
+  subDepartments: DirectorySubDepartment[];
+  sections: DirectorySection[];
 }

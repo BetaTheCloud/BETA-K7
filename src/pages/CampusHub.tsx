@@ -91,8 +91,10 @@ import ScheduleManagerModal from '../components/ScheduleManagerModal';
 import toast from 'react-hot-toast';
 import { cn, cleanDuplicateTitle } from '../lib/utils';
 import { openExternalUrl } from '../lib/openExternal';
+import CustomSelectPicker, { SelectOption } from '../components/CustomSelectPicker';
+import PhoneDirectoryView from '../components/PhoneDirectoryView';
 
-type TabKey = 'all' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
+type TabKey = 'all' | 'phonebook' | 'directory' | 'events' | 'transport' | 'forms' | 'library' | 'sports' | 'hotel' | 'map';
 
 export default function CampusHub() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -102,6 +104,7 @@ export default function CampusHub() {
 
   const getTabFromLocation = (): TabKey => {
     const path = location.pathname.replace(/^\//, '');
+    if (path === 'phonebook' || path === 'telefon-rehberi') return 'phonebook';
     if (path === 'directory') return 'directory';
     if (path === 'events') return 'events';
     if (path === 'transport') return 'transport';
@@ -291,11 +294,33 @@ export default function CampusHub() {
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
     if (location.pathname !== '/campus') {
-      navigate(tab === 'all' ? '/campus' : `/campus?tab=${tab}`);
+      navigate(tab === 'all' ? '/campus' : `/campus?tab=${tab}`, { replace: true });
     } else {
-      setSearchParams(tab === 'all' ? {} : { tab });
+      setSearchParams(tab === 'all' ? {} : { tab }, { replace: true });
     }
   };
+
+  // Synchronize global header back button with CampusHub internal sub-menus & modals
+  useEffect(() => {
+    const handleHeaderBack = (e: Event) => {
+      if (selectedStaffPhoto) {
+        e.preventDefault();
+        setSelectedStaffPhoto(null);
+      } else if (selectedSportsSchedule) {
+        e.preventDefault();
+        setSelectedSportsSchedule(null);
+      } else if (selectedDetail) {
+        e.preventDefault();
+        setSelectedDetail(null);
+      } else if (activeTab !== 'all') {
+        e.preventDefault();
+        handleTabChange('all');
+      }
+    };
+
+    window.addEventListener('k7_header_back', handleHeaderBack);
+    return () => window.removeEventListener('k7_header_back', handleHeaderBack);
+  }, [selectedStaffPhoto, selectedSportsSchedule, selectedDetail, activeTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -403,6 +428,7 @@ export default function CampusHub() {
 
   const tabs: { key: TabKey; label: string; icon: any; color: string }[] = [
     { key: 'all', label: 'Genel Bakış', icon: Compass, color: 'text-stone-700 dark:text-stone-300' },
+    { key: 'phonebook', label: 'Telefon Rehberi', icon: PhoneCall, color: 'text-amber-600 dark:text-amber-400' },
     { key: 'directory', label: 'Personel', icon: Users, color: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'events', label: 'Etkinlikler', icon: Calendar, color: 'text-rose-600 dark:text-rose-400' },
     { key: 'transport', label: 'Ulaşım', icon: Bus, color: 'text-blue-600 dark:text-blue-400' },
@@ -514,6 +540,50 @@ export default function CampusHub() {
     }
   };
 
+  // Options for CustomSelectPicker in Staff tab
+  const staffFacultySelectOptions: SelectOption[] = React.useMemo(() => {
+    const opts: SelectOption[] = [];
+    groupedUnits.forEach((group) => {
+      const filteredItems = selectedStaffCategory === 'all'
+        ? group.items
+        : group.items.filter(i => i.category === selectedStaffCategory);
+
+      filteredItems.forEach((u) => {
+        const uCount = staffList.filter(s => s.facultyId === u.id).length;
+        opts.push({
+          value: u.id,
+          label: u.name,
+          badge: `${uCount} Personel`
+        });
+      });
+    });
+    return opts;
+  }, [groupedUnits, selectedStaffCategory, staffList]);
+
+  const staffDepartmentSelectOptions: SelectOption[] = React.useMemo(() => {
+    if (!selectedStaffFaculty) return [];
+
+    const totalInFaculty = staffList.filter(s => s.facultyId === selectedStaffFaculty).length;
+    const opts: SelectOption[] = [
+      {
+        value: 'Tümü',
+        label: `Tüm Bölümler (${activeStaffFacultyConfig?.shortName || ''})`,
+        badge: `${totalInFaculty} Personel`
+      }
+    ];
+
+    availableStaffDepartments.filter(d => d !== 'Tümü').forEach((dept) => {
+      const count = staffList.filter(s => s.facultyId === selectedStaffFaculty && s.department === dept).length;
+      opts.push({
+        value: dept,
+        label: dept,
+        badge: `${count} Personel`
+      });
+    });
+
+    return opts;
+  }, [selectedStaffFaculty, activeStaffFacultyConfig, availableStaffDepartments, staffList]);
+
   // Filtered staff list: when no faculty is selected AND no search query is typed, do NOT preview staff!
   const filteredStaff = React.useMemo(() => {
     if (!selectedStaffFaculty && !staffSearch.trim()) {
@@ -611,8 +681,7 @@ export default function CampusHub() {
             if (activeTab !== 'all') {
               handleTabChange('all');
             } else {
-              if (window.history.length > 1) navigate(-1);
-              else navigate('/');
+              navigate('/');
             }
           }}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
@@ -622,12 +691,21 @@ export default function CampusHub() {
         </button>
 
         {activeTab !== 'all' && (
-          <button
-            onClick={() => handleTabChange('all')}
-            className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium"
-          >
-            Tüm Kategoriler
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleTabChange('all')}
+              className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-semibold cursor-pointer"
+            >
+              Tüm Kategoriler
+            </button>
+            <span className="text-stone-300 dark:text-white/20">•</span>
+            <button
+              onClick={() => navigate('/')}
+              className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-white font-medium cursor-pointer"
+            >
+              Ana Sayfa
+            </button>
+          </div>
         )}
       </div>
 
@@ -683,6 +761,30 @@ export default function CampusHub() {
           >
             {/* Quick Grid of all Modules */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* TELEFON REHBERİ (https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi) */}
+              <div
+                onClick={() => handleTabChange('phonebook')}
+                className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border-2 border-amber-500/40 dark:border-amber-500/30 rounded-2xl p-5 hover:border-amber-500 hover:shadow-lg transition-all relative overflow-hidden"
+              >
+                <div className="absolute top-2.5 right-2.5">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider border border-amber-500/20">
+                    Telefon Rehberi
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <PhoneCall className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs text-stone-400 dark:text-white/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1">
+                    Görüntüle <ChevronRight className="w-4 h-4" />
+                  </span>
+                </div>
+                <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Telefon Rehberi</h3>
+                <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
+                  Fakülteler, bölümler, daire başkanlıkları ve santral dahililerinin hiyerarşik iletişim rehberi.
+                </p>
+              </div>
+
               {/* 1. Personel Rehberi */}
               <div
                 onClick={() => handleTabChange('directory')}
@@ -857,6 +959,19 @@ export default function CampusHub() {
           </motion.div>
         )}
 
+        {/* ================= TELEFON REHBERİ (https://www.kilis.edu.tr/tr/iletisim/telefon-rehberi) ================= */}
+        {activeTab === 'phonebook' && (
+          <motion.div
+            key="phonebook"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="space-y-5"
+          >
+            <PhoneDirectoryView />
+          </motion.div>
+        )}
+
         {/* ================= 1. PERSONEL (FAKÜLTE & BÖLÜM BAZLI AKADEMİK PERSONEL) ================= */}
         {activeTab === 'directory' && (
           <motion.div
@@ -1010,82 +1125,57 @@ export default function CampusHub() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 {/* 1. Selector: Fakülte / Birim Seçimi */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-                    <School className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Fakülte / Birim Seçimi
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedStaffFaculty}
-                      onChange={(e) => handleStaffFacultyChange(e.target.value)}
-                      className="w-full appearance-none px-3.5 py-2.5 bg-white dark:bg-[#1a2e35] border border-stone-300 dark:border-white/10 rounded-xl text-xs font-semibold text-stone-900 dark:text-stone-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all pr-9 cursor-pointer"
-                    >
-                      <option value="" className="bg-white dark:bg-[#1a2e35] text-stone-600 dark:text-stone-300 font-medium">
-                        -- Lütfen Fakülte veya Birim Seçiniz ({visibleStaffUnits.length} Birim) --
-                      </option>
-                      {groupedUnits.map((group) => {
-                        const filteredItems = selectedStaffCategory === 'all'
-                          ? group.items
-                          : group.items.filter(i => i.category === selectedStaffCategory);
-                        if (filteredItems.length === 0) return null;
-
-                        return (
-                          <optgroup key={group.label} label={group.label} className="bg-stone-100 dark:bg-[#15242b] text-stone-900 dark:text-stone-100 font-bold">
-                            {filteredItems.map((u) => {
-                              const uCount = staffList.filter(s => s.facultyId === u.id).length;
-                              return (
-                                <option key={u.id} value={u.id} className="bg-white dark:bg-[#1a2e35] text-stone-900 dark:text-stone-100 py-1.5 font-normal">
-                                  {u.name} ({uCount} Personel)
-                                </option>
-                              );
-                            })}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                      <School className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Fakülte / Birim Seçimi</span>
+                    </label>
+                    {selectedStaffFaculty && (
+                      <button
+                        type="button"
+                        onClick={() => handleStaffFacultyChange('')}
+                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Seçimi Temizle
+                      </button>
+                    )}
                   </div>
+                  <CustomSelectPicker
+                    title="Fakülte / Birim Seçimi"
+                    options={staffFacultySelectOptions}
+                    value={selectedStaffFaculty}
+                    onChange={(facId) => handleStaffFacultyChange(facId)}
+                    placeholder={`-- Lütfen Fakülte veya Birim Seçiniz (${visibleStaffUnits.length} Birim) --`}
+                    clearable={!!selectedStaffFaculty}
+                    onClear={() => handleStaffFacultyChange('')}
+                  />
                 </div>
 
                 {/* 2. Selector: Bölüm / Program / Anabilim Dalı Seçimi */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
-                    <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Bölüm / Anabilim Dalı
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedStaffDepartment}
-                      onChange={(e) => setSelectedStaffDepartment(e.target.value)}
-                      disabled={!selectedStaffFaculty}
-                      className="w-full appearance-none px-3.5 py-2.5 bg-white dark:bg-[#1a2e35] border border-stone-300 dark:border-white/10 rounded-xl text-xs font-semibold text-stone-900 dark:text-stone-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all pr-9 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {!selectedStaffFaculty ? (
-                        <option value="" className="bg-white dark:bg-[#1a2e35] text-stone-500 font-medium">
-                          -- Önce Bir Fakülte veya Birim Seçiniz --
-                        </option>
-                      ) : (
-                        <>
-                          <option value="Tümü" className="bg-white dark:bg-[#1a2e35] text-stone-900 dark:text-stone-100 font-bold">
-                            Tüm Bölümler ({activeStaffFacultyConfig?.shortName}) - {staffList.filter(s => s.facultyId === selectedStaffFaculty).length} Personel
-                          </option>
-                          {availableStaffDepartments.filter(d => d !== 'Tümü').map((dept) => {
-                            const count = staffList.filter(s => s.facultyId === selectedStaffFaculty && s.department === dept).length;
-                            return (
-                              <option key={dept} value={dept} className="bg-white dark:bg-[#1a2e35] text-stone-800 dark:text-stone-200 py-1.5 font-normal">
-                                {dept} ({count} Personel)
-                              </option>
-                            );
-                          })}
-                        </>
-                      )}
-                    </select>
-                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                      <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Bölüm / Anabilim Dalı</span>
+                    </label>
+                    {selectedStaffDepartment !== 'Tümü' && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStaffDepartment('Tümü')}
+                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                      >
+                        Tüm Bölümler
+                      </button>
+                    )}
                   </div>
+                  <CustomSelectPicker
+                    title="Bölüm / Anabilim Dalı Seçimi"
+                    disabled={!selectedStaffFaculty}
+                    options={staffDepartmentSelectOptions}
+                    value={selectedStaffDepartment}
+                    onChange={(dept) => setSelectedStaffDepartment(dept)}
+                    placeholder={!selectedStaffFaculty ? "-- Önce Bir Fakülte veya Birim Seçiniz --" : "Tüm Bölümler"}
+                  />
                 </div>
               </div>
 
@@ -1476,69 +1566,80 @@ export default function CampusHub() {
                 return uniqueEvents.map((ev) => (
                   <div
                     key={ev.id}
-                    onClick={() => ev.url && setSelectedDetail({
+                    onClick={() => setSelectedDetail({
                       url: ev.url,
                       title: ev.title,
                       imageUrl: ev.img,
                       images: ev.img ? [ev.img] : [],
                       date: ev.date,
                       category: ev.category || 'Etkinlik',
-                      content: ev.content
+                      content: ev.content || ev.description || ev.title
                     })}
-                    className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg transition-all"
+                    className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between"
                   >
-                    {ev.img && (
-                      <div className="h-44 w-full bg-stone-200 dark:bg-stone-800 overflow-hidden relative">
-                        <img
-                          src={ev.img}
-                          alt={ev.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => {
-                            // Hide broken image
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-md text-[10px] font-semibold text-white tracking-wider uppercase">
-                          {ev.category || 'Etkinlik'}
+                    <div>
+                      {ev.img && (
+                        <div className="h-44 w-full bg-stone-200 dark:bg-stone-800 overflow-hidden relative">
+                          <img
+                            src={ev.img}
+                            alt={ev.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              // Hide broken image
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-md rounded-md text-[10px] font-semibold text-white tracking-wider uppercase">
+                            {ev.category || 'Etkinlik'}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-4 sm:p-5 space-y-2.5">
+                        <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span>
+                            {(() => {
+                              const raw = (ev.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
+                              const dateMatch = raw.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || raw.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
+                              if (dateMatch) return dateMatch[1];
+                              if (raw && !raw.toLowerCase().includes('yaklaşan') && !raw.toLowerCase().includes('tarih') && !raw.toLowerCase().includes('devam')) {
+                                return raw;
+                              }
+                              return '02 Ekim 2026';
+                            })()}
+                          </span>
+                        </div>
+
+                        <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
+                          {ev.title}
+                        </h3>
+
+                        {/* Event Content / Description Summary Text */}
+                        {(ev.content || ev.description) && (
+                          <p className="text-xs text-stone-600 dark:text-stone-300 line-clamp-3 leading-relaxed font-normal pt-0.5">
+                            {ev.content || ev.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60 pt-1">
+                          <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <span>{ev.location || 'Konum için bilgi afişini referans alın.'}</span>
                         </div>
                       </div>
-                    )}
+                    </div>
 
-                    <div className="p-4 sm:p-5 space-y-2.5">
-                      <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                        <Clock className="w-3.5 h-3.5 shrink-0" />
-                        <span>
-                          {(() => {
-                            const raw = (ev.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
-                            const dateMatch = raw.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || raw.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-                            if (dateMatch) return dateMatch[1];
-                            if (raw && !raw.toLowerCase().includes('yaklaşan') && !raw.toLowerCase().includes('tarih') && !raw.toLowerCase().includes('devam')) {
-                              return raw;
-                            }
-                            return '02 Ekim 2026';
-                          })()}
-                        </span>
-                      </div>
-
-                      <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
-                        {ev.title}
-                      </h3>
-
-                      <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-white/60">
-                        <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                        <span>Konum için bilgi afişini referans alın.</span>
-                      </div>
-
-                      <div className="pt-2 flex items-center justify-between border-t border-stone-200/50 dark:border-white/5 mt-2">
+                    <div className="p-4 sm:p-5 pt-0">
+                      <div className="pt-2.5 flex items-center justify-between border-t border-stone-200/50 dark:border-white/5">
                         <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
                           Etkinlik Detayı <ChevronRight className="w-4 h-4" />
                         </span>
-                        {ev.url && (
+                        {ev.url && ev.url.startsWith('http') && (
                           <a
                             href={ev.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => openExternalUrl(ev.url, e)}
+                            onClick={(e) => openExternalUrl(ev.url!, e)}
                             className="text-[11px] font-medium text-stone-400 hover:text-stone-700 dark:hover:text-white flex items-center gap-1 transition-colors z-10"
                             title="Resmi web sitesinde aç"
                           >

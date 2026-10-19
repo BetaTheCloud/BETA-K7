@@ -278,10 +278,21 @@ export default function Bologna() {
     } else if (activeDegreeType) {
       setActiveDegreeType(null);
     } else {
-      if (window.history.length > 1) navigate(-1);
-      else navigate('/');
+      navigate('/');
     }
   };
+
+  // Synchronize global header back button with Bologna depth hierarchy
+  useEffect(() => {
+    const handleHeaderBack = (e: Event) => {
+      if (activeCourse || activeDepartment || activeFaculty || activeDegreeType) {
+        e.preventDefault();
+        handleBack();
+      }
+    };
+    window.addEventListener('k7_header_back', handleHeaderBack);
+    return () => window.removeEventListener('k7_header_back', handleHeaderBack);
+  }, [activeCourse, activeDepartment, activeFaculty, activeDegreeType]);
 
   // Toggle semester accordion
   const toggleSemester = (sem: number) => {
@@ -360,7 +371,7 @@ export default function Bologna() {
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
         >
           <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
-          <span>{activeDegreeType ? 'Önceki Seviyeye Dön' : 'Geri Menüye Dön'}</span>
+          <span>{activeDegreeType ? 'Önceki Seviyeye Dön' : 'Geri Ana Sayfaya Dön'}</span>
         </button>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

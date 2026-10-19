@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { X, Check, Calendar } from 'lucide-react';
 import { ExamItem, ExamType } from '../../types/schedule';
 import { upsertExam } from '../../lib/scheduleStorage';
+import { generateUniqueId } from '../../lib/scheduleParser';
 import toast from 'react-hot-toast';
 
 interface ExamFormModalProps {
@@ -48,7 +49,7 @@ export default function ExamFormModal({
     }
 
     const exam: ExamItem = {
-      id: initialExam?.id || `exam-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      id: initialExam?.id || generateUniqueId('exam'),
       grade,
       gradeLabel: grade === 0 ? 'Genel' : `${grade}. Sınıf`,
       department: department.trim(),

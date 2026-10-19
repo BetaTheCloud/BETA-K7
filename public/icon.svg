@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Background Gradient -->
+    <!-- Background Gradient (K7AÜ Füme / Slate: #363d50) -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e3a8a"/>
-      <stop offset="50%" stop-color="#172554"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+      <stop offset="0%" stop-color="#363d50"/>
+      <stop offset="50%" stop-color="#242936"/>
+      <stop offset="100%" stop-color="#161922"/>
     </linearGradient>
 
-    <!-- Shield Blue Gradient -->
+    <!-- Shield Crimson Bordo Gradient (K7AÜ Bordo: #8a2a43) -->
     <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e3e68"/>
-      <stop offset="40%" stop-color="#102540"/>
-      <stop offset="100%" stop-color="#091424"/>
+      <stop offset="0%" stop-color="#8a2a43"/>
+      <stop offset="50%" stop-color="#5c1c2d"/>
+      <stop offset="100%" stop-color="#363d50"/>
     </linearGradient>
 
     <!-- Gold Foil Gradient -->

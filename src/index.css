@@ -123,3 +123,162 @@ img, svg, video {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ================= K7AÜ LOGO & KURUMSAL TEMA MOTORU ================= */
+:root {
+  --brand-primary: #8a2a43;
+  --brand-secondary: #363d50;
+  --brand-accent: #8a2a43;
+  --app-bg: #f6f7f9;
+  --app-card: #ffffff;
+  --app-border: #e2e8f0;
+  --app-header-bg: rgba(255, 255, 255, 0.95);
+  --app-text: #1e293b;
+}
+
+html.dark {
+  --brand-primary: #8a2a43;
+  --brand-secondary: #363d50;
+  --brand-accent: #a83856;
+  --app-bg: #1a1f2b;
+  --app-card: #262d3d;
+  --app-border: rgba(255, 255, 255, 0.09);
+  --app-header-bg: rgba(38, 45, 61, 0.95);
+  --app-text: #f8fafc;
+}
+
+/* Palette 1: K7AÜ Logo Kurumsal (Resmi) */
+/* Exact logo colors: #8a2a43 and #363d50 */
+html.palette-k7au {
+  --brand-primary: #8a2a43;
+  --brand-secondary: #363d50;
+  --brand-accent: #8a2a43;
+}
+html.palette-k7au:not(.dark) {
+  --app-bg: #f6f7f9;
+  --app-card: #ffffff;
+  --app-border: #e2e8f0;
+  --app-header-bg: rgba(255, 255, 255, 0.95);
+}
+html.palette-k7au.dark {
+  --app-bg: #1a1f2b;
+  --app-card: #262d3d;
+  --app-border: rgba(255, 255, 255, 0.09);
+  --app-header-bg: rgba(38, 45, 61, 0.95);
+}
+
+/* Palette 2: Klasik Kampüs (#264653 & #2a9d8f) */
+html.palette-heritage {
+  --brand-primary: #264653;
+  --brand-secondary: #2a9d8f;
+  --brand-accent: #e9c46a;
+}
+html.palette-heritage:not(.dark) {
+  --app-bg: #f4f1ea;
+  --app-card: #fcfbf9;
+  --app-border: #e6e2d6;
+  --app-header-bg: rgba(252, 251, 249, 0.95);
+}
+html.palette-heritage.dark {
+  --app-bg: #1d3540;
+  --app-card: #264653;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-header-bg: rgba(38, 70, 83, 0.95);
+}
+
+/* Palette 3: Gece Safiri (#1e3a8a & #3b82f6) */
+html.palette-sapphire {
+  --brand-primary: #1e3a8a;
+  --brand-secondary: #0f172a;
+  --brand-accent: #3b82f6;
+}
+html.palette-sapphire:not(.dark) {
+  --app-bg: #f8fafc;
+  --app-card: #ffffff;
+  --app-border: #e2e8f0;
+  --app-header-bg: rgba(255, 255, 255, 0.95);
+}
+html.palette-sapphire.dark {
+  --app-bg: #0b1329;
+  --app-card: #132247;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-header-bg: rgba(19, 34, 71, 0.95);
+}
+
+/* Palette 4: Güneş & Kehribar (#b45309 & #f59e0b) */
+html.palette-amber {
+  --brand-primary: #b45309;
+  --brand-secondary: #1c1917;
+  --brand-accent: #f59e0b;
+}
+html.palette-amber:not(.dark) {
+  --app-bg: #fffdfa;
+  --app-card: #ffffff;
+  --app-border: #f3ede2;
+  --app-header-bg: rgba(255, 255, 255, 0.95);
+}
+html.palette-amber.dark {
+  --app-bg: #1c1712;
+  --app-card: #29221a;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-header-bg: rgba(41, 34, 26, 0.95);
+}
+
+/* Palette 5: Modern Minimalist (#18181b & #71717a) */
+html.palette-minimal {
+  --brand-primary: #18181b;
+  --brand-secondary: #27272a;
+  --brand-accent: #71717a;
+}
+html.palette-minimal:not(.dark) {
+  --app-bg: #f4f4f5;
+  --app-card: #ffffff;
+  --app-border: #e4e4e7;
+  --app-header-bg: rgba(255, 255, 255, 0.95);
+}
+html.palette-minimal.dark {
+  --app-bg: #09090b;
+  --app-card: #18181b;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-header-bg: rgba(24, 24, 27, 0.95);
+}
+
+/* Live Global Surface Mappings - Makes all cards & pages across the app instantly adapt */
+body {
+  background-color: var(--app-bg) !important;
+}
+
+.min-h-screen,
+[class*="bg-[#f4f1ea]"],
+[class*="dark:bg-[#1d3540]"] {
+  background-color: var(--app-bg) !important;
+}
+
+[class*="bg-[#fcfbf9]"],
+[class*="dark:bg-[#264653]"],
+[class*="dark:bg-[#223943]"],
+[class*="dark:bg-[#1c3038]"],
+[class*="dark:bg-[#111d35]"],
+[class*="dark:bg-[#152442]"],
+[class*="dark:bg-[#0d172c]"],
+[class*="bg-[#faf8f5]"] {
+  background-color: var(--app-card) !important;
+}
+
+[class*="border-[#e6e2d6]"],
+[class*="dark:border-white/10"],
+[class*="dark:border-white/15"] {
+  border-color: var(--app-border) !important;
+}
+
+header[class*="sticky"] {
+  background-color: var(--app-header-bg) !important;
+}
+
+nav[class*="backdrop-blur"] > div {
+  background-color: var(--app-header-bg) !important;
+}
+
+aside[class*="fixed"] {
+  background-color: var(--app-card) !important;
+}

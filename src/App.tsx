@@ -23,6 +23,8 @@ export default function App() {
           <Route path="announcements" element={<Announcements />} />
           <Route path="news" element={<News />} />
           <Route path="campus" element={<CampusHub />} />
+          <Route path="phonebook" element={<CampusHub />} />
+          <Route path="telefon-rehberi" element={<CampusHub />} />
           <Route path="directory" element={<CampusHub />} />
           <Route path="events" element={<CampusHub />} />
           <Route path="transport" element={<CampusHub />} />

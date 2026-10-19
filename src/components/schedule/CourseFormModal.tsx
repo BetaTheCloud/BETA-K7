@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, Check, BookOpen } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
-import { upsertCourse } from '../../lib/scheduleStorage';
+import { upsertCourse, getStoredCourses, hasTimeOverlap } from '../../lib/scheduleStorage';
 import toast from 'react-hot-toast';
 
 interface CourseFormModalProps {
@@ -64,8 +64,17 @@ export default function CourseFormModal({
       isEnrolled: initialCourse ? initialCourse.isEnrolled : true,
     };
 
+    // Check if another course exists on the same day and time slot
+    const existing = getStoredCourses().filter(c => c.id !== course.id && c.day === course.day && hasTimeOverlap(course, c));
+
     upsertCourse(course);
-    toast.success(initialCourse ? 'Ders güncellendi' : 'Yeni ders eklendi');
+
+    if (existing.length > 0) {
+      toast.success(`Ders eklendi. (⚠️ ${day} günü saat ${startTime}-${endTime} arasında ${existing[0].courseName} dersiniz de var)`);
+    } else {
+      toast.success(initialCourse ? 'Ders güncellendi' : 'Yeni ders eklendi');
+    }
+
     onSaved();
     onClose();
   };

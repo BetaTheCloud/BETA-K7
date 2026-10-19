@@ -5,32 +5,51 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Sun, Moon, Landmark, Settings, ArrowLeft } from 'lucide-react';
+import { SunMoon, Settings, ArrowLeft, HelpCircle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { PWAInstallButton } from './PWAInstallButton';
 import AppSettingsModal from './AppSettingsModal';
 import SyncStatusBadge from './SyncStatusBadge';
+import K7Logo from './K7Logo';
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'widgets' | 'font' | 'server'>('widgets');
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'theme' | 'quick_services' | 'widgets' | 'font' | 'server'>('theme');
   const location = useLocation();
   const navigate = useNavigate();
 
   const isNotHome = location.pathname !== '/';
 
   const handleGoBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/');
+    if (isSettingsOpen) {
+      setIsSettingsOpen(false);
+      return;
     }
+
+    // 1. Allow active page or open modal to handle step-back navigation (e.g. Bologna depth, CampusHub subtabs, open modals)
+    const backEvent = new CustomEvent('k7_header_back', { cancelable: true });
+    const wasHandled = !window.dispatchEvent(backEvent);
+    if (wasHandled) {
+      return;
+    }
+
+    // 2. Default: Clean return to home screen avoiding disparate history loops
+    navigate('/');
   };
 
   useEffect(() => {
     const handleOpenSettingsEvent = (e: any) => {
-      const tab = e?.detail?.tab === 'server' ? 'server' : e?.detail?.tab === 'font' ? 'font' : 'widgets';
+      const requested = e?.detail?.tab;
+      const tab = requested === 'server' 
+        ? 'server' 
+        : requested === 'font' 
+          ? 'font' 
+          : requested === 'widgets' 
+            ? 'widgets' 
+            : requested === 'quick_services'
+              ? 'quick_services'
+              : 'theme';
       setSettingsInitialTab(tab);
       setIsSettingsOpen(true);
     };
@@ -59,10 +78,7 @@ export default function Header() {
           )}
 
           <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group">
-            <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-rose-900 to-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)] group-hover:scale-105 transition-transform">
-              <div className="absolute inset-0 bg-white/20 rounded-2xl mix-blend-overlay"></div>
-              <Landmark className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" strokeWidth={1.5} />
-            </div>
+            <K7Logo className="w-10 h-10 sm:w-11 sm:h-11 group-hover:scale-105 transition-transform" />
             <div className="flex flex-col justify-center">
               <span className="text-xl sm:text-2xl font-display font-extrabold tracking-tight text-stone-900 dark:text-white leading-none">
                 K7AÜ
@@ -78,13 +94,25 @@ export default function Header() {
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           <SyncStatusBadge />
 
+          {/* Welcome & Features Guide Modal Trigger */}
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'));
+            }}
+            title="Karşılama Ekranı & Uygulama Tanıtım Rehberi"
+            className="relative p-1.5 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+            aria-label="Karşılama Ekranı & Uygulama Rehberi"
+          >
+            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" strokeWidth={1.8} />
+          </button>
+
           {/* App Settings: Customizable Widgets & Password-Protected Server Config */}
           <button
             onClick={() => {
-              setSettingsInitialTab('widgets');
+              setSettingsInitialTab('quick_services');
               setIsSettingsOpen(true);
             }}
-            title="Uygulama Ayarları (Widget Yönetimi & Sunucu)"
+            title="Uygulama Ayarları (Kısayollar, Widget'lar & Sunucu)"
             className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
             aria-label="Ayarlar"
           >
@@ -95,14 +123,14 @@ export default function Header() {
           
           <button
             onClick={toggleTheme}
-            className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-500 dark:text-white/60 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            aria-label="Toggle theme"
+            title={`Görünüm Modu: ${theme === 'dark' ? 'Koyu Mod (Tıkla: Açık Moda Geç)' : 'Açık Mod (Tıkla: Koyu Moda Geç)'}`}
+            className="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/15 border border-stone-200/80 dark:border-white/10 transition-all duration-300 active:scale-95 cursor-pointer shrink-0 shadow-xs group"
+            aria-label="Koyu veya Açık Görünüm Modunu Değiştir"
           >
-            {theme === 'dark' ? (
-              <Sun className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={1.5} />
-            ) : (
-              <Moon className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={1.5} />
-            )}
+            <SunMoon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-300 transition-transform duration-500 group-hover:rotate-180 shrink-0" strokeWidth={1.8} />
+            <span className="hidden sm:inline text-[11px] font-bold text-stone-700 dark:text-stone-200">
+              {theme === 'dark' ? 'Koyu' : 'Açık'}
+            </span>
           </button>
         </div>
 

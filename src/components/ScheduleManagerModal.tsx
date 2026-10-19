@@ -18,7 +18,9 @@ import {
   BookOpen,
   GraduationCap,
   CalendarCheck,
-  RotateCcw
+  RotateCcw,
+  ClipboardPaste,
+  FileText
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -34,8 +36,11 @@ import {
   addExam,
   updateExam,
   deleteExam,
-  clearAllScheduleData
+  clearAllScheduleData,
+  SCHEDULE_CHANGED_EVENT,
+  SCHEDULE_UPDATED_EVENT
 } from '../lib/scheduleStorage';
+import ScheduleImportModal from './schedule/ScheduleImportModal';
 import toast from 'react-hot-toast';
 
 interface ScheduleManagerModalProps {
@@ -55,6 +60,7 @@ export default function ScheduleManagerModal({
   const [activeTab, setActiveTab] = useState<'courses' | 'exams'>(initialTab);
   const [courses, setCourses] = useState<CourseScheduleItem[]>([]);
   const [exams, setExams] = useState<ExamScheduleItem[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Selected Day & Grade Filters for Courses tab
   const [selectedDayFilter, setSelectedDayFilter] = useState<DayOfWeek | 'all'>('all');
@@ -119,13 +125,27 @@ export default function ScheduleManagerModal({
       setConfirmDeleteExamId(null);
       setIsConfirmingClearAll(false);
       document.body.style.overflow = 'hidden';
+
+      const handleHeaderBack = (e: Event) => {
+        e.preventDefault();
+        onClose();
+      };
+      const handleScheduleUpdate = () => loadData();
+
+      window.addEventListener('k7_header_back', handleHeaderBack);
+      window.addEventListener(SCHEDULE_CHANGED_EVENT, handleScheduleUpdate);
+      window.addEventListener(SCHEDULE_UPDATED_EVENT, handleScheduleUpdate);
+
+      return () => {
+        document.body.style.overflow = 'unset';
+        window.removeEventListener('k7_header_back', handleHeaderBack);
+        window.removeEventListener(SCHEDULE_CHANGED_EVENT, handleScheduleUpdate);
+        window.removeEventListener(SCHEDULE_UPDATED_EVENT, handleScheduleUpdate);
+      };
     } else {
       document.body.style.overflow = 'unset';
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, onClose]);
 
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
@@ -295,16 +315,22 @@ export default function ScheduleManagerModal({
     toast.success('Tüm ders ve sınav programı temizlendi.');
   };
 
-  // Filtered Courses (Day & Grade)
-  const filteredCourses = courses.filter((c) => {
-    if (selectedDayFilter !== 'all' && c.day !== selectedDayFilter) return false;
-    if (selectedGradeFilter !== 'all' && c.grade !== selectedGradeFilter) return false;
-    return true;
-  });
+  // Filtered Courses (Day & Grade, c.grade === 0 means Ortak/Seçmeli, visible across all grades)
+  const filteredCourses = courses
+    .filter((c) => {
+      if (selectedDayFilter !== 'all' && c.day !== selectedDayFilter) return false;
+      if (selectedGradeFilter !== 'all' && c.grade !== selectedGradeFilter && c.grade !== 0) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const timeComp = a.startTime.localeCompare(b.startTime);
+      if (timeComp !== 0) return timeComp;
+      return a.courseName.localeCompare(b.courseName);
+    });
 
   // Filtered Exams (Grade)
   const filteredExams = exams.filter((e) => {
-    if (selectedGradeFilter !== 'all' && e.grade !== selectedGradeFilter) return false;
+    if (selectedGradeFilter !== 'all' && e.grade !== selectedGradeFilter && e.grade !== 0) return false;
     return true;
   });
 
@@ -377,25 +403,41 @@ export default function ScheduleManagerModal({
         className="relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1f3741] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[96vh] h-[92vh] sm:h-[88vh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between py-4 sm:py-5 px-5 sm:px-6 border-b border-stone-200 dark:border-white/10 bg-stone-100/70 dark:bg-black/20 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 text-stone-950 flex items-center justify-center shadow-xs">
+        <div className="flex items-center justify-between py-3.5 sm:py-4 px-4 sm:px-6 border-b border-stone-200 dark:border-white/10 bg-stone-100/70 dark:bg-black/20 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 text-stone-950 flex items-center justify-center shadow-xs shrink-0">
               <CalendarCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white leading-tight">
-                Kişisel Ders & Sınav Ajandası
+            <div className="min-w-0">
+              <h3 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white leading-tight truncate">
+                Ders & Sınav Programı Ajandası
               </h3>
+              <p className="text-[11px] text-stone-500 dark:text-white/60 hidden sm:block">
+                Metinden içe aktarabilir veya el ile ders ekleyebilirsiniz
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
-            title="Kapat"
-            aria-label="Kapat"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+            >
+              <ClipboardPaste className="w-4 h-4" />
+              <span className="hidden sm:inline">Metinden İçe Aktar</span>
+              <span className="sm:hidden">Metinden Aktar</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 sm:p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Kapat"
+              aria-label="Kapat"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -550,6 +592,11 @@ export default function ScheduleManagerModal({
                             {course.category}
                           </span>
                         )}
+                        {courses.some((o) => o.id !== course.id && o.day === course.day && o.startTime === course.startTime) && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/25">
+                            ⚡ Aynı Saatte Paralel Ders
+                          </span>
+                        )}
                         {course.courseCode && (
                           <span className="text-[10px] font-mono text-stone-400 dark:text-white/40 ml-auto tabular-nums">
                             {course.courseCode}
@@ -629,16 +676,16 @@ export default function ScheduleManagerModal({
                       : 'Seçili kriterlere uygun ders bulunamadı.'}
                   </p>
                   <p className="text-xs text-stone-400 dark:text-white/40 max-w-sm mx-auto">
-                    Dilediğiniz sınıf veya bölüme ait dersleri "Yeni Ders Ekle" butonunu kullanarak ekleyebilirsiniz.
+                    Yukarıdaki "Metinden İçe Aktar" özelliğini kullanarak veya el ile ders ekleyebilirsiniz.
                   </p>
-                  <div>
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={handleOpenAddCourse}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>İlk Dersi Ekle</span>
+                      <span>Ders Ekle</span>
                     </button>
                   </div>
                 </div>
@@ -1330,5 +1377,19 @@ export default function ScheduleManagerModal({
     </div>
   );
 
-  return createPortal(modalMarkup, document.body);
+  return (
+    <>
+      {createPortal(modalMarkup, document.body)}
+      <ScheduleImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          loadData();
+        }}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
+    </>
+  );
 }

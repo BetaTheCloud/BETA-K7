@@ -168,13 +168,12 @@ export default function Menu() {
       <header className="border-b border-[#e6e2d6] dark:border-white/10 pb-4">
         <button
           onClick={() => {
-            if (window.history.length > 1) navigate(-1);
-            else navigate('/');
+            navigate('/');
           }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-white/10 hover:bg-stone-200 dark:hover:bg-white/15 text-stone-700 dark:text-stone-300 text-xs font-semibold mb-3 transition-all border border-stone-200 dark:border-white/10 active:scale-95 cursor-pointer shadow-sm"
         >
           <ArrowLeft className="w-3.5 h-3.5 text-rose-600 dark:text-amber-400" />
-          <span>Geri Menüye Dön</span>
+          <span>Geri Ana Sayfaya Dön</span>
         </button>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>

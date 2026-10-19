@@ -57,33 +57,13 @@ export const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     badge: '8 Kısayol'
   },
   {
-    id: 'menu',
-    title: 'Günün Yemek Menüsü',
-    shortDesc: 'Öğrenci ve personel yemekhanesi 4 kap yemek ve kalori bilgisi',
-    iconName: 'ChefHat',
-    category: 'sosyal',
-    visible: true,
-    order: 3,
-    badge: 'Günlük Menü'
-  },
-  {
-    id: 'student_schedule',
-    title: 'Günün Ders & Sınav Programı',
-    shortDesc: 'Kişisel ders programınız, derslik, saat, hoca ve yaklaşan sınavlar',
-    iconName: 'GraduationCap',
-    category: 'akademik',
-    visible: true,
-    order: 4,
-    badge: 'Kişisel Ajanda'
-  },
-  {
     id: 'news',
     title: 'Üniversite & Bölüm Haberleri',
     shortDesc: 'Rektörlük ve fakülte güncel haber akışı',
     iconName: 'Newspaper',
     category: 'sosyal',
     visible: true,
-    order: 5
+    order: 3
   },
   {
     id: 'announcements',
@@ -92,7 +72,7 @@ export const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     iconName: 'Megaphone',
     category: 'akademik',
     visible: true,
-    order: 6
+    order: 4
   },
   {
     id: 'events',
@@ -101,7 +81,17 @@ export const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     iconName: 'CalendarDays',
     category: 'sosyal',
     visible: true,
-    order: 7
+    order: 5
+  },
+  {
+    id: 'student_schedule',
+    title: 'Günün Ders & Sınav Programı',
+    shortDesc: 'Kişisel ders programınız, derslik, saat, hoca ve yaklaşan sınavlar',
+    iconName: 'GraduationCap',
+    category: 'akademik',
+    visible: true,
+    order: 6,
+    badge: 'Kişisel Ajanda'
   },
   {
     id: 'academic_highlight',
@@ -110,8 +100,18 @@ export const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
     iconName: 'GraduationCap',
     category: 'akademik',
     visible: true,
+    order: 7,
+    badge: 'Takvim'
+  },
+  {
+    id: 'menu',
+    title: 'Günün Yemek Menüsü',
+    shortDesc: 'Öğrenci ve personel yemekhanesi 4 kap yemek ve kalori bilgisi',
+    iconName: 'ChefHat',
+    category: 'sosyal',
+    visible: false,
     order: 8,
-    badge: 'Yeni'
+    badge: 'Günlük Menü'
   },
   {
     id: 'campus_emergency',
@@ -125,41 +125,63 @@ export const DEFAULT_WIDGET_CONFIGS: WidgetConfig[] = [
   }
 ];
 
-const STORAGE_KEY = 'k7_home_widgets_v3';
-const PREV_STORAGE_KEY = 'k7_home_widgets_v2';
+const STORAGE_KEY = 'k7_home_widgets_v5';
+const PREV_STORAGE_KEY = 'k7_home_widgets_v4';
 export const WIDGETS_CHANGED_EVENT = 'k7_home_widgets_changed';
 
 export function getHomeWidgetConfigs(): WidgetConfig[] {
   if (typeof window === 'undefined') return DEFAULT_WIDGET_CONFIGS;
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(PREV_STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_WIDGET_CONFIGS;
 
     const parsed: Partial<WidgetConfig>[] = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_WIDGET_CONFIGS;
 
-    // Merge with defaults to ensure any new widgets added in updates are included
-    const configMap = new Map<WidgetId, Partial<WidgetConfig>>();
-    parsed.forEach((item) => {
-      if (item.id) configMap.set(item.id as WidgetId, item);
-    });
+    const defaultMap = new Map<WidgetId, WidgetConfig>();
+    DEFAULT_WIDGET_CONFIGS.forEach((d) => defaultMap.set(d.id, d));
 
-    const merged: WidgetConfig[] = DEFAULT_WIDGET_CONFIGS.map((defaultItem) => {
-      const saved = configMap.get(defaultItem.id);
-      if (!saved) return defaultItem;
-      return {
-        ...defaultItem,
-        visible: typeof saved.visible === 'boolean' ? saved.visible : defaultItem.visible,
-        order: typeof saved.order === 'number' ? saved.order : defaultItem.order
-      };
-    });
+    // If items have explicit numeric order, sort by it; otherwise retain array sequence
+    const sortedParsed = [...parsed];
+    const hasOrderFields = sortedParsed.some((p) => typeof p.order === 'number');
+    if (hasOrderFields) {
+      sortedParsed.sort((a, b) => {
+        const orderA = typeof a.order === 'number' ? a.order : 999;
+        const orderB = typeof b.order === 'number' ? b.order : 999;
+        return orderA - orderB;
+      });
+    }
 
-    // Sort by order ascending
-    merged.sort((a, b) => a.order - b.order);
+    const seenIds = new Set<WidgetId>();
+    const result: WidgetConfig[] = [];
 
-    // Re-index order seamlessly [0, 1, 2, ...]
-    return merged.map((item, index) => ({ ...item, order: index }));
+    // Reconstruct list in the exact saved sequence with full metadata
+    for (const item of sortedParsed) {
+      if (!item.id || !defaultMap.has(item.id as WidgetId)) continue;
+      const widgetId = item.id as WidgetId;
+      if (seenIds.has(widgetId)) continue;
+      seenIds.add(widgetId);
+
+      const defaultDef = defaultMap.get(widgetId)!;
+      result.push({
+        ...defaultDef,
+        visible: typeof item.visible === 'boolean' ? item.visible : defaultDef.visible,
+        order: result.length
+      });
+    }
+
+    // Append any default widgets not yet present in saved data
+    for (const defaultItem of DEFAULT_WIDGET_CONFIGS) {
+      if (!seenIds.has(defaultItem.id)) {
+        result.push({
+          ...defaultItem,
+          order: result.length
+        });
+      }
+    }
+
+    return result;
   } catch (err) {
     console.warn('Widget ayarları okunurken hata, varsayılana dönülüyor:', err);
     return DEFAULT_WIDGET_CONFIGS;
@@ -169,9 +191,17 @@ export function getHomeWidgetConfigs(): WidgetConfig[] {
 export function saveHomeWidgetConfigs(configs: WidgetConfig[]): void {
   if (typeof window === 'undefined') return;
   try {
-    // Re-index order
+    // Re-index order seamlessly
     const ordered = configs.map((c, i) => ({ ...c, order: i }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ordered));
+    // Remove older storage versions to prevent legacy fallback pollution
+    try {
+      localStorage.removeItem(PREV_STORAGE_KEY);
+      localStorage.removeItem('k7_home_widgets_v3');
+      localStorage.removeItem('k7_home_widgets_v2');
+      localStorage.removeItem('k7_home_widgets_v1');
+      localStorage.removeItem('k7_home_widgets');
+    } catch {}
     window.dispatchEvent(new CustomEvent(WIDGETS_CHANGED_EVENT, { detail: ordered }));
   } catch (err) {
     console.error('Widget ayarları kaydedilemedi:', err);
@@ -182,6 +212,11 @@ export function resetHomeWidgetConfigs(): WidgetConfig[] {
   if (typeof window === 'undefined') return DEFAULT_WIDGET_CONFIGS;
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PREV_STORAGE_KEY);
+    localStorage.removeItem('k7_home_widgets_v3');
+    localStorage.removeItem('k7_home_widgets_v2');
+    localStorage.removeItem('k7_home_widgets_v1');
+    localStorage.removeItem('k7_home_widgets');
     window.dispatchEvent(new CustomEvent(WIDGETS_CHANGED_EVENT, { detail: DEFAULT_WIDGET_CONFIGS }));
   } catch (err) {
     console.error('Widget ayarları sıfırlanamadı:', err);
@@ -199,6 +234,32 @@ export function moveWidget(configs: WidgetConfig[], id: WidgetId, direction: 'up
   const newConfigs = [...configs];
   const [removed] = newConfigs.splice(index, 1);
   newConfigs.splice(targetIndex, 0, removed);
+
+  return newConfigs.map((c, i) => ({ ...c, order: i }));
+}
+
+export function moveVisibleWidget(
+  configs: WidgetConfig[],
+  id: WidgetId,
+  direction: 'up' | 'down'
+): WidgetConfig[] {
+  const visible = configs.filter((c) => c.visible);
+  const visIndex = visible.findIndex((c) => c.id === id);
+  if (visIndex === -1) return configs;
+
+  const targetVisIndex = direction === 'up' ? visIndex - 1 : visIndex + 1;
+  if (targetVisIndex < 0 || targetVisIndex >= visible.length) return configs;
+
+  const targetId = visible[targetVisIndex].id;
+
+  const idxA = configs.findIndex((c) => c.id === id);
+  const idxB = configs.findIndex((c) => c.id === targetId);
+  if (idxA === -1 || idxB === -1) return configs;
+
+  const newConfigs = [...configs];
+  const temp = newConfigs[idxA];
+  newConfigs[idxA] = newConfigs[idxB];
+  newConfigs[idxB] = temp;
 
   return newConfigs.map((c, i) => ({ ...c, order: i }));
 }
