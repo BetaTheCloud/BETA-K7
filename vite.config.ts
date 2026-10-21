@@ -65,7 +65,7 @@ export default defineConfig(() => {
             },
           ],
         },
-        devOptions: { enabled: false, type: 'module' },
+        devOptions: { enabled: true, type: 'module' },
       }),
     ],
     resolve: {

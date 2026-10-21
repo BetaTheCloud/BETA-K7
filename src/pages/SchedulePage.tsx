@@ -16,14 +16,15 @@ import {
   Layers,
   Trash2,
   FileDown,
-  Info,
   ArrowLeft,
+  BellRing,
 } from 'lucide-react';
 import WeeklyTimetable from '../components/schedule/WeeklyTimetable';
 import ExamScheduleView from '../components/schedule/ExamScheduleView';
 import ScheduleImportModal from '../components/schedule/ScheduleImportModal';
 import CourseFormModal from '../components/schedule/CourseFormModal';
 import ExamFormModal from '../components/schedule/ExamFormModal';
+import ScheduleNotificationModal from '../components/schedule/ScheduleNotificationModal';
 import {
   getStoredCourses,
   getStoredExams,
@@ -51,6 +52,7 @@ export default function SchedulePage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isCourseFormOpen, setIsCourseFormOpen] = useState(false);
   const [isExamFormOpen, setIsExamFormOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<CourseItem | null>(null);
   const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
 
@@ -128,6 +130,15 @@ export default function SchedulePage() {
 
         {/* Quick Action Buttons */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsNotificationModalOpen(true)}
+            className="px-3.5 py-2.5 bg-[#8a2a43]/10 hover:bg-[#8a2a43]/20 text-[#8a2a43] dark:text-rose-300 font-bold rounded-xl text-xs flex items-center gap-2 border border-[#8a2a43]/30 transition-all cursor-pointer active:scale-95 shadow-xs"
+            title="Ders ve Sınav Bildirimleri (10 ve 5 dakika kala)"
+          >
+            <BellRing className="w-4 h-4 text-[#8a2a43] dark:text-rose-300 animate-pulse" />
+            <span>Bildirimler (10 & 5 Dk)</span>
+          </button>
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
@@ -272,6 +283,11 @@ export default function SchedulePage() {
         }}
         initialExam={editingExam}
         onSaved={reloadData}
+      />
+
+      <ScheduleNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
       />
     </div>
   );

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   CalendarDays,
@@ -17,10 +17,18 @@ import {
   Grid3X3,
   BookOpen,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
 import { getOverlappingCourses } from '../../lib/scheduleStorage';
+import {
+  isItemNotificationEnabled,
+  toggleItemNotification,
+  NOTIFICATIONS_CONFIG_CHANGED_EVENT
+} from '../../lib/scheduleNotificationService';
+import toast from 'react-hot-toast';
 
 interface WeeklyTimetableProps {
   courses: CourseItem[];
@@ -56,6 +64,23 @@ export default function WeeklyTimetable({
   onToggleOnlyEnrolled,
 }: WeeklyTimetableProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [, setNotificationTick] = useState(0);
+
+  useEffect(() => {
+    const handleConfigChange = () => setNotificationTick((t) => t + 1);
+    window.addEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+    return () => window.removeEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+  }, []);
+
+  const handleToggleCourseNotification = (courseId: string, courseName: string) => {
+    const isNowEnabled = toggleItemNotification(courseId);
+    setNotificationTick((t) => t + 1);
+    if (isNowEnabled) {
+      toast.success(`"${courseName}" için 10 ve 5 dk kala bildirimler açıldı.`);
+    } else {
+      toast(`"${courseName}" için bildirimler kapatıldı.`, { icon: '🔕' });
+    }
+  };
   
   // Current day in Turkish
   const todayIndex = new Date().getDay();
@@ -243,18 +268,45 @@ export default function WeeklyTimetable({
                               </h4>
                             </div>
 
-                            {/* Quick Star */}
-                            <button
-                              onClick={() => onToggleEnroll(course.id)}
-                              className="p-1 text-stone-300 hover:text-amber-500 transition-colors"
-                              title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
-                            >
-                              <Star
-                                className={`w-3.5 h-3.5 ${
-                                  course.isEnrolled ? 'fill-amber-500 text-amber-500' : ''
+                            {/* Quick Bell & Star */}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleCourseNotification(course.id, course.courseName);
+                                }}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                  isItemNotificationEnabled(course.id)
+                                    ? 'text-[#8a2a43] dark:text-rose-400 hover:bg-[#8a2a43]/10'
+                                    : 'text-stone-300 dark:text-white/20 hover:text-stone-600 dark:hover:text-white/60'
                                 }`}
-                              />
-                            </button>
+                                title={
+                                  isItemNotificationEnabled(course.id)
+                                    ? 'Bildirim Açık (10 ve 5 dk kala uyarı)'
+                                    : 'Bildirimi Aç (10 ve 5 dk kala)'
+                                }
+                              >
+                                <Bell
+                                  className={`w-3.5 h-3.5 ${
+                                    isItemNotificationEnabled(course.id)
+                                      ? 'fill-[#8a2a43] dark:fill-rose-400'
+                                      : ''
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                onClick={() => onToggleEnroll(course.id)}
+                                className="p-1 text-stone-300 hover:text-amber-500 transition-colors cursor-pointer"
+                                title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
+                              >
+                                <Star
+                                  className={`w-3.5 h-3.5 ${
+                                    course.isEnrolled ? 'fill-amber-500 text-amber-500' : ''
+                                  }`}
+                                />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Time & Classroom */}
@@ -398,10 +450,32 @@ export default function WeeklyTimetable({
                       </div>
                     </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCourseNotification(course.id, course.courseName)}
+                      className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                        isItemNotificationEnabled(course.id)
+                          ? 'border-[#8a2a43]/40 bg-[#8a2a43]/10 text-[#8a2a43] dark:text-rose-300'
+                          : 'border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-400'
+                      }`}
+                      title={
+                        isItemNotificationEnabled(course.id)
+                          ? 'Bildirim Açık (10 ve 5 dk kala)'
+                          : 'Bildirimi Aç (10 ve 5 dk kala)'
+                      }
+                    >
+                      <Bell
+                        className={`w-4 h-4 ${
+                          isItemNotificationEnabled(course.id)
+                            ? 'fill-[#8a2a43] dark:fill-rose-400'
+                            : ''
+                        }`}
+                      />
+                    </button>
                     <button
                       onClick={() => onToggleEnroll(course.id)}
-                      className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors"
+                      className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                       title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
                     >
                       <Star

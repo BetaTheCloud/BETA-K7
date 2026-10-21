@@ -16,7 +16,8 @@ import {
   ChevronRight,
   BookOpen,
   CalendarCheck,
-  AlertCircle
+  AlertCircle,
+  BellRing
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -30,6 +31,7 @@ import {
   SCHEDULE_CHANGED_EVENT
 } from '../lib/scheduleStorage';
 import ScheduleManagerModal from './ScheduleManagerModal';
+import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
 import SectionHeader from './SectionHeader';
 
 interface TodayScheduleWidgetProps {
@@ -40,6 +42,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
   const [courses, setCourses] = useState<CourseScheduleItem[]>(() => getCourses());
   const [exams, setExams] = useState<ExamScheduleItem[]>(() => getSortedExams());
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [managerInitialTab, setManagerInitialTab] = useState<'courses' | 'exams'>('courses');
 
   // Active view: 'today' | 'tomorrow' | 'exams' | DayOfWeek
@@ -172,6 +175,11 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         theme="amber"
         title="Günün Ders & Sınav Programı"
         subtitle={`${activeViewDay === currentTodayDay ? `Bugün: ${currentTodayDay}` : activeViewDay} · ${dayCourses.length} Ders Kayıtlı`}
+        secondaryAction={{
+          label: 'Bildirimler (10 & 5 Dk)',
+          onClick: () => setIsNotificationModalOpen(true),
+          icon: BellRing
+        }}
         action={{
           label: 'Programı Düzenle',
           onClick: () => openManager('courses'),
@@ -620,6 +628,12 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         isOpen={isManagerOpen}
         onClose={() => setIsManagerOpen(false)}
         initialTab={managerInitialTab}
+      />
+
+      {/* Schedule Notification Modal */}
+      <ScheduleNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
       />
     </section>
   );

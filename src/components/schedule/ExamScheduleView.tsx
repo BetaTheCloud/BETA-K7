@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   Calendar,
@@ -18,9 +18,16 @@ import {
   CheckCircle2,
   Hourglass,
   Share2,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { ExamItem, ExamType } from '../../types/schedule';
 import { generateIcsFile, downloadFile } from '../../lib/scheduleParser';
+import {
+  isItemNotificationEnabled,
+  toggleItemNotification,
+  NOTIFICATIONS_CONFIG_CHANGED_EVENT
+} from '../../lib/scheduleNotificationService';
 import toast from 'react-hot-toast';
 
 interface ExamScheduleViewProps {
@@ -49,6 +56,23 @@ export default function ExamScheduleView({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [, setNotificationTick] = useState(0);
+
+  useEffect(() => {
+    const handleConfigChange = () => setNotificationTick((t) => t + 1);
+    window.addEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+    return () => window.removeEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+  }, []);
+
+  const handleToggleExamNotification = (examId: string, examName: string) => {
+    const isNowEnabled = toggleItemNotification(examId);
+    setNotificationTick((t) => t + 1);
+    if (isNowEnabled) {
+      toast.success(`"${examName}" sınavı için 10 ve 5 dk kala bildirimler açıldı.`);
+    } else {
+      toast(`"${examName}" sınavı için bildirimler kapatıldı.`, { icon: '🔕' });
+    }
+  };
 
   // Filter exams
   const filteredExams = useMemo(() => {
@@ -300,6 +324,26 @@ export default function ExamScheduleView({
 
               {/* Actions */}
               <div className="flex items-center gap-1.5 self-end sm:self-center border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-100 dark:border-white/5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleExamNotification(exam.id, exam.courseName)}
+                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                    isItemNotificationEnabled(exam.id)
+                      ? 'border-[#8a2a43]/40 bg-[#8a2a43]/10 text-[#8a2a43] dark:text-rose-300'
+                      : 'border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-400'
+                  }`}
+                  title={
+                    isItemNotificationEnabled(exam.id)
+                      ? 'Sınav Bildirimi Açık (10 ve 5 dk kala)'
+                      : 'Sınav Bildirimini Aç (10 ve 5 dk kala)'
+                  }
+                >
+                  <Bell
+                    className={`w-4 h-4 ${
+                      isItemNotificationEnabled(exam.id) ? 'fill-[#8a2a43] dark:fill-rose-400' : ''
+                    }`}
+                  />
+                </button>
                 <button
                   onClick={() => onToggleEnroll(exam.id)}
                   className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors cursor-pointer"

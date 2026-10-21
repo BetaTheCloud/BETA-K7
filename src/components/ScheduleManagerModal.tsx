@@ -20,7 +20,10 @@ import {
   CalendarCheck,
   RotateCcw,
   ClipboardPaste,
-  FileText
+  FileText,
+  Bell,
+  BellOff,
+  BellRing
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -41,6 +44,8 @@ import {
   SCHEDULE_UPDATED_EVENT
 } from '../lib/scheduleStorage';
 import ScheduleImportModal from './schedule/ScheduleImportModal';
+import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
+import { isItemNotificationEnabled, toggleItemNotification } from '../lib/scheduleNotificationService';
 import toast from 'react-hot-toast';
 
 interface ScheduleManagerModalProps {
@@ -61,6 +66,8 @@ export default function ScheduleManagerModal({
   const [courses, setCourses] = useState<CourseScheduleItem[]>([]);
   const [exams, setExams] = useState<ExamScheduleItem[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [, setNotificationTick] = useState(0);
 
   // Selected Day & Grade Filters for Courses tab
   const [selectedDayFilter, setSelectedDayFilter] = useState<DayOfWeek | 'all'>('all');
@@ -421,6 +428,17 @@ export default function ScheduleManagerModal({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-[#8a2a43]/10 hover:bg-[#8a2a43]/20 text-[#8a2a43] dark:text-rose-300 font-bold text-xs flex items-center gap-1.5 border border-[#8a2a43]/30 transition-all active:scale-95 cursor-pointer shadow-2xs"
+              title="Ders & Sınav Bildirimleri (10 ve 5 dakika kala)"
+            >
+              <BellRing className="w-3.5 h-3.5 text-[#8a2a43] dark:text-rose-300 animate-pulse" />
+              <span className="hidden sm:inline">Bildirimler (10 & 5 Dk)</span>
+              <span className="sm:hidden">Bildirimler</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsImportModalOpen(true)}
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
             >
@@ -630,6 +648,24 @@ export default function ScheduleManagerModal({
                     <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-100 dark:border-white/5">
                       <button
                         type="button"
+                        onClick={() => {
+                          const isNow = toggleItemNotification(course.id);
+                          setNotificationTick((t) => t + 1);
+                          if (isNow) toast.success(`"${course.courseName}" için 10 ve 5 dk kala bildirimler açıldı.`);
+                          else toast(`"${course.courseName}" için bildirimler kapatıldı.`, { icon: '🔕' });
+                        }}
+                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                          isItemNotificationEnabled(course.id)
+                            ? 'bg-[#8a2a43]/15 text-[#8a2a43] dark:text-rose-300 border border-[#8a2a43]/30'
+                            : 'bg-stone-100 dark:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white'
+                        }`}
+                        title={isItemNotificationEnabled(course.id) ? 'Bildirim Açık (10 ve 5 dk kala)' : 'Bildirimi Aç (10 ve 5 dk kala)'}
+                      >
+                        <Bell className={`w-3.5 h-3.5 ${isItemNotificationEnabled(course.id) ? 'fill-[#8a2a43] dark:fill-rose-400' : ''}`} />
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => handleOpenEditCourse(course)}
                         className="p-2 rounded-xl bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/80 hover:bg-emerald-500 hover:text-white transition-colors cursor-pointer"
                         title="Düzenle"
@@ -815,6 +851,24 @@ export default function ScheduleManagerModal({
 
                       {/* Actions with working inline delete */}
                       <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-stone-100 dark:border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isNow = toggleItemNotification(exam.id);
+                            setNotificationTick((t) => t + 1);
+                            if (isNow) toast.success(`"${exam.courseName}" sınavı için 10 ve 5 dk kala bildirimler açıldı.`);
+                            else toast(`"${exam.courseName}" sınavı için bildirimler kapatıldı.`, { icon: '🔕' });
+                          }}
+                          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                            isItemNotificationEnabled(exam.id)
+                              ? 'bg-[#8a2a43]/15 text-[#8a2a43] dark:text-rose-300 border border-[#8a2a43]/30'
+                              : 'bg-stone-100 dark:bg-white/10 text-stone-400 hover:text-stone-700 dark:hover:text-white'
+                          }`}
+                          title={isItemNotificationEnabled(exam.id) ? 'Sınav Bildirimi Açık (10 ve 5 dk kala)' : 'Sınav Bildirimini Aç (10 ve 5 dk kala)'}
+                        >
+                          <Bell className={`w-3.5 h-3.5 ${isItemNotificationEnabled(exam.id) ? 'fill-[#8a2a43] dark:fill-rose-400' : ''}`} />
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleOpenEditExam(exam)}
@@ -1387,6 +1441,13 @@ export default function ScheduleManagerModal({
           loadData();
         }}
         onSuccess={() => {
+          loadData();
+        }}
+      />
+      <ScheduleNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => {
+          setIsNotificationModalOpen(false);
           loadData();
         }}
       />

@@ -19,7 +19,13 @@ const config: CapacitorConfig = {
       keystoreAlias: undefined
     }
   },
-  plugins: {}
+  plugins: {
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon',
+      iconColor: '#8a2a43',
+      sound: 'beep.wav'
+    }
+  }
 };
 
 export default config;

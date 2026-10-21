@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Home from './pages/Home';
@@ -13,8 +14,13 @@ import Calendar from './pages/Calendar';
 import SchedulePage from './pages/SchedulePage';
 import Bologna from './pages/Bologna';
 import CampusHub from './pages/CampusHub';
+import { initScheduleNotificationWatcher } from './lib/scheduleNotificationService';
 
 export default function App() {
+  useEffect(() => {
+    initScheduleNotificationWatcher();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
