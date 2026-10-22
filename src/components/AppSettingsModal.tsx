@@ -328,8 +328,8 @@ export default function AppSettingsModal({
   };
 
   const handleResetServerToDefault = () => {
-    setUrlInput(DEFAULT_REMOTE_API_BASE);
-    setCustomApiBase(DEFAULT_REMOTE_API_BASE);
+    setUrlInput('');
+    setCustomApiBase('');
     toast.success('Sunucu adresi varsayılana sıfırlandı');
   };
 
@@ -338,9 +338,9 @@ export default function AppSettingsModal({
     setTestSeconds(0);
     setTestResult(null);
 
-    const targetUrl = urlInput.trim() || DEFAULT_REMOTE_API_BASE;
+    const targetUrl = urlInput.trim();
     const cleanUrl = targetUrl.replace(/\/+$/, '');
-    const pingUrl = `${cleanUrl}/api/ping`;
+    const pingUrl = cleanUrl ? `${cleanUrl}/api/health` : '/api/health';
 
     const timer = setInterval(() => {
       setTestSeconds((s) => s + 1);

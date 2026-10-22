@@ -50,13 +50,13 @@ export default function SyncStatusBadge() {
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 35000); // 35s timeout for Render cold start
+      const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout for fast health check
       const primaryUrl = getApiUrl('/api/health');
-      const res = await fetch(primaryUrl, { signal: controller.signal });
+      const res = await fetch(primaryUrl, { signal: controller.signal }).catch(() => null);
       clearTimeout(timer);
-      const latency = Math.round(performance.now() - startTime);
 
-      if (res.ok) {
+      if (res && res.ok) {
+        const latency = Math.round(performance.now() - startTime);
         setLatencyMs(latency);
         setSyncState('live');
         const now = Date.now();
@@ -65,25 +65,23 @@ export default function SyncStatusBadge() {
           localStorage.setItem('k7_sync_mode', 'live');
           localStorage.setItem('k7_last_live_sync_time', String(now));
         } catch {}
-      } else {
-        // If custom/remote returned non-200, check if local endpoint responds
-        if (primaryUrl !== '/api/health') {
-          try {
-            const localRes = await fetch('/api/health');
-            if (localRes.ok) {
-              setLatencyMs(Math.round(performance.now() - startTime));
-              setSyncState('live');
-              return;
-            }
-          } catch {}
-        }
-        setSyncState('cached');
+        return;
       }
+
+      // If primaryUrl was a custom/remote URL and failed, check local /api/health
+      if (primaryUrl !== '/api/health') {
+        const localRes = await fetch('/api/health').catch(() => null);
+        if (localRes && localRes.ok) {
+          setLatencyMs(Math.round(performance.now() - startTime));
+          setSyncState('live');
+          return;
+        }
+      }
+      setSyncState('cached');
     } catch {
-      // Fallback check to local /api/health in case remote was sleeping
       try {
-        const localRes = await fetch('/api/health');
-        if (localRes.ok) {
+        const localRes = await fetch('/api/health').catch(() => null);
+        if (localRes && localRes.ok) {
           setLatencyMs(Math.round(performance.now() - startTime));
           setSyncState('live');
           return;

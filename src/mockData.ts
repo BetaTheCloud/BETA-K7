@@ -693,9 +693,9 @@ export const FALLBACK_CAMPUS_MAP: CampusBuilding[] = [
 
 // ================= TTL CACHING STRATEGY (Time-To-Live Önbellekleme) =================
 export const CACHE_TTL = {
-  ANNOUNCEMENTS: 0,                   // 0ms -> Uygulama her açıldığında canlı çekilir (önceki veri varsa anında ekrana basılır)
-  NEWS: 0,                            // 0ms -> Uygulama her açıldığında canlı çekilir (önceki veri varsa anında ekrana basılır)
-  EVENTS: 0,                          // 0ms -> Etkinlikler: Uygulama her açıldığında canlı çekilir (önceki veri anında ekranda gösterilir)
+  ANNOUNCEMENTS: 3 * 60 * 1000,       // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
+  NEWS: 3 * 60 * 1000,                // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
+  EVENTS: 3 * 60 * 1000,              // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
   DEPT_ANNOUNCEMENTS: 12 * 60 * 60 * 1000, // 12 saat -> Bölüm/fakülte duyuruları önbelleği
   DEPT_NEWS: 12 * 60 * 60 * 1000,     // 12 saat -> Bölüm/fakülte haberleri önbelleği
   WEATHER: 10 * 60 * 1000,            // 10 dakika -> MGM Kilis İstasyonu hava durumu

@@ -20,15 +20,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint for Render / monitoring
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/api/ping'], (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const axiosInstance = axios.create({
-  httpsAgent: new https.Agent({ rejectUnauthorized: false }), // In case of SSL issues
+  httpsAgent: new https.Agent({
+    rejectUnauthorized: false,
+    keepAlive: true,
+    maxSockets: 50
+  }),
   headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Cache-Control': 'no-cache'
   },
   timeout: 10000
 });
@@ -117,15 +123,20 @@ const FACULTIES = [
   { name: 'Uluslararası Öğrenci Koordinatörlüğü', url: 'https://uluslararasi.kilis.edu.tr' }
 ];
 
-// Cache setup
+// Cache setup (Pre-seeded so response is instant from startup)
 let cachedAnnouncements: any[] = [];
-let cachedAnnouncementsTime = 0;
+let cachedAnnouncementsTime = Date.now();
 let cachedNews: any[] = [];
-let cachedNewsTime = 0;
+let cachedNewsTime = Date.now();
 let cachedCalendar: any[] = [];
 let cachedCalendarTime = 0;
 const CACHE_TTL = 5 * 60 * 1000;
 const CALENDAR_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days (1 week) smart cache
+
+// In-flight mutex promises to avoid redundant parallel scrapes
+let scrapingAnnouncementsPromise: Promise<any[]> | null = null;
+let scrapingNewsPromise: Promise<any[]> | null = null;
+let scrapingMenuPromise: Promise<any[]> | null = null;
 
 // Simple chunking utility
 async function processInChunks<T, R>(items: T[], chunkSize: number, processor: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -449,160 +460,198 @@ const DEFAULT_MENU = [
   { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
-app.get('/api/announcements', async (req, res) => {
+async function scrapeAnnouncementsCore(includeFaculties = false): Promise<any[]> {
+  const announcements: any[] = [];
   try {
-    if (req.query.force !== 'true' && Date.now() - cachedAnnouncementsTime < CACHE_TTL && cachedAnnouncements.length > 0) {
-      return res.json(cachedAnnouncements);
-    }
-    
-    const announcements: any[] = [];
-    
-    // Main Announcements
-    try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 6000 });
-      const $ = cheerio.load(response.data);
-      $('a.full-link-item').each((i, el) => {
-        let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
-        let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        let href = $(el).attr('href') || '';
-        if (href && !href.startsWith('http')) {
-          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-        
-        if (title && !announcements.some(a => a.title === title || (href && a.url === href))) {
-          announcements.push({
-            id: `ann-main-${i}`,
-            title: title,
-            date: dateStr || new Date().toISOString(),
-            content: '',
-            category: 'Ana Duyurular',
-            url: href
-          });
-        }
-      });
-    } catch(e) { console.error('Main ann fetch error'); }
-
-    // Faculty Announcements are now fetched on-demand per faculty/department via /api/department-announcements.
-    // Only scrape faculties if explicitly requested with includeFaculties=true.
-    if (req.query.includeFaculties === 'true') {
-      const activeFaculties = FACULTIES.slice(0, 10);
-      await processInChunks(activeFaculties, 5, async (fac, index) => {
-        try {
-          const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-          const $ = cheerio.load(facRes.data);
-          $('.announcement-item').each((i, el) => {
-            let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
-            let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-            let dateStr = $(el).find('.announcement-date').text().trim();
-            let url = $(el).attr('href');
-            let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
-            if (title && !announcements.some(a => a.title === title || (fullUrl && a.url === fullUrl))) {
-              announcements.push({
-                id: `ann-fac-${index}-${i}`,
-                title: title,
-                date: dateStr || new Date().toISOString(),
-                content: '',
-                category: fac.name,
-                url: fullUrl
-              });
-            }
-          });
-        } catch (e) {
-          // Silently handle
-        }
-      });
-    }
-
-    if (announcements.length > 0) {
-      cachedAnnouncements = announcements;
-      cachedAnnouncementsTime = Date.now();
-      return res.json(announcements);
-    }
-
-    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
-  } catch (error) {
-    console.error('Announcements error, returning default data:', error);
-    res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 3500 });
+    const $ = cheerio.load(response.data);
+    $('a.full-link-item').each((i, el) => {
+      let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
+      let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+      let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
+      let href = $(el).attr('href') || '';
+      if (href && !href.startsWith('http')) {
+        href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+      }
+      
+      if (title && !announcements.some(a => a.title === title || (href && a.url === href))) {
+        announcements.push({
+          id: `ann-main-${i}`,
+          title: title,
+          date: dateStr || new Date().toISOString(),
+          content: '',
+          category: 'Ana Duyurular',
+          url: href
+        });
+      }
+    });
+  } catch (e) {
+    console.warn('Main announcements scrape failed/timed out');
   }
+
+  if (includeFaculties) {
+    const activeFaculties = FACULTIES.slice(0, 10);
+    await processInChunks(activeFaculties, 5, async (fac, index) => {
+      try {
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3000 });
+        const $ = cheerio.load(facRes.data);
+        $('.announcement-item').each((i, el) => {
+          let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+          let dateStr = $(el).find('.announcement-date').text().trim();
+          let url = $(el).attr('href');
+          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+          if (title && !announcements.some(a => a.title === title || (fullUrl && a.url === fullUrl))) {
+            announcements.push({
+              id: `ann-fac-${index}-${i}`,
+              title: title,
+              date: dateStr || new Date().toISOString(),
+              content: '',
+              category: fac.name,
+              url: fullUrl
+            });
+          }
+        });
+      } catch (e) {
+        // Silently handle
+      }
+    });
+  }
+
+  if (announcements.length > 0) {
+    cachedAnnouncements = announcements;
+    cachedAnnouncementsTime = Date.now();
+  }
+  return cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS;
+}
+
+function triggerAnnouncementsScrape(includeFaculties = false): Promise<any[]> {
+  if (scrapingAnnouncementsPromise) return scrapingAnnouncementsPromise;
+  scrapingAnnouncementsPromise = scrapeAnnouncementsCore(includeFaculties).finally(() => {
+    scrapingAnnouncementsPromise = null;
+  });
+  return scrapingAnnouncementsPromise;
+}
+
+app.get('/api/announcements', async (req, res) => {
+  const isForce = req.query.force === 'true';
+  const includeFac = req.query.includeFaculties === 'true';
+  const isStale = Date.now() - cachedAnnouncementsTime > CACHE_TTL;
+
+  if (isForce) {
+    try {
+      const liveData = await Promise.race([
+        triggerAnnouncementsScrape(includeFac),
+        new Promise<any[]>((resolve) => setTimeout(() => resolve(cachedAnnouncements), 3500))
+      ]);
+      return res.json(liveData && liveData.length > 0 ? liveData : DEFAULT_ANNOUNCEMENTS);
+    } catch {
+      return res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+    }
+  }
+
+  if (isStale || cachedAnnouncements.length === 0) {
+    triggerAnnouncementsScrape(includeFac).catch(() => {});
+  }
+
+  return res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
 });
 
-app.get('/api/news', async (req, res) => {
+async function scrapeNewsCore(includeFaculties = false): Promise<any[]> {
+  const news: any[] = [];
   try {
-    if (req.query.force !== 'true' && Date.now() - cachedNewsTime < CACHE_TTL && cachedNews.length > 0) {
-      return res.json(cachedNews);
-    }
-    
-    const news: any[] = [];
-    
-    // Main News
-    try {
-      const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 6000 });
-      const $ = cheerio.load(response.data);
-      $('a.full-link-item').each((i, el) => {
-        let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
-        let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-        let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
-        let href = $(el).attr('href') || '';
-        if (href && !href.startsWith('http')) {
-          href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
-        }
-        
-        if (title && !news.some(n => n.title === title || (href && n.url === href))) {
-          news.push({
-            id: `news-main-${i}`,
-            title: title,
-            date: dateStr || new Date().toISOString(),
-            content: '',
-            category: 'Üniversite Haberleri',
-            url: href
-          });
-        }
-      });
-    } catch(e) { console.error('Main news fetch error'); }
-
-    // Faculty News are now fetched on-demand per faculty/department via /api/department-news.
-    // Only scrape faculties if explicitly requested with includeFaculties=true.
-    if (req.query.includeFaculties === 'true') {
-      const activeFaculties = FACULTIES.slice(0, 10);
-      await processInChunks(activeFaculties, 5, async (fac, index) => {
-        try {
-          const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3500 });
-          const $ = cheerio.load(facRes.data);
-          $('.news-item').each((i, el) => {
-            let titleEl = $(el).find('.news-title, .title, h3, h4').first();
-            let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
-            let dateStr = $(el).find('.news-date').text().trim();
-            let url = $(el).attr('href');
-            let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
-            if (title && !news.some(n => n.title === title || (fullUrl && n.url === fullUrl))) {
-              news.push({
-                id: `news-fac-${index}-${i}`,
-                title: title,
-                date: dateStr || new Date().toISOString(),
-                content: '',
-                category: fac.name,
-                url: fullUrl
-              });
-            }
-          });
-        } catch (e) {
-          // Silently handle
-        }
-      });
-    }
-
-    if (news.length > 0) {
-      cachedNews = news;
-      cachedNewsTime = Date.now();
-      return res.json(news);
-    }
-
-    res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
-  } catch (error) {
-    console.error('News error, returning default data:', error);
-    res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 3500 });
+    const $ = cheerio.load(response.data);
+    $('a.full-link-item').each((i, el) => {
+      let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
+      let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+      let dateStr = $(el).find('.link-footer .date .text').text().replace(/\s+/g, ' ').trim();
+      let href = $(el).attr('href') || '';
+      if (href && !href.startsWith('http')) {
+        href = `https://www.kilis.edu.tr${href.startsWith('/') ? '' : '/'}${href}`;
+      }
+      
+      if (title && !news.some(n => n.title === title || (href && n.url === href))) {
+        news.push({
+          id: `news-main-${i}`,
+          title: title,
+          date: dateStr || new Date().toISOString(),
+          content: '',
+          category: 'Üniversite Haberleri',
+          url: href
+        });
+      }
+    });
+  } catch (e) {
+    console.warn('Main news scrape failed/timed out');
   }
+
+  if (includeFaculties) {
+    const activeFaculties = FACULTIES.slice(0, 10);
+    await processInChunks(activeFaculties, 5, async (fac, index) => {
+      try {
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 3000 });
+        const $ = cheerio.load(facRes.data);
+        $('.news-item').each((i, el) => {
+          let titleEl = $(el).find('.news-title, .title, h3, h4').first();
+          let title = cleanDuplicateTitle(titleEl.length ? titleEl.text() : $(el).text());
+          let dateStr = $(el).find('.news-date').text().trim();
+          let url = $(el).attr('href');
+          let fullUrl = url?.startsWith('http') ? url : `${fac.url}${url?.startsWith('/') ? '' : '/'}${url}`;
+          if (title && !news.some(n => n.title === title || (fullUrl && n.url === fullUrl))) {
+            news.push({
+              id: `news-fac-${index}-${i}`,
+              title: title,
+              date: dateStr || new Date().toISOString(),
+              content: '',
+              category: fac.name,
+              url: fullUrl
+            });
+          }
+        });
+      } catch (e) {
+        // Silently handle
+      }
+    });
+  }
+
+  if (news.length > 0) {
+    cachedNews = news;
+    cachedNewsTime = Date.now();
+  }
+  return cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS;
+}
+
+function triggerNewsScrape(includeFaculties = false): Promise<any[]> {
+  if (scrapingNewsPromise) return scrapingNewsPromise;
+  scrapingNewsPromise = scrapeNewsCore(includeFaculties).finally(() => {
+    scrapingNewsPromise = null;
+  });
+  return scrapingNewsPromise;
+}
+
+app.get('/api/news', async (req, res) => {
+  const isForce = req.query.force === 'true';
+  const includeFac = req.query.includeFaculties === 'true';
+  const isStale = Date.now() - cachedNewsTime > CACHE_TTL;
+
+  if (isForce) {
+    try {
+      const liveData = await Promise.race([
+        triggerNewsScrape(includeFac),
+        new Promise<any[]>((resolve) => setTimeout(() => resolve(cachedNews), 3500))
+      ]);
+      return res.json(liveData && liveData.length > 0 ? liveData : DEFAULT_NEWS);
+    } catch {
+      return res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
+    }
+  }
+
+  if (isStale || cachedNews.length === 0) {
+    triggerNewsScrape(includeFac).catch(() => {});
+  }
+
+  return res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
 });
 
 // Cache for department specific news

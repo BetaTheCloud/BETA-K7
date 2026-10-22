@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { SunMoon, Settings, ArrowLeft, HelpCircle } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -121,17 +122,26 @@ export default function Header() {
           
           <PWAInstallButton />
           
-          <button
+          <motion.button
+            whileTap={{ scale: 0.92 }}
             onClick={toggleTheme}
             title={`Görünüm Modu: ${theme === 'dark' ? 'Koyu Mod (Tıkla: Açık Moda Geç)' : 'Açık Mod (Tıkla: Koyu Moda Geç)'}`}
-            className="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/15 border border-stone-200/80 dark:border-white/10 transition-all duration-300 active:scale-95 cursor-pointer shrink-0 shadow-xs group"
+            className="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/15 border border-stone-200/80 dark:border-white/10 transition-colors duration-300 cursor-pointer shrink-0 shadow-xs group overflow-hidden"
             aria-label="Koyu veya Açık Görünüm Modunu Değiştir"
           >
-            <SunMoon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-300 transition-transform duration-500 group-hover:rotate-180 shrink-0" strokeWidth={1.8} />
+            <motion.div
+              key={theme}
+              initial={{ rotate: -120, scale: 0.6, opacity: 0 }}
+              animate={{ rotate: 0, scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18 }}
+              className="shrink-0"
+            >
+              <SunMoon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-300" strokeWidth={1.8} />
+            </motion.div>
             <span className="hidden sm:inline text-[11px] font-bold text-stone-700 dark:text-stone-200">
               {theme === 'dark' ? 'Koyu' : 'Açık'}
             </span>
-          </button>
+          </motion.button>
         </div>
 
       </div>
