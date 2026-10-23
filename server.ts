@@ -43,15 +43,16 @@ const axiosInstance = axios.create({
   httpsAgent: new https.Agent({
     rejectUnauthorized: false,
     keepAlive: true,
-    maxSockets: 50
+    maxSockets: 20
   }),
   headers: {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept-Encoding': 'gzip, deflate',
     'Cache-Control': 'no-cache'
   },
-  timeout: 18000
+  timeout: 12000
 });
 
 function cleanDuplicateTitle(raw?: string | null): string {
@@ -475,10 +476,14 @@ const DEFAULT_MENU = [
   { id: 'menu-oct-21', date: '30 Ekim 2026 Cuma', mainDish: 'Çanak Köfte', sideDish: 'Pirinç Pilavı', soup: 'Yoğurt', dessertOrFruit: 'Cevizli Helva', calories: 850 }
 ];
 
+// Pre-seed cache so initial responses are instant (< 5ms)
+cachedAnnouncements = [...DEFAULT_ANNOUNCEMENTS];
+cachedNews = [...DEFAULT_NEWS];
+
 async function scrapeAnnouncementsCore(includeFaculties = false): Promise<any[]> {
   const announcements: any[] = [];
   try {
-    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 18000 });
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/duyurular', { timeout: 12000 });
     const $ = cheerio.load(response.data);
     $('a.full-link-item').each((i, el) => {
       let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
@@ -500,6 +505,14 @@ async function scrapeAnnouncementsCore(includeFaculties = false): Promise<any[]>
         });
       }
     });
+
+    // Save main announcements immediately so they become instantly available!
+    if (announcements.length > 0) {
+      cachedAnnouncements = [...announcements];
+      cachedAnnouncementsTime = Date.now();
+      hasSuccessfullyScrapedAnnouncements = true;
+      lastSuccessfulScrapeTimestamp = Date.now();
+    }
   } catch (e) {
     console.warn('Main announcements scrape failed/timed out');
   }
@@ -508,7 +521,7 @@ async function scrapeAnnouncementsCore(includeFaculties = false): Promise<any[]>
     const activeFaculties = FACULTIES.slice(0, 10);
     await processInChunks(activeFaculties, 5, async (fac, index) => {
       try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 8000 });
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 5000 });
         const $ = cheerio.load(facRes.data);
         $('.announcement-item').each((i, el) => {
           let titleEl = $(el).find('.announcement-title, .title, h3, h4').first();
@@ -531,14 +544,13 @@ async function scrapeAnnouncementsCore(includeFaculties = false): Promise<any[]>
         // Silently handle
       }
     });
+
+    if (announcements.length > 0) {
+      cachedAnnouncements = announcements;
+      cachedAnnouncementsTime = Date.now();
+    }
   }
 
-  if (announcements.length > 0) {
-    cachedAnnouncements = announcements;
-    cachedAnnouncementsTime = Date.now();
-    hasSuccessfullyScrapedAnnouncements = true;
-    lastSuccessfulScrapeTimestamp = Date.now();
-  }
   return cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS;
 }
 
@@ -557,19 +569,21 @@ app.get('/api/announcements', async (req, res) => {
 
   if (isForce) {
     try {
+      // Fast race: wait max 1500ms for live scrape; return cached immediately if scrape takes longer
       const liveData = await Promise.race([
         triggerAnnouncementsScrape(includeFac),
-        new Promise<any[]>((resolve) => setTimeout(() => resolve(cachedAnnouncements), 18000))
+        new Promise<any[]>((resolve) => setTimeout(() => resolve(null), 1500))
       ]);
-      const isLive = hasSuccessfullyScrapedAnnouncements && liveData && liveData.length > 0 && liveData !== DEFAULT_ANNOUNCEMENTS;
+      const dataToReturn = (liveData && liveData.length > 0) ? liveData : (cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+      const isLive = hasSuccessfullyScrapedAnnouncements && dataToReturn !== DEFAULT_ANNOUNCEMENTS;
       res.setHeader('x-data-source', isLive ? 'live' : 'fallback');
       res.setHeader('x-is-live', isLive ? 'true' : 'false');
-      return res.json(isLive ? liveData : DEFAULT_ANNOUNCEMENTS);
+      return res.json(dataToReturn);
     } catch {
       const isLive = hasSuccessfullyScrapedAnnouncements && cachedAnnouncements.length > 0;
       res.setHeader('x-data-source', isLive ? 'live' : 'fallback');
       res.setHeader('x-is-live', isLive ? 'true' : 'false');
-      return res.json(isLive ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
+      return res.json(cachedAnnouncements.length > 0 ? cachedAnnouncements : DEFAULT_ANNOUNCEMENTS);
     }
   }
 
@@ -586,7 +600,7 @@ app.get('/api/announcements', async (req, res) => {
 async function scrapeNewsCore(includeFaculties = false): Promise<any[]> {
   const news: any[] = [];
   try {
-    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 18000 });
+    const response = await axiosInstance.get('https://www.kilis.edu.tr/tr/haberler', { timeout: 12000 });
     const $ = cheerio.load(response.data);
     $('a.full-link-item').each((i, el) => {
       let titleEl = $(el).find('.title-wrapper .text, .title, h3, h4').first();
@@ -608,6 +622,14 @@ async function scrapeNewsCore(includeFaculties = false): Promise<any[]> {
         });
       }
     });
+
+    // Save main news immediately so they become instantly available!
+    if (news.length > 0) {
+      cachedNews = [...news];
+      cachedNewsTime = Date.now();
+      hasSuccessfullyScrapedNews = true;
+      lastSuccessfulScrapeTimestamp = Date.now();
+    }
   } catch (e) {
     console.warn('Main news scrape failed/timed out');
   }
@@ -616,7 +638,7 @@ async function scrapeNewsCore(includeFaculties = false): Promise<any[]> {
     const activeFaculties = FACULTIES.slice(0, 10);
     await processInChunks(activeFaculties, 5, async (fac, index) => {
       try {
-        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 8000 });
+        const facRes = await axiosInstance.get(`${fac.url}/tr`, { timeout: 5000 });
         const $ = cheerio.load(facRes.data);
         $('.news-item').each((i, el) => {
           let titleEl = $(el).find('.news-title, .title, h3, h4').first();
@@ -639,14 +661,13 @@ async function scrapeNewsCore(includeFaculties = false): Promise<any[]> {
         // Silently handle
       }
     });
+
+    if (news.length > 0) {
+      cachedNews = news;
+      cachedNewsTime = Date.now();
+    }
   }
 
-  if (news.length > 0) {
-    cachedNews = news;
-    cachedNewsTime = Date.now();
-    hasSuccessfullyScrapedNews = true;
-    lastSuccessfulScrapeTimestamp = Date.now();
-  }
   return cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS;
 }
 
@@ -665,19 +686,21 @@ app.get('/api/news', async (req, res) => {
 
   if (isForce) {
     try {
+      // Fast race: wait max 1500ms for live scrape; return cached immediately if scrape takes longer
       const liveData = await Promise.race([
         triggerNewsScrape(includeFac),
-        new Promise<any[]>((resolve) => setTimeout(() => resolve(cachedNews), 18000))
+        new Promise<any[]>((resolve) => setTimeout(() => resolve(null), 1500))
       ]);
-      const isLive = hasSuccessfullyScrapedNews && liveData && liveData.length > 0 && liveData !== DEFAULT_NEWS;
+      const dataToReturn = (liveData && liveData.length > 0) ? liveData : (cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
+      const isLive = hasSuccessfullyScrapedNews && dataToReturn !== DEFAULT_NEWS;
       res.setHeader('x-data-source', isLive ? 'live' : 'fallback');
       res.setHeader('x-is-live', isLive ? 'true' : 'false');
-      return res.json(isLive ? liveData : DEFAULT_NEWS);
+      return res.json(dataToReturn);
     } catch {
       const isLive = hasSuccessfullyScrapedNews && cachedNews.length > 0;
       res.setHeader('x-data-source', isLive ? 'live' : 'fallback');
       res.setHeader('x-is-live', isLive ? 'true' : 'false');
-      return res.json(isLive ? cachedNews : DEFAULT_NEWS);
+      return res.json(cachedNews.length > 0 ? cachedNews : DEFAULT_NEWS);
     }
   }
 
@@ -2662,8 +2685,8 @@ async function startServer() {
     // Warm up university scrapers in the background on startup
     setTimeout(() => {
       triggerAnnouncementsScrape(false).catch(() => {});
-      triggerNewsScrape(false).catch(() => {});
-    }, 1500);
+      setTimeout(() => triggerNewsScrape(false).catch(() => {}), 1200);
+    }, 800);
   });
 }
 

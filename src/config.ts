@@ -194,7 +194,7 @@ export function warmupBackendServer(): void {
  * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
  */
 export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
-  const timeoutMs = 10000; // 10s per attempt
+  const timeoutMs = 6000; // 6s per attempt
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
