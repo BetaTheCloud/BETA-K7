@@ -837,9 +837,10 @@ export const getAnnouncements = async (force: boolean = false): Promise<Announce
     const response = await safeFetch(getApiUrl(`/api/announcements${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
+      const isLive = response.headers.get('x-data-source') === 'live' || response.headers.get('x-is-live') === 'true';
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_announcements', data);
-        notifySyncSuccess('live');
+        notifySyncSuccess(isLive ? 'live' : 'cached');
         return data;
       }
     }
@@ -859,9 +860,10 @@ export const getNews = async (force: boolean = false): Promise<Announcement[]> =
     const response = await safeFetch(getApiUrl(`/api/news${force ? '?force=true' : ''}`));
     if (response.ok) {
       const data = await response.json();
+      const isLive = response.headers.get('x-data-source') === 'live' || response.headers.get('x-is-live') === 'true';
       if (Array.isArray(data) && data.length > 0) {
         setStoredWithTTL('k7_cached_news', data);
-        notifySyncSuccess('live');
+        notifySyncSuccess(isLive ? 'live' : 'cached');
         return data;
       }
     }

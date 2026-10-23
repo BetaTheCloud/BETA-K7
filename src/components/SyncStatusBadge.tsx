@@ -8,7 +8,14 @@ import { getAnnouncements, getNews, getMenu, getEvents, getCalendarEvents } from
 export type SyncState = 'live' | 'cached' | 'syncing' | 'offline';
 
 export default function SyncStatusBadge() {
-  const [syncState, setSyncState] = useState<SyncState>('live');
+  const [syncState, setSyncState] = useState<SyncState>(() => {
+    try {
+      const mode = localStorage.getItem('k7_sync_mode');
+      return mode === 'live' ? 'live' : 'cached';
+    } catch {
+      return 'cached';
+    }
+  });
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number>(() => {
     try {
@@ -50,31 +57,49 @@ export default function SyncStatusBadge() {
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000); // 5s timeout for fast health check
+      const timer = setTimeout(() => controller.abort(), 6000); // 6s timeout
       const primaryUrl = getApiUrl('/api/health');
       const res = await fetch(primaryUrl, { signal: controller.signal }).catch(() => null);
       clearTimeout(timer);
 
       if (res && res.ok) {
+        const data = await res.json().catch(() => null);
         const latency = Math.round(performance.now() - startTime);
         setLatencyMs(latency);
-        setSyncState('live');
-        const now = Date.now();
-        setLastSyncTime(now);
-        try {
-          localStorage.setItem('k7_sync_mode', 'live');
-          localStorage.setItem('k7_last_live_sync_time', String(now));
-        } catch {}
-        return;
+
+        // ONLY declare 'live' if the backend confirms it actually fetched live data from the university!
+        if (data && data.live === true) {
+          setSyncState('live');
+          const syncTime = data.lastSyncTime || Date.now();
+          setLastSyncTime(syncTime);
+          try {
+            localStorage.setItem('k7_sync_mode', 'live');
+            localStorage.setItem('k7_last_live_sync_time', String(syncTime));
+          } catch {}
+          return;
+        } else {
+          // Connected to server, but server is serving cached/fallback data because university site couldn't be scraped
+          setSyncState('cached');
+          try {
+            localStorage.setItem('k7_sync_mode', 'cached');
+          } catch {}
+          return;
+        }
       }
 
       // If primaryUrl was a custom/remote URL and failed, check local /api/health
       if (primaryUrl !== '/api/health') {
         const localRes = await fetch('/api/health').catch(() => null);
         if (localRes && localRes.ok) {
+          const localData = await localRes.json().catch(() => null);
           setLatencyMs(Math.round(performance.now() - startTime));
-          setSyncState('live');
-          return;
+          if (localData && localData.live === true) {
+            setSyncState('live');
+            return;
+          } else {
+            setSyncState('cached');
+            return;
+          }
         }
       }
       setSyncState('cached');
@@ -82,9 +107,15 @@ export default function SyncStatusBadge() {
       try {
         const localRes = await fetch('/api/health').catch(() => null);
         if (localRes && localRes.ok) {
+          const localData = await localRes.json().catch(() => null);
           setLatencyMs(Math.round(performance.now() - startTime));
-          setSyncState('live');
-          return;
+          if (localData && localData.live === true) {
+            setSyncState('live');
+            return;
+          } else {
+            setSyncState('cached');
+            return;
+          }
         }
       } catch {}
       setSyncState('cached');
@@ -170,24 +201,23 @@ export default function SyncStatusBadge() {
         getCalendarEvents(true)
       ]);
 
-      const anySuccess = 
-        (ann.status === 'fulfilled' && ann.value.length > 0) ||
-        (nw.status === 'fulfilled' && nw.value.length > 0) ||
-        (mn.status === 'fulfilled' && mn.value.length > 0);
+      // Verify real live status with backend
+      const healthRes = await fetch(getApiUrl('/api/health')).catch(() => null);
+      const healthData = healthRes && healthRes.ok ? await healthRes.json().catch(() => null) : null;
+      const isReallyLive = healthData?.live === true;
 
       const now = Date.now();
       setLastSyncTime(now);
-      localStorage.setItem('k7_last_live_sync_time', String(now));
 
-      if (anySuccess) {
+      if (isReallyLive) {
         setSyncState('live');
         localStorage.setItem('k7_sync_mode', 'live');
-        toast.success('Canlı veriler başarıyla güncellendi!', { id: toastId });
-        await checkHealth();
+        localStorage.setItem('k7_last_live_sync_time', String(now));
+        toast.success('Canlı üniversite verileri başarıyla güncellendi!', { id: toastId });
       } else {
         setSyncState('cached');
         localStorage.setItem('k7_sync_mode', 'cached');
-        toast('Önbellek verileri yüklendi (Sunucu yanıt vermedi)', { id: toastId, icon: '⚡' });
+        toast('Üniversite sunucusuna erişilemedi, önbellek verileri aktif.', { id: toastId, icon: '📦' });
       }
 
       // Dispatch global refresh event so active pages re-read data
