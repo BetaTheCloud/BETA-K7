@@ -247,8 +247,8 @@ export async function dispatchNotification(
         if (reg && reg.showNotification) {
           await reg.showNotification(title, {
             body,
-            icon: '/icon.svg',
-            badge: '/icon.svg',
+            icon: '/notification-icon-192.png',
+            badge: '/notification-badge-96.png',
             tag,
             vibrate: shouldVibrate ? [200, 100, 200] : undefined,
             renotify: true,
@@ -261,9 +261,10 @@ export async function dispatchNotification(
       // Fallback to standard window Notification
       new Notification(title, {
         body,
-        icon: '/icon.svg',
+        icon: '/notification-icon-192.png',
+        badge: '/notification-badge-96.png',
         tag
-      });
+      } as any);
       return true;
     } catch (e) {
       console.warn('Web notification dispatch error:', e);
@@ -492,8 +493,8 @@ export async function syncScheduledNotifications(): Promise<void> {
             await (reg as any).showNotification(t.title, {
               body: t.body,
               tag: t.id,
-              icon: '/icon.svg',
-              badge: '/icon.svg',
+              icon: '/notification-icon-192.png',
+              badge: '/notification-badge-96.png',
               showTrigger: new (window as any).TimestampTrigger(t.triggerTime),
               data: { url: '/schedule' }
             });

@@ -408,6 +408,74 @@ export default function ScheduleNotificationModal({
               </button>
             </div>
 
+            {/* Phone Status Bar & Notification Icon Preview */}
+            <div className="p-3.5 rounded-2xl bg-stone-900 text-white border border-stone-800 shadow-md space-y-3">
+              <div className="flex items-center justify-between text-[11px] text-stone-300">
+                <span className="font-semibold flex items-center gap-1.5 text-stone-200">
+                  <Smartphone className="w-3.5 h-3.5 text-rose-400" />
+                  Telefon Bildirim Çubuğu Önizlemesi
+                </span>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium">
+                  Android Uyumlu
+                </span>
+              </div>
+
+              {/* Status bar mock */}
+              <div className="bg-black/80 rounded-xl p-2.5 flex items-center justify-between border border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-stone-300">14:25</span>
+                  {/* Status Bar Monochrome Badge */}
+                  <div className="flex items-center justify-center p-0.5 rounded bg-white/10" title="Bildirim Çubuğu Simgesi (Monochrome Silhouette)">
+                    <img
+                      src="/notification-badge-96.png"
+                      alt="Bildirim Barı İkonu"
+                      className="w-4 h-4 object-contain brightness-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-stone-400 text-[10px]">
+                  <span>LTE</span>
+                  <div className="w-2.5 h-2.5 border border-stone-400 rounded-2xs bg-stone-400/80" />
+                  <span>%88</span>
+                </div>
+              </div>
+
+              {/* Expanded Notification Drawer Mock */}
+              <div className="bg-stone-800/90 rounded-xl p-3 border border-white/10 shadow-xs flex items-center justify-between gap-3">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#8a2a43] flex items-center justify-center shrink-0">
+                      <img src="/notification-badge-96.png" alt="" className="w-2.5 h-2.5 object-contain invert" />
+                    </span>
+                    <span className="font-semibold text-stone-300">K7AÜ Kampüs</span>
+                    <span>· Şimdi</span>
+                  </div>
+                  <p className="font-bold text-xs text-white truncate">Ders Başlıyor: Bilgisayar Ağları</p>
+                  <p className="text-[11px] text-stone-300 line-clamp-1">10 dakika sonra D-204 nolu sınıfta dersiniz var.</p>
+                </div>
+
+                {/* Body circular full color logo */}
+                <div className="shrink-0 p-1 bg-white/5 rounded-full border border-white/10">
+                  <img
+                    src="/notification-icon-192.png"
+                    alt="Logo"
+                    className="w-10 h-10 rounded-full object-contain shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Technical explanation notes */}
+              <div className="text-[10px] text-stone-400 space-y-1 bg-white/5 p-2 rounded-lg border border-white/5">
+                <p>
+                  <strong className="text-stone-300">Durum Çubuğu (Üst Bar):</strong> Android kuralları gereği en üstteki bildirim çubuğunda renkli resimler beyaz kareye dönüşür. Logonuz alfa kanallı saf beyaz silüete dönüştürülerek netleştirildi.
+                </p>
+                <p>
+                  <strong className="text-stone-300">Bildirim Kartı:</strong> Bildirim paneli açıldığında logonuzun dairesel renkli hali tam netlikle görünür.
+                </p>
+              </div>
+            </div>
+
             {/* Individual Course & Exam Selection Section */}
             <div className="pt-2 border-t border-stone-200/80 dark:border-white/10 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
