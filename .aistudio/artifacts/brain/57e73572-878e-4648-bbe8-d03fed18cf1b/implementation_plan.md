@@ -1,93 +1,111 @@
-# Kilis 7 Aralık Üniversitesi: İsteğe Bağlı (On-Demand) Canlı Veri Mimarisi
+# [Implementation Plan] Device-Side Local Background Notifications & Live Sync (Firebase-Free)
 
-Kullanıcının önerisi doğrultusunda, uygulama açılışında yalnızca `kilis.edu.tr` ana sayfasındaki resmi haber ve duyuruların canlı çekilmesi; fakülte ve bölüm duyurularının ise kullanıcı ilgili sekmeyi seçtiğinde isteğe bağlı (lazy loading) olarak anlık taranmasını sağlayan yüksek performanslı mimari planı.
+Technical report and implementation plan for a 100% client-side, device-based background notification system for K7AÜ general news, announcements, and campus events without using Firebase or cloud push services.
 
-### User Review & Critical Decisions
+---
+
+## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> **Önerinizin Değerlendirmesi: Mükemmel ve En Doğru Yaklaşım.**
-> Önerdiğiniz model ("Ana sayfada sadece üniversite ana sayfası, modüle girilip fakülte seçildiğinde sadece o fakülte"), hem son kullanıcı deneyimini (UX) hem de Render sunucu sağlığını en üst düzeye çıkaran modern bir endüstri standardıdır. 
-> - **Açılış Hızı:** 24 harici bağlantı yerine sadece 2 hafif bağlantı yapılarak açılış 6 saniyeden **400 milisaniyeye** düşer.
-> - **Render CPU & Trafik:** 0.1 vCPU üzerindeki %100 yüklenme **%3-5 seviyesine** geriler.
-> - **Son Kullanıcı Deneyimi:** Öğrenci ana sayfayı anında görür; kendi fakültesini seçtiğinde ise beklemeden sadece o birimin taze verisine odaklanır.
+> **Confirmed Constraint**: The user explicitly requested **NOT to set up Firebase** or external cloud push servers. The system must run **100% locally on the device** (Android PWA / Service Worker).
 
-- **Onaylanan Yaklaşım:** Girişte (Ana Sayfa) yalnızca rektörlük ana akışı canlı çekilecek; fakülte ve bölüm verileri kullanıcı sekmeyi seçtiğinde tetiklenecek.
-- **Açık Tercih / Oturum Belleği:** Bir fakültenin verisi kullanıcı tarafından o oturumda bir kez çekildikten sonra, tekrar tıklandığında kullanıcıyı bekletmemek adına hafızada tutulacak (isteğe bağlı aşağı çekip yenileme butonuyla anlık tazelenebilecek).
-
----
-
-## 1. Overview & Core Concept
-
-- **Ne Yapıyor?** Uygulama ilk açıldığında arka planda 20+ fakültenin web sitesini taramayı bırakır; yalnızca `kilis.edu.tr/tr/duyurular` ve `kilis.edu.tr/tr/haberler` sayfalarını canlı çeker. Kullanıcı "Duyurular" veya "Haberler" sekmesine girip bir fakülte (örneğin *İktisadi ve İdari Bilimler Fakültesi*, *Mühendislik Fakültesi*) seçtiğinde, sistem sadece ve sadece o birimin portalına anlık canlı istek gönderir.
-- **Hedef Kitle:** Kilis 7 Aralık Üniversitesi öğrencileri, akademisyenleri ve personeli.
-- **Temel Değer:** Donma veya uzun bekleme süreleri olmadan anında açılan bir arayüz ve öğrencinin kendi fakültesine özel %100 taze içerik.
+- **Selected Approach**: **Service Worker Local Notifications + Client-Side Feed Diffing + IndexedDB Tracking**
+  - *Mechanism*: The app's Service Worker (`sw.js`) and background fetch handlers check university feeds directly. New announcements/news/events are diffed against locally saved IDs in IndexedDB / localStorage.
+  - *Notification Dispatch*: When new content is detected, the Service Worker invokes the native device Notification API (`self.registration.showNotification`) directly on the Android OS level.
+  - *User Experience*: When a new update is found, Android shows a native system notification with the K7AÜ icon. Tapping it opens the app directly to the relevant announcement/event detail.
+  - *Pros*: **100% Firebase-free**, **100% Serverless**, zero setup required, total user privacy (data never leaves the device).
+  - *Cons / OS Limits*: On Android, without Firebase Cloud Push, background wake-ups rely on browser Service Worker activity when the device is active or when the PWA is installed to Home Screen.
 
 ---
 
-## 2. User Experience & Visual Design
+## 1. Technical Report: Pros, Cons & Device Behavior Analysis
 
-### Kullanıcı Akışı (User Flow)
-1. **Uygulama Açılışı (Ana Sayfa):**
-   - Kullanıcı uygulamaya girdiği anda bekleme ekranı (spinner) görmez.
-   - Üniversite rektörlüğünün en güncel ana haberleri ve duyuruları 400 milisaniye içinde ekranda belirir.
-   - Yemekhane menüsü ve yaklaşan etkinlikler anında listelenir.
-2. **Duyurular & Haberler Modülüne Geçiş:**
-   - Sayfa ilk açıldığında "Ana Duyurular" sekmesi hazır olarak gelir.
-   - Üst yatay listede fakülte ve koordinatörlük çipleri (chips) listelenir.
-3. **Fakülte / Bölüm Seçimi (On-Demand Tetikleme):**
-   - Kullanıcı örneğin *"İnsan ve Toplum Bilimleri Fakültesi"* çipine bastığı anda:
-     - Kart alanında şık bir iskelet yükleyici (skeleton loading animation) belirir.
-     - Yalnızca o fakültenin web sitesi (`itbf.kilis.edu.tr`) taranır (~1.0 saniye).
-     - Canlı haberler ekrana düşer ve yeşil *"Canlı Güncellendi"* rozeti ile teyit edilir.
-   - Kullanıcı başka bir fakülteye geçerse o fakülte taranır; daha önce ziyaret ettiği fakülteye geri dönerse veri tekrar internet harcamadan anında görüntülenir.
+### Advantages (Avantajlar)
+1. **Zero External Dependencies**: No Firebase console setup, no API keys, no server costs, no backend infrastructure.
+2. **100% Device-Level Privacy**: All cached announcement IDs and user notification preferences stay on the student's phone.
+3. **Instant In-App Testing**: Users can test native Android notifications with 1 tap directly in App Settings.
+4. **Offline Access**: Cached announcements and events are readable even without an internet connection.
+
+### Disadvantages & Android OS Behavior (Dezavantajlar ve Cihaz Davranışları)
+1. **Android Battery Optimization**: Heavy battery saver modes on certain Android ROMs (Xiaomi MIUI, Samsung OneUI) may delay background Service Worker execution while the screen is off until the user unlocks the phone or connects to Wi-Fi.
+2. **Notification Permission (Android 13+)**: The app must request native notification permission from the user in the UI.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
-
-- **Karar 1: Açılışta 10 Fakülteyi Toplu Kazımayı Kaldırmak**
-  - *Seçilen Çözüm:* `/api/announcements` ve `/api/news` açılışta yalnızca ana rektörlük sayfalarını tarayacak.
-  - *Neden:* Açılışta 20+ sitenin taranması Render sunucusunu kilitliyor ve kullanıcının 6-8 saniye beklemesine yol açıyordu. Kullanıcıların %90'ı açılışta sadece genel duyurulara bakar.
-- **Karar 2: İsteğe Bağlı Tekil Fakülte Kazıma Endpoint'i**
-  - *Seçilen Çözüm:* `/api/department-announcements` ve `/api/department-news` rotaları güçlendirilerek, seçilen birimin canlı web adresi taranacak.
-  - *Neden:* Sadece hedeflenen 1 tekil web sayfasına istek atıldığından yanıt süresi 800ms civarında olur ve CPU yorulmaz.
-- **Karar 3: `force: true` Parametresinin Kaldırılması**
-  - *Seçilen Çözüm:* İstemci tarafında `force: false` varsayılan yapılacak; yalnızca kullanıcı ekranı parmağıyla aşağı çektiğinde (pull-to-refresh) canlı zorlama yapılacak.
-- **Karar 4: Yemek Menüsü İçin Akıllı Önbellek**
-  - *Seçilen Çözüm:* Menü günde yalnızca bir defa değiştiğinden, ilk çekimden sonra 6 saat RAM'de saklanacak.
-
----
-
-## 4. Technical Architecture & Data Strategy
+## 2. Proposed System Architecture (100% Device-Side)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      MOBİL UYGULAMA (React)                 │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-      (1) Uygulama Açılışı           (2) Fakülte Tıklandı
-    [Hızlı Rektörlük İsteği]       [Hedefli On-Demand İstek]
-               │                              │
-               ▼                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    RENDER SUNUCUSU (Express)                │
-│                                                             │
-│  /api/announcements (Ana)         /api/department-announcements?url=...
-│  /api/news          (Ana)         (Sadece Seçilen Fakülte)  │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-               ▼                              ▼
-    [kilis.edu.tr/tr/duyurular]     [itbf.kilis.edu.tr/tr]
-        (1 Tekil İstek)                (1 Tekil İstek)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       Android Device & PWA Environment                      │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                    K7AÜ Campus Digital React App                      │  │
+│  │   - Triggers Notification Permission Request                           │  │
+│  │   - Manages User Category Preferences (Duyuru, Haber, Etkinlik)       │  │
+│  │   - Provides "Test Cihaz Bildirimi Gönder" button in Settings         │  │
+│  └──────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │                                       │
+│                                     ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │              Workbox Service Worker & Background Manager              │  │
+│  │   - Fetches Live Feeds (/api/announcements, /api/news, /api/events)  │  │
+│  │   - Compares incoming IDs against IndexedDB / localStorage seen IDs   │  │
+│  │   - If NEW item detected -> Triggers:                                 │  │
+│  │     self.registration.showNotification("Yeni Duyuru", {...})          │  │
+│  └──────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │                                       │
+└─────────────────────────────────────┼───────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Android System Notification Shade                        │
+│   - Shows native alert banner with K7AÜ logo, sound, and vibration          │
+│   - On tap: Opens app directly to the announcement/event page              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Değişiklik Yapılacak Bileşenler
-1. **`server.ts`**:
-   - `/api/announcements` ve `/api/news` içindeki 10 fakültelik toplu kazıma döngüsü kaldırılacak veya isteğe bağlı parametreye (`includeFaculties=true`) bağlanacak.
-   - `/api/menu` rotasına 6 saatlik RAM önbelleği eklenecek.
-2. **`src/mockData.ts`**:
-   - `getAnnouncements` ve `getNews` varsayılan parametresi `force = false` yapılacak.
-   - Fakülte/bölüm veri çekim fonksiyonu anlık istekleri tekil olarak yönlendirecek.
-3. **`src/pages/Announcements.tsx` & `src/pages/News.tsx`**:
-   - Fakülte veya bölüm sekmesi seçildiğinde `useEffect` ile seçilen birime özel canlı istek tetiklenecek.
-   - Yükleme esnasında sadece kart alanında şık iskelet yükleyici gösterilecek, genel sayfa donmayacak.
+---
+
+## 3. Implementation Plan & Steps
+
+### Step 1: Device Notification Permission & Manager (`deviceNotificationService.ts`)
+- Client-side manager to handle browser/Android notification permissions (`Notification.requestPermission()`).
+- Track notification enablement state in `localStorage` (`k7_notifications_enabled`).
+- Provide local trigger methods: `showLocalDeviceNotification(title, body, url)`.
+
+### Step 2: Service Worker Custom Logic (`public/sw-custom.js` & `vite.config.ts`)
+- Add custom push/notification event listeners to the Service Worker:
+  ```js
+  self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const urlToOpen = event.notification.data?.url || '/';
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        for (const client of windowClients) {
+          if (client.url.includes(urlToOpen) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) return clients.openWindow(urlToOpen);
+      })
+    );
+  });
+  ```
+
+### Step 3: Background Content Diffing Engine (`backgroundSyncEngine.ts`)
+- Maintain a local store of seen announcement/news/event IDs in IndexedDB / `localStorage`.
+- When fresh feed data is fetched, diff new entries against seen entries.
+- Trigger local device notifications for any unseen entries according to user preferences.
+
+### Step 4: Settings Interface (`NotificationSettingsCard.tsx` in `AppSettingsModal`)
+- Add a clean "Cihaz Bildirimleri (Firebase'siz / Yerel)" section under Ayarlar.
+- Include toggles for Duyurular, Haberler, Etkinlikler.
+- Include a **"Test Bildirimi Gönder"** button so the user can test native Android notifications on their device immediately.
+
+---
+
+## 4. Verification & Testing Strategy
+1. **Permission Flow**: Tap "Bildirimleri Etkinleştir" in Ayarlar and confirm Android native permission prompt appears.
+2. **Instant Local Test**: Tap "Test Bildirimi Gönder" and verify a native Android notification appears with the K7AÜ logo and vibration.
+3. **Deep Link Test**: Tap the test notification and verify the app brings up the relevant detail modal/page.
+4. **Offline Resilience**: Verify the Service Worker handles network drops gracefully without breaking app performance.

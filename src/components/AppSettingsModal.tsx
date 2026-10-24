@@ -627,8 +627,8 @@ export default function AppSettingsModal({
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.currentTarget;
-                      if (!target.src.includes('IMG_4077_57e7d528.png')) {
-                        target.src = '/assets/aistudio/IMG_4077_57e7d528.png';
+                      if (!target.src.includes('beta_dev_logo.png')) {
+                        target.src = '/beta_dev_logo.png';
                       }
                     }}
                   />

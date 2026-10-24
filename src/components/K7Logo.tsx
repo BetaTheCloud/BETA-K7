@@ -17,10 +17,9 @@ export default function K7Logo({ className = 'w-10 h-10', size, showText = false
         className="w-full h-full object-contain rounded-full drop-shadow-md transition-transform hover:scale-105"
         loading="eager"
         onError={(e) => {
-          // Fallback to local asset path if needed
           const target = e.currentTarget;
-          if (!target.src.includes('IMG_4072_90bc2817.png')) {
-            target.src = '/assets/aistudio/IMG_4072_90bc2817.png';
+          if (!target.src.includes('logo.svg')) {
+            target.src = '/logo.svg';
           }
         }}
       />

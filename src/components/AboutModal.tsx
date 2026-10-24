@@ -42,8 +42,8 @@ export function AboutContent({ isModal = false }: AboutContentProps) {
                 className="w-28 h-28 sm:w-32 sm:h-32 object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (!target.src.includes('IMG_4077_57e7d528.png')) {
-                    target.src = '/assets/aistudio/IMG_4077_57e7d528.png';
+                  if (!target.src.includes('beta_dev_logo.png')) {
+                    target.src = '/beta_dev_logo.png';
                   }
                 }}
               />
@@ -213,8 +213,8 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
                     className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.currentTarget;
-                      if (!target.src.includes('IMG_4077_57e7d528.png')) {
-                        target.src = '/assets/aistudio/IMG_4077_57e7d528.png';
+                      if (!target.src.includes('beta_dev_logo.png')) {
+                        target.src = '/beta_dev_logo.png';
                       }
                     }}
                   />
