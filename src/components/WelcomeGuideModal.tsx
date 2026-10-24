@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import K7Logo from './K7Logo';
 
+import { ABOUT_STORAGE_KEY } from './AboutModal';
+
 export const WELCOME_STORAGE_KEY = 'k7_welcome_guide_seen_v1';
 
 interface WelcomeGuideModalProps {
@@ -54,14 +56,15 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
       return;
     }
 
-    // Check localStorage for first-time visit
+    // Check localStorage for first-time visit:
+    // Only auto-open if AboutModal has ALREADY been seen, but WelcomeGuide has not
     try {
-      const seen = localStorage.getItem(WELCOME_STORAGE_KEY);
-      if (!seen) {
-        // Small delay for smooth entry after DOM paint
+      const aboutSeen = localStorage.getItem(ABOUT_STORAGE_KEY);
+      const welcomeSeen = localStorage.getItem(WELCOME_STORAGE_KEY);
+      if (aboutSeen && !welcomeSeen) {
         const timer = setTimeout(() => {
           setIsOpen(true);
-        }, 500);
+        }, 300);
         return () => clearTimeout(timer);
       }
     } catch {

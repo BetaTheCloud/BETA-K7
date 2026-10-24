@@ -18,6 +18,7 @@ import {
   FileDown,
   ArrowLeft,
   BellRing,
+  Share2,
 } from 'lucide-react';
 import WeeklyTimetable from '../components/schedule/WeeklyTimetable';
 import ExamScheduleView from '../components/schedule/ExamScheduleView';
@@ -25,6 +26,7 @@ import ScheduleImportModal from '../components/schedule/ScheduleImportModal';
 import CourseFormModal from '../components/schedule/CourseFormModal';
 import ExamFormModal from '../components/schedule/ExamFormModal';
 import ScheduleNotificationModal from '../components/schedule/ScheduleNotificationModal';
+import ScheduleTemplateModal from '../components/schedule/ScheduleTemplateModal';
 import {
   getStoredCourses,
   getStoredExams,
@@ -50,6 +52,8 @@ export default function SchedulePage() {
 
   // Modals
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateModalInitialMode, setTemplateModalInitialMode] = useState<'export' | 'import'>('export');
   const [isCourseFormOpen, setIsCourseFormOpen] = useState(false);
   const [isExamFormOpen, setIsExamFormOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -145,6 +149,18 @@ export default function SchedulePage() {
           >
             <ClipboardPaste className="w-4 h-4" />
             <span>Metinden İçe Aktar</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTemplateModalInitialMode('export');
+              setIsTemplateModalOpen(true);
+            }}
+            className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            title="Ders ve Sınav Programı Şablonunu Paylaş veya İçe Aktar"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Şablon Paylaş & Yükle</span>
           </button>
           <button
             onClick={
@@ -288,6 +304,15 @@ export default function SchedulePage() {
       <ScheduleNotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
+      />
+
+      <ScheduleTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onApplied={reloadData}
+        currentCourses={courses}
+        currentExams={exams}
+        initialMode={templateModalInitialMode}
       />
     </div>
   );

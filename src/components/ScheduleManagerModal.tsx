@@ -23,7 +23,8 @@ import {
   FileText,
   Bell,
   BellOff,
-  BellRing
+  BellRing,
+  Share2
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -45,6 +46,7 @@ import {
 } from '../lib/scheduleStorage';
 import ScheduleImportModal from './schedule/ScheduleImportModal';
 import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
+import ScheduleTemplateModal from './schedule/ScheduleTemplateModal';
 import { isItemNotificationEnabled, toggleItemNotification } from '../lib/scheduleNotificationService';
 import toast from 'react-hot-toast';
 
@@ -66,6 +68,7 @@ export default function ScheduleManagerModal({
   const [courses, setCourses] = useState<CourseScheduleItem[]>([]);
   const [exams, setExams] = useState<ExamScheduleItem[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [, setNotificationTick] = useState(0);
 
@@ -445,6 +448,17 @@ export default function ScheduleManagerModal({
               <ClipboardPaste className="w-4 h-4" />
               <span className="hidden sm:inline">Metinden İçe Aktar</span>
               <span className="sm:hidden">Metinden Aktar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Ders ve Sınav Programı Şablonunu Paylaş veya İçe Aktar (100% Cihaz İçi & İnternetsiz)"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Şablon Paylaş & Yükle</span>
+              <span className="sm:hidden">Şablon</span>
             </button>
 
             <button
@@ -1450,6 +1464,16 @@ export default function ScheduleManagerModal({
           setIsNotificationModalOpen(false);
           loadData();
         }}
+      />
+      <ScheduleTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => {
+          setIsTemplateModalOpen(false);
+          loadData();
+        }}
+        onApplied={loadData}
+        currentCourses={courses}
+        currentExams={exams}
       />
     </>
   );

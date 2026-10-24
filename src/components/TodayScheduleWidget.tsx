@@ -17,7 +17,8 @@ import {
   BookOpen,
   CalendarCheck,
   AlertCircle,
-  BellRing
+  BellRing,
+  Share2
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -32,6 +33,7 @@ import {
 } from '../lib/scheduleStorage';
 import ScheduleManagerModal from './ScheduleManagerModal';
 import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
+import ScheduleTemplateModal from './schedule/ScheduleTemplateModal';
 import SectionHeader from './SectionHeader';
 
 interface TodayScheduleWidgetProps {
@@ -43,6 +45,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
   const [exams, setExams] = useState<ExamScheduleItem[]>(() => getSortedExams());
   const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [managerInitialTab, setManagerInitialTab] = useState<'courses' | 'exams'>('courses');
 
   // Active view: 'today' | 'tomorrow' | 'exams' | DayOfWeek
@@ -268,6 +271,19 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
           <span className="tabular-nums text-[11px] px-1.5 py-0.2 rounded bg-black/10 dark:bg-white/15">
             {exams.length}
           </span>
+        </motion.button>
+
+        {/* Şablon Paylaş / Yükle Quick Button */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={() => setIsTemplateModalOpen(true)}
+          className="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 text-xs bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 shadow-2xs"
+          title="Ders ve Sınav Programı Şablonu Paylaş / İçe Aktar (İnternetsiz / Cihaz İçi)"
+        >
+          <Share2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span className="hidden sm:inline">Şablon Paylaş / Yükle</span>
+          <span className="sm:hidden">Şablon</span>
         </motion.button>
       </div>
 
@@ -634,6 +650,18 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
       <ScheduleNotificationModal
         isOpen={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
+      />
+
+      {/* Schedule Template Modal (100% Offline / Client-Side) */}
+      <ScheduleTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => {
+          setIsTemplateModalOpen(false);
+          loadData();
+        }}
+        onApplied={loadData}
+        currentCourses={courses}
+        currentExams={exams}
       />
     </section>
   );

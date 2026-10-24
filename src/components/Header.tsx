@@ -95,16 +95,28 @@ export default function Header() {
         <div className="flex items-center gap-1.5 sm:gap-2.5">
           <SyncStatusBadge />
 
-          {/* Welcome & Features Guide Modal Trigger */}
+          {/* Hakkımda & Geliştirici Beyanı Modal Trigger */}
           <button
             onClick={() => {
-              window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'));
+              window.dispatchEvent(new CustomEvent('k7_open_about_modal'));
             }}
-            title="Karşılama Ekranı & Uygulama Tanıtım Rehberi"
-            className="relative p-1.5 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-            aria-label="Karşılama Ekranı & Uygulama Rehberi"
+            title="Hakkımda & Geliştirici Beyanı"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shrink-0 flex items-center justify-center p-0.5"
+            aria-label="Hakkımda"
           >
-            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" strokeWidth={1.8} />
+            <img
+              src="/beta_dev_logo.webp"
+              alt="BETA"
+              loading="eager"
+              decoding="sync"
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.includes('beta_dev_logo.png')) {
+                  target.src = '/beta_dev_logo.png';
+                }
+              }}
+            />
           </button>
 
           {/* App Settings: Customizable Widgets & Password-Protected Server Config */}
@@ -114,10 +126,10 @@ export default function Header() {
               setIsSettingsOpen(true);
             }}
             title="Uygulama Ayarları (Kısayollar, Widget'lar & Sunucu)"
-            className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-white/70 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-stone-200 dark:hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
             aria-label="Ayarlar"
           >
-            <Settings className="w-4.5 h-4.5 sm:w-5 sm:h-5" strokeWidth={1.6} />
+            <Settings className="w-5 h-5 sm:w-5.5 sm:h-5.5" strokeWidth={1.6} />
           </button>
           
           <PWAInstallButton />

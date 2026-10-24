@@ -89,14 +89,15 @@ import { useTheme, ThemePalette } from '../hooks/useTheme';
 import K7Logo from './K7Logo';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
+import { AboutContent } from './AboutModal';
 
 export interface AppSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'theme' | 'quick_services' | 'widgets' | 'font' | 'server';
+  initialTab?: 'theme' | 'quick_services' | 'widgets' | 'font' | 'server' | 'guide' | 'about';
 }
 
-type TabId = 'theme' | 'quick_services' | 'widgets' | 'font' | 'server';
+type TabId = 'theme' | 'quick_services' | 'widgets' | 'font' | 'server' | 'guide' | 'about';
 
 const VALID_PASSWORDS = ['Lynkas.339', 'lynkas.339'];
 
@@ -591,6 +592,48 @@ export default function AppSettingsModal({
                   <Server className="w-3.5 h-3.5 shrink-0" />
                 )}
                 <span>Sunucu</span>
+              </button>
+
+              {/* 6. Rehber */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('guide')}
+                className={cn(
+                  'py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
+                  activeTab === 'guide'
+                    ? 'bg-[#8a2a43] text-white shadow-sm'
+                    : 'text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white'
+                )}
+              >
+                <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Rehber</span>
+              </button>
+
+              {/* 7. Hakkımda */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('about')}
+                className={cn(
+                  'py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap',
+                  activeTab === 'about'
+                    ? 'bg-[#8a2a43] text-white shadow-sm'
+                    : 'text-stone-600 dark:text-white/60 hover:text-stone-900 dark:hover:text-white'
+                )}
+              >
+                <div className="w-4 h-4 rounded-md bg-amber-500/20 p-0.5 flex items-center justify-center shrink-0">
+                  <img
+                    src="/beta_dev_logo.png"
+                    alt="BETA"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src.includes('IMG_4077_57e7d528.png')) {
+                        target.src = '/assets/aistudio/IMG_4077_57e7d528.png';
+                      }
+                    }}
+                  />
+                </div>
+                <span>Hakkımda</span>
               </button>
             </div>
           </HorizontalScrollWrapper>
@@ -1286,6 +1329,64 @@ export default function AppSettingsModal({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ================= TAB 6: REHBER ================= */}
+        {activeTab === 'guide' && (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-5 py-2.5 border-b border-stone-200/70 dark:border-white/5 bg-white/40 dark:bg-white/2 text-xs text-stone-500 dark:text-white/60 shrink-0">
+              Uygulama tanıtım rehberi ve kampüs özellikleri kılavuzu.
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              <div className="p-4 sm:p-5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                    <HelpCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white">
+                      Karşılama & Özellikler Rehberi
+                    </h4>
+                    <p className="text-xs text-stone-500 dark:text-white/60">
+                      Kampüs olanakları, yemekhane, ring saatleri ve kişiselleştirme ipuçları
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-stone-600 dark:text-white/70 leading-relaxed">
+                  Uygulamanın sunduğu tüm özellikleri ve kullanım kolaylıklarını adım adım gösteren etkileşimli tanıtım rehberini istediğiniz zaman buradan tekrar başlatabilirsiniz.
+                </p>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'));
+                    }}
+                    className="w-full py-3 rounded-xl bg-[#8a2a43] hover:bg-[#721f34] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 cursor-pointer"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    <span>Rehberi Başlat</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB 7: HAKKIMDA ================= */}
+        {activeTab === 'about' && (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-5 py-2.5 border-b border-stone-200/70 dark:border-white/5 bg-white/40 dark:bg-white/2 text-xs text-stone-500 dark:text-white/60 shrink-0">
+              Geliştirici beyanı, veri gizliliği, telif hakları ve iletişim bilgileri.
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-5 flex-1">
+              <AboutContent isModal={false} />
+            </div>
           </div>
         )}
       </motion.div>

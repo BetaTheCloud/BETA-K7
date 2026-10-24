@@ -25,6 +25,7 @@ import {
   buildGradeSummary,
 } from '../../lib/scheduleParser';
 import { batchImportItems } from '../../lib/scheduleStorage';
+import { parseAndValidateSchedulePackage } from '../../lib/scheduleTemplate';
 import { CourseItem, ExamItem, ParsedDocumentResult } from '../../types/schedule';
 
 interface ScheduleImportModalProps {
@@ -67,6 +68,29 @@ export default function ScheduleImportModal({ isOpen, onClose, onSuccess }: Sche
 
     setIsParsing(true);
     try {
+      const trimmed = pastedText.trim();
+
+      // Check if user pasted a structured template package (.k7plan / JSON)
+      if (trimmed.startsWith('{') || trimmed.includes('k7au_schedule_template') || trimmed.includes('"courses"')) {
+        const tplRes = parseAndValidateSchedulePackage(trimmed);
+        if (tplRes.success && tplRes.package) {
+          const pkg = tplRes.package;
+          setPreviewCourses(pkg.courses);
+          setPreviewExams(pkg.exams);
+          setSelectedCourseIds(new Set(pkg.courses.map((c) => c.id)));
+          setSelectedExamIds(new Set(pkg.exams.map((e) => e.id)));
+          setParsedResult({
+            courses: pkg.courses,
+            exams: pkg.exams,
+            rawTextLength: trimmed.length,
+            detectedGrades: pkg.metadata.grade ? [pkg.metadata.grade] : [1]
+          });
+          setIsParsing(false);
+          toast.success(`Şablon algılandı: ${pkg.summary.courseCount} ders, ${pkg.summary.examCount} sınav`);
+          return;
+        }
+      }
+
       const forced = preImportGradeMode > 0 ? preImportGradeMode : undefined;
       const res = await parsePlainText(pastedText, pasteDefaultGrade, forced);
 

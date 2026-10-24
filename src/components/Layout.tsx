@@ -8,8 +8,9 @@ import { useEffect } from 'react';
 import { OfflineIndicator } from './OfflineIndicator';
 import { ServerColdStartAlert } from './ServerColdStartAlert';
 import K7Logo from './K7Logo';
-import { openExternalUrl } from '../lib/openExternal';
 import WelcomeGuideModal from './WelcomeGuideModal';
+import AboutModal from './AboutModal';
+import { openExternalUrl } from '../lib/openExternal';
 
 export default function Layout() {
   const { pathname, search } = useLocation();
@@ -78,6 +79,7 @@ export default function Layout() {
       />
       <OfflineIndicator />
       <ServerColdStartAlert />
+      <AboutModal />
       <WelcomeGuideModal />
       
       {/* Desktop Sidebar */}
