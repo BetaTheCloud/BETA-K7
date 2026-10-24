@@ -696,8 +696,8 @@ export const CACHE_TTL = {
   ANNOUNCEMENTS: 3 * 60 * 1000,       // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
   NEWS: 3 * 60 * 1000,                // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
   EVENTS: 3 * 60 * 1000,              // 3 dakika -> Anında ekrana basılır, arka planda güncellenir
-  DEPT_ANNOUNCEMENTS: 12 * 60 * 60 * 1000, // 12 saat -> Bölüm/fakülte duyuruları önbelleği
-  DEPT_NEWS: 12 * 60 * 60 * 1000,     // 12 saat -> Bölüm/fakülte haberleri önbelleği
+  DEPT_ANNOUNCEMENTS: 5 * 60 * 1000,  // 5 dakika -> Bölüm/fakülte sınav ve duyuru güncellemeleri
+  DEPT_NEWS: 5 * 60 * 1000,           // 5 dakika -> Bölüm/fakülte haberleri önbelleği
   WEATHER: 10 * 60 * 1000,            // 10 dakika -> MGM Kilis İstasyonu hava durumu
   MENU: 24 * 60 * 60 * 1000,          // 24 saat -> Günlük menü önbellekten anında gelir
   CALENDAR: 14 * 24 * 60 * 60 * 1000, // 14 gün -> Akademik takvim

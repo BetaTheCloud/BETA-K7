@@ -1,14 +1,32 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Loader2, ArrowLeft, Calendar, Building2, Newspaper, Megaphone } from 'lucide-react';
-import { cleanDuplicateTitle } from '../lib/utils';
+import {
+  X,
+  ExternalLink,
+  Loader2,
+  ArrowLeft,
+  Calendar,
+  Building2,
+  Paperclip,
+  Download,
+  FileText
+} from 'lucide-react';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { cleanDuplicateTitle, cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
 
+export interface AttachmentItem {
+  name: string;
+  url: string;
+  extension?: string;
+  size?: string;
+}
+
 /**
- * Strips redundant repeated headings and duplicate cover images from scraped HTML.
- * Ensures that titles and images are never rendered twice inside the modal.
+ * Strips redundant repeated headings, duplicate cover images, and modernizes tables from scraped HTML.
+ * Ensures clean rendering in both light and dark mode on mobile and desktop.
  */
 function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?: string): string {
   if (!html || typeof window === 'undefined') return html || '';
@@ -29,6 +47,9 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
         }
       });
     }
+
+    // Remove noisy icons or separators
+    doc.querySelectorAll('.announcement-icon-separator, .title-list').forEach((el) => el.remove());
 
     // 2. Remove duplicate images matching the cover image or already seen
     const seenSrcs = new Set<string>();
@@ -54,7 +75,6 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
         (normKey && seenSrcs.has(normKey)) ||
         (rawSrc && seenSrcs.has(rawSrc.toLowerCase()))
       ) {
-        // Remove image element and any lonely empty parent container
         const parent = imgEl.parentElement;
         imgEl.remove();
         if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
@@ -66,9 +86,41 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
       }
     });
 
-    // 3. Mark all anchor tags for external opening
+    // 3. Modernize tables & attachment elements for mobile and dark mode
+    const tables = doc.querySelectorAll('table');
+    tables.forEach((tbl) => {
+      tbl.removeAttribute('style');
+      tbl.classList.add('w-full', 'border-collapse', 'my-3', 'text-xs', 'sm:text-sm');
+      const parent = tbl.parentElement;
+      if (!parent || !parent.classList.contains('overflow-x-auto')) {
+        const wrap = doc.createElement('div');
+        wrap.className = 'overflow-x-auto -mx-1 sm:mx-0 my-3 rounded-xl border border-stone-200/90 dark:border-white/10 shadow-2xs';
+        parent?.insertBefore(wrap, tbl);
+        wrap.appendChild(tbl);
+      }
+    });
+
+    doc.querySelectorAll('th').forEach((th) => {
+      th.removeAttribute('style');
+      th.className = 'p-2.5 bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left text-xs';
+    });
+
+    doc.querySelectorAll('td').forEach((td) => {
+      td.removeAttribute('style');
+      td.className = 'p-2.5 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs';
+    });
+
+    doc.querySelectorAll('tr').forEach((tr) => {
+      tr.removeAttribute('style');
+    });
+
+    // 4. Mark all anchor tags for external opening & strip hardcoded color:black
     const links = doc.querySelectorAll('a');
     links.forEach((aEl) => {
+      const style = aEl.getAttribute('style') || '';
+      if (style) {
+        aEl.setAttribute('style', style.replace(/color:\s*(black|#000000|#000|#111);?/gi, ''));
+      }
       aEl.setAttribute('target', '_blank');
       aEl.setAttribute('rel', 'noopener noreferrer');
     });
@@ -76,6 +128,218 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     return doc.body.innerHTML;
   } catch {
     return html;
+  }
+}
+
+/**
+ * Fallback attachment extractor from HTML in case API response didn't include attachments array
+ */
+function extractAttachmentsFromHtml(html?: string | null, baseUrl?: string): AttachmentItem[] {
+  if (!html || typeof window === 'undefined') return [];
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const list: AttachmentItem[] = [];
+    const seen = new Set<string>();
+
+    const add = (name: string, url: string) => {
+      if (!url) return;
+      let full = url.trim();
+      if (!full.startsWith('http') && baseUrl) {
+        try {
+          const origin = new URL(baseUrl).origin;
+          full = `${origin}${full.startsWith('/') ? '' : '/'}${full}`;
+        } catch {}
+      }
+      let cName = name.trim().replace(/\s+/g, ' ');
+      if (!cName || cName.toLowerCase() === 'tıklayınız.' || cName.toLowerCase() === 'tıklayınız' || cName.toLowerCase() === 'indir' || cName === '.') {
+        const parts = full.split('/');
+        try {
+          cName = decodeURIComponent(parts[parts.length - 1].split('?')[0]) || 'Döküman İndir';
+        } catch {
+          cName = parts[parts.length - 1].split('?')[0] || 'Döküman İndir';
+        }
+      }
+      let ext = '';
+      const match = full.match(/\.([a-zA-Z0-9]{2,5})(?:[\?#]|$)/);
+      if (match) ext = match[1].toUpperCase();
+      else if (cName.match(/\.([a-zA-Z0-9]{2,5})$/)) ext = cName.match(/\.([a-zA-Z0-9]{2,5})$/)[1].toUpperCase();
+      else if (full.includes('/file/')) ext = 'PDF';
+
+      if (!seen.has(full)) {
+        seen.add(full);
+        list.push({ name: cName, url: full, extension: ext || 'FILE' });
+      }
+    };
+
+    doc.querySelectorAll('table.course-list-table tbody tr, .courses-list table tbody tr, .course-list-table tbody tr, table tbody tr').forEach((tr) => {
+      const link = tr.querySelector('a');
+      const downloadLink = tr.querySelector('a[download]') || link;
+      const href = downloadLink?.getAttribute('href') || link?.getAttribute('href') || tr.getAttribute('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
+      const name = link?.textContent?.trim() || downloadLink?.getAttribute('download') || tr.querySelector('td')?.textContent?.trim() || '';
+      if (href && (href.includes('/file/') || href.includes('.pdf') || href.includes('.doc') || href.includes('.xls') || downloadLink?.getAttribute('download'))) {
+        add(name, href);
+      }
+    });
+
+    doc.querySelectorAll('a').forEach((a) => {
+      const href = a.getAttribute('href');
+      if (!href) return;
+      const lower = href.toLowerCase();
+      if (
+        lower.includes('/file/') ||
+        lower.includes('/contentfiles/') ||
+        lower.includes('/subdomain_files/') ||
+        lower.endsWith('.pdf') || lower.includes('.pdf?') ||
+        lower.endsWith('.doc') || lower.endsWith('.docx') ||
+        lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
+        lower.endsWith('.zip') || lower.endsWith('.rar')
+      ) {
+        const name = a.textContent?.trim() || a.getAttribute('download') || '';
+        add(name, href);
+      }
+    });
+
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Direct client-side university announcement parser.
+ * Used natively in mobile Capacitor APK to bypass any remote proxy or unpatched backend limitations,
+ * and as an instant fallback when HTML is retrieved directly.
+ */
+function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
+  if (!rawHtml || typeof window === 'undefined') return { contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '' };
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
+    const origin = new URL(pageUrl).origin;
+
+    // 1. Title
+    const titleEl = doc.querySelector('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1');
+    const title = cleanDuplicateTitle(titleEl?.textContent || '');
+
+    // 2. Attachments
+    const attachments: AttachmentItem[] = [];
+    const seenUrls = new Set<string>();
+
+    const addAttachment = (rawName: string, rawHref: string) => {
+      if (!rawHref) return;
+      let fullUrl = rawHref.trim();
+      if (!fullUrl.startsWith('http')) {
+        fullUrl = `${origin}${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
+      }
+      let cleanName = (rawName || '').trim().replace(/\s+/g, ' ');
+      const lowerName = cleanName.toLowerCase();
+      if (
+        !cleanName ||
+        lowerName === 'tıklayınız.' ||
+        lowerName === 'tıklayınız' ||
+        lowerName === 'tıklayın' ||
+        lowerName === 'tıklayın.' ||
+        lowerName === 'indir' ||
+        lowerName === 'döküman indir' ||
+        lowerName === 'tıkla' ||
+        cleanName === '.'
+      ) {
+        const parts = fullUrl.split('/');
+        try {
+          cleanName = decodeURIComponent(parts[parts.length - 1].split('?')[0]) || 'Döküman İndir';
+        } catch {
+          cleanName = parts[parts.length - 1].split('?')[0] || 'Döküman İndir';
+        }
+      }
+
+      let ext = '';
+      const extMatch = fullUrl.match(/\.([a-zA-Z0-9]{2,5})(?:[\?#]|$)/);
+      if (extMatch) {
+        ext = extMatch[1].toUpperCase();
+      } else {
+        const nameMatch = cleanName.match(/\.([a-zA-Z0-9]{2,5})$/);
+        if (nameMatch) {
+          ext = nameMatch[1].toUpperCase();
+        } else if (fullUrl.includes('/file/')) {
+          ext = 'PDF';
+        }
+      }
+
+      if (!seenUrls.has(fullUrl)) {
+        seenUrls.add(fullUrl);
+        attachments.push({ name: cleanName, url: fullUrl, extension: ext || 'FILE' });
+      }
+    };
+
+    // Table rows
+    doc.querySelectorAll('table.course-list-table tbody tr, .courses-list table tbody tr, .course-list-table tbody tr, table tbody tr').forEach((tr) => {
+      const link = tr.querySelector('a');
+      const downloadLink = tr.querySelector('a[download]') || link;
+      const href = downloadLink?.getAttribute('href') || link?.getAttribute('href') || tr.getAttribute('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
+      const name = link?.textContent?.trim() || downloadLink?.getAttribute('download') || tr.querySelector('td')?.textContent?.trim() || '';
+      if (href && (href.includes('/file/') || href.includes('.pdf') || href.includes('.doc') || href.includes('.xls') || downloadLink?.getAttribute('download'))) {
+        addAttachment(name, href);
+      }
+    });
+
+    // Document links
+    doc.querySelectorAll('a').forEach((a) => {
+      const href = a.getAttribute('href');
+      if (!href) return;
+      const lower = href.toLowerCase();
+      if (
+        lower.includes('/file/') ||
+        lower.includes('/contentfiles/') ||
+        lower.includes('/subdomain_files/') ||
+        lower.endsWith('.pdf') || lower.includes('.pdf?') ||
+        lower.endsWith('.doc') || lower.endsWith('.docx') ||
+        lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
+        lower.endsWith('.zip') || lower.endsWith('.rar')
+      ) {
+        const name = a.textContent?.trim() || a.getAttribute('download') || '';
+        addAttachment(name, href);
+      }
+    });
+
+    // 3. Content container (preserves both text and table)
+    const contentBox = doc.querySelector('.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, .announcement-detail-layout') ||
+                      doc.querySelector('.announcement-detail-text') ||
+                      doc.querySelector('.inner-page__content-description') ||
+                      doc.querySelector('.inner-page__content') ||
+                      doc.querySelector('.news-detail-text') ||
+                      doc.querySelector('article') ||
+                      doc.querySelector('.content-block');
+
+    let contentHtml = '';
+    if (contentBox) {
+      contentBox.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').forEach((h) => h.remove());
+      contentBox.querySelectorAll('.announcement-icon-separator, .title-list').forEach((s) => s.remove());
+      contentHtml = contentBox.innerHTML;
+    }
+
+    // Append table if outside
+    const externalFiles = doc.querySelector('#files, .course-list-table, .courses-list, .flat-all-course');
+    if (externalFiles && !contentHtml.includes('course-list-table') && !contentHtml.includes('courses-list')) {
+      const parentBlock = externalFiles.parentElement;
+      const filesHtml = (parentBlock && parentBlock.tagName !== 'BODY') ? parentBlock.innerHTML : externalFiles.innerHTML;
+      contentHtml += `<div class="announcement-attached-documents mt-6 pt-4 border-t border-stone-200/80 dark:border-white/10">${filesHtml}</div>`;
+    }
+
+    // Modernize and clean HTML
+    const cleaned = cleanDetailContentHtml(contentHtml, '', title);
+
+    // Image
+    const imgEl = doc.querySelector('.news-detail-image img, .detail-image img, .announcement-detail-image img, .inner-page__image img');
+    let imageUrl = imgEl?.getAttribute('src') || '';
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      imageUrl = `${origin}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    }
+
+    return { title, contentHtml: cleaned, attachments, imageUrl };
+  } catch (err) {
+    console.warn('parseUniversityAnnouncementHtml failed:', err);
+    return { contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '' };
   }
 }
 
@@ -89,6 +353,7 @@ export interface DetailModalItem {
   departmentName?: string;
   facultyName?: string;
   content?: string;
+  attachments?: AttachmentItem[];
 }
 
 export interface DetailModalProps {
@@ -110,6 +375,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const initialDept = item?.departmentName || item?.facultyName || item?.category || '';
 
   const [contentHtml, setContentHtml] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentItem[]>(item?.attachments || []);
   const [featuredImage, setFeaturedImage] = useState<string>(initialImageUrl);
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -121,34 +387,96 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
       setFeaturedImage(img);
       setImgError(false);
       setContentHtml(null);
+      setAttachments(item?.attachments || []);
       setError(false);
 
       if (activeUrl && activeUrl.startsWith('http')) {
         setLoading(true);
-        safeFetch(getApiUrl(`/api/detail?url=${encodeURIComponent(activeUrl)}`))
-          .then(res => {
-            if (!res.ok) throw new Error('Network response was not ok');
-            return res.json();
-          })
-          .then(data => {
-            const bestImg = img || data.imageUrl || '';
-            if (data.imageUrl && !img) {
-              setFeaturedImage(data.imageUrl);
-              setImgError(false);
+
+        // A. If running in native Capacitor (Android APK), use native CapacitorHttp for 100% direct CORS-free fetch
+        const tryNativeDirect = async (): Promise<boolean> => {
+          if (Capacitor.isNativePlatform()) {
+            try {
+              const res = await CapacitorHttp.get({ url: activeUrl });
+              if (res.status === 200 && typeof res.data === 'string' && res.data.length > 200) {
+                const parsed = parseUniversityAnnouncementHtml(res.data, activeUrl);
+                if (parsed.contentHtml) {
+                  setContentHtml(parsed.contentHtml);
+                  if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
+                  if (parsed.imageUrl && !img) setFeaturedImage(parsed.imageUrl);
+                  setLoading(false);
+                  return true;
+                }
+              }
+            } catch (nativeErr) {
+              console.warn('Capacitor native direct fetch notice:', nativeErr);
             }
-            if (data.contentHtml) {
-              setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle));
-            }
-            setLoading(false);
-          })
-          .catch(err => {
-            console.warn('Detail fetch notice:', err);
-            // If we have initialContent or initialImageUrl, we do not mark as fatal error!
-            if (!initialContent && !img) {
-              setError(true);
-            }
-            setLoading(false);
-          });
+          }
+          return false;
+        };
+
+        tryNativeDirect().then((success) => {
+          if (success) return;
+
+          // B. Otherwise or if fallback needed: call /api/detail
+          safeFetch(getApiUrl(`/api/detail?url=${encodeURIComponent(activeUrl)}&_t=${Date.now()}`))
+            .then(res => {
+              if (!res.ok) throw new Error('Network response was not ok');
+              return res.json();
+            })
+            .then(data => {
+              const bestImg = img || data.imageUrl || '';
+              if (data.imageUrl && !img) {
+                setFeaturedImage(data.imageUrl);
+                setImgError(false);
+              }
+              if (data.contentHtml) {
+                setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle));
+              }
+              if (Array.isArray(data.attachments) && data.attachments.length > 0) {
+                setAttachments(data.attachments);
+              } else if (data.contentHtml) {
+                const fallbackAttachments = extractAttachmentsFromHtml(data.contentHtml, activeUrl);
+                if (fallbackAttachments.length > 0) {
+                  setAttachments(fallbackAttachments);
+                }
+              }
+
+              // C. If the API response returned no attachments and no table, attempt direct fetch as safety net
+              const hasAttachments = Array.isArray(data.attachments) && data.attachments.length > 0;
+              const hasTable = data.contentHtml && data.contentHtml.includes('<table');
+              if (!hasAttachments && !hasTable) {
+                fetch(activeUrl)
+                  .then(r => r.text())
+                  .then(raw => {
+                    const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
+                    if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
+                    if (parsed.contentHtml && parsed.contentHtml.includes('<table')) {
+                      setContentHtml(parsed.contentHtml);
+                    }
+                  })
+                  .catch(() => {});
+              }
+
+              setLoading(false);
+            })
+            .catch(err => {
+              console.warn('Detail fetch notice:', err);
+              // Direct fetch fallback on network error
+              fetch(activeUrl)
+                .then(r => r.text())
+                .then(raw => {
+                  const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
+                  if (parsed.contentHtml) setContentHtml(parsed.contentHtml);
+                  if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
+                  setLoading(false);
+                })
+                .catch(() => {
+                  if (!initialContent && !img) setError(true);
+                  setLoading(false);
+                });
+            });
+        });
       }
     }
   }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
@@ -310,9 +638,25 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                     prose-img:rounded-xl prose-img:mx-auto prose-img:max-h-[500px] prose-img:object-contain prose-img:shadow-sm prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10
                     prose-headings:font-display prose-headings:font-bold prose-headings:text-stone-900 dark:prose-headings:text-white"
                   onClick={(e) => {
-                    const anchor = (e.target as HTMLElement).closest('a');
+                    const target = e.target as HTMLElement;
+                    const anchor = target.closest('a');
                     if (anchor && anchor.href) {
                       openExternalUrl(anchor.href, e);
+                      return;
+                    }
+                    const tr = target.closest('tr');
+                    if (tr) {
+                      const trAnchor = tr.querySelector('a');
+                      if (trAnchor && trAnchor.href) {
+                        openExternalUrl(trAnchor.href, e);
+                        return;
+                      }
+                      const onclickAttr = tr.getAttribute('onclick') || '';
+                      const match = onclickAttr.match(/get_url\(['"]([^'"]+)['"]\)/);
+                      if (match && match[1]) {
+                        openExternalUrl(match[1], e);
+                        return;
+                      }
                     }
                   }}
                   dangerouslySetInnerHTML={{ __html: contentHtml }}
@@ -322,6 +666,76 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   <p>{initialContent}</p>
                 </div>
               ) : null}
+
+              {/* Attached Documents & Files Section */}
+              {attachments.length > 0 && (
+                <div className="rounded-2xl p-4 bg-stone-100/90 dark:bg-stone-900/50 border border-stone-200/90 dark:border-white/10 space-y-3 shadow-xs my-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-400/15 flex items-center justify-center text-amber-700 dark:text-amber-300">
+                        <Paperclip className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-stone-800 dark:text-stone-200">
+                        Ekli Belgeler ve Dosyalar ({attachments.length})
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-semibold text-stone-500 dark:text-white/50">
+                      Dokun ve İndir
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {attachments.map((file, idx) => {
+                      const ext = (file.extension || '').toUpperCase();
+                      const isPdf = ext === 'PDF' || file.name.toLowerCase().endsWith('.pdf');
+                      const isDoc = ext === 'DOC' || ext === 'DOCX';
+                      const isXls = ext === 'XLS' || ext === 'XLSX';
+
+                      return (
+                        <a
+                          key={idx}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => openExternalUrl(file.url, e)}
+                          className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-white/5 border border-stone-200/80 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-400/50 shadow-2xs hover:shadow-xs transition-all group active:scale-[0.99] cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={cn(
+                                'w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 transition-transform group-hover:scale-105 shadow-2xs',
+                                isPdf
+                                  ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25'
+                                  : isDoc
+                                  ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25'
+                                  : isXls
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25'
+                                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25'
+                              )}
+                            >
+                              {ext || 'FILE'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-stone-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-stone-400 dark:text-white/40 flex items-center gap-1.5 mt-0.5">
+                                <span>{isPdf ? 'PDF Belgesi' : isDoc ? 'Word Dökümanı' : isXls ? 'Excel Tablosu' : 'Dosya Eki'}</span>
+                                <span>·</span>
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">İndir / Görüntüle</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-stone-100 dark:bg-white/10 group-hover:bg-amber-600 group-hover:text-white text-stone-600 dark:text-stone-300 transition-all">
+                            <Download className="w-4 h-4" />
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer with Safe Area padding covering BottomNav */}

@@ -3037,6 +3037,19 @@ export const FALLBACK_DEPARTMENT_ANNOUNCEMENTS: DepartmentAnnouncementItem[] = [
     "sourceUrl": "https://enstitu.kilis.edu.tr/tr/announcements-all"
   },
   {
+    "id": "dept-ann-turkdili-1512",
+    "title": "2026-2027 Güz Dönemi Ara Sınav/ Vize Programı",
+    "date": "23 Ekim 2026",
+    "content": "2026-2027 Güz Dönemi Ara Sınav/ Vize Programı",
+    "url": "https://turkdili.kilis.edu.tr/tr/announcements-detail/1512",
+    "facultyId": "itbf",
+    "facultyName": "İnsan ve Toplum Bilimleri Fakültesi",
+    "departmentId": "turkdili",
+    "departmentName": "Türk Dili ve Edebiyatı Bölümü",
+    "category": "Türk Dili ve Edebiyatı Bölümü Duyuruları",
+    "sourceUrl": "https://turkdili.kilis.edu.tr/tr/announcements-all"
+  },
+  {
     "id": "dept-ann-turkdili-1",
     "title": "Türk Dili ve Edebiyatı Bölümü Oryantasyon Programı",
     "date": "07 Ekim 2026",

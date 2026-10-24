@@ -123,7 +123,21 @@ export default function Announcements() {
 
     if (cached.data && cached.data.length > 0) {
       setDeptAnnouncements(cached.data);
-      if (cached.isFresh && !force) {
+      if (!force) {
+        // Fast instant display + background revalidation
+        (async () => {
+          try {
+            const currentGroup = ACADEMIC_UNITS_WITH_DEPARTMENTS.find(g => g.facultyId === selectedFacultyId);
+            if (!currentGroup) return;
+            const isAll = !selectedDepartmentId || selectedDepartmentId === 'all';
+            const currentDept = isAll ? null : currentGroup?.departments.find(d => d.id === selectedDepartmentId);
+            const deptUrl = isAll 
+              ? getFacultyAnnouncementUrl(currentGroup)
+              : (currentDept ? getDepartmentAnnouncementUrl(currentDept) : getFacultyAnnouncementUrl(currentGroup));
+            const fresh = await getDepartmentAnnouncements(deptUrl, isAll ? 'all' : selectedDepartmentId, selectedFacultyId, true);
+            if (fresh && fresh.length > 0) setDeptAnnouncements(fresh);
+          } catch {}
+        })();
         setDeptLoading(false);
         return;
       }

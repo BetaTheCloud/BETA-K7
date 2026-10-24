@@ -138,22 +138,27 @@ export function isMobileAppEnvironment(): boolean {
 }
 
 export function getEffectiveApiBase(): string {
-  // 1. User manual override stored in localStorage
-  if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
-    if (custom && custom.trim().length > 0) {
-      return custom.trim().replace(/\/+$/, '');
-    }
-  }
-
-  // 2. Mobile APK / Hybrid container: Needs remote backend URL
+  // 1. Mobile APK / Hybrid container: Needs remote backend URL
   if (isMobileAppEnvironment()) {
+    if (typeof window !== 'undefined') {
+      const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
+      if (custom && custom.trim().length > 0) {
+        return custom.trim().replace(/\/+$/, '');
+      }
+    }
     const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
     return envUrl || DEFAULT_REMOTE_API_BASE;
   }
 
-  // 3. Web runtime (AI Studio preview, local dev, unified full-stack):
+  // 2. Web runtime (AI Studio preview, local dev, unified full-stack):
   // Always use same-origin relative endpoints ('') so the app communicates directly with its own backend
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
+    if (custom && custom.trim().length > 0 && !custom.includes('beta-k7.onrender.com')) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+  }
+
   return '';
 }
 

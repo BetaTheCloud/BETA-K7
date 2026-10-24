@@ -1501,6 +1501,11 @@ app.get('/api/calendar', async (req, res) => {
 });
 
 app.get('/api/detail', async (req, res) => {
+  // Prevent any browser, proxy or service worker caching of detail content
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   try {
     let targetUrl = req.query.url as string;
     if (!targetUrl) {
@@ -1579,12 +1584,17 @@ app.get('/api/detail', async (req, res) => {
     
     let contentHtml = '';
     
+    // Prioritize comprehensive containers that house both text descriptions and attachment tables
     const contentSelectors = [
-      '.event-detail-text',
       '.event-detail-content',
+      '.event-detail-text',
       '.event-content',
       '.etkinlik-detail',
       '.etkinlik-content',
+      '.announcement-detail-content-box',
+      '.announcement-detail-card',
+      '.announcement-detail-wrapper',
+      '.announcement-detail-layout',
       '.inner-page__content-description',
       '.announcement-detail-text',
       '.news-detail-text',
@@ -1616,6 +1626,95 @@ app.get('/api/detail', async (req, res) => {
         contentHtml = ps.map((_, p) => `<p>${$(p).html()}</p>`).get().join('');
       }
     }
+
+    // Ensure attachments/courses-list/files are not omitted if outside the picked selector
+    const externalFileBlocks = $('#files, .course-list-table, .courses-list, .flat-all-course');
+    if (externalFileBlocks.length > 0 && !contentHtml.includes('course-list-table') && !contentHtml.includes('courses-list')) {
+      const parentBlock = externalFileBlocks.first().parent();
+      const filesHtml = (parentBlock.length && !parentBlock.is('body')) ? parentBlock.html() : externalFileBlocks.html();
+      if (filesHtml) {
+        contentHtml += `<div class="announcement-attached-documents mt-6 pt-4 border-t border-stone-200/80 dark:border-white/10">${filesHtml}</div>`;
+      }
+    }
+
+    // Extract structured attachments (PDF, DOCX, XLSX, etc.)
+    interface DetailAttachment {
+      name: string;
+      url: string;
+      extension: string;
+      size?: string;
+    }
+
+    const attachments: DetailAttachment[] = [];
+    const seenAttachmentUrls = new Set<string>();
+
+    const addAttachment = (rawName: string, rawHref: string) => {
+      if (!rawHref) return;
+      let fullUrl = rawHref.trim();
+      if (!fullUrl.startsWith('http')) {
+        fullUrl = `${baseUrl}${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
+      }
+      let cleanName = (rawName || '').trim().replace(/\s+/g, ' ');
+      const lowerName = cleanName.toLowerCase();
+      if (!cleanName || lowerName === 'tıklayınız.' || lowerName === 'tıklayınız' || lowerName === 'indir' || lowerName === 'döküman indir' || cleanName === '.') {
+        const parts = fullUrl.split('/');
+        try {
+          cleanName = decodeURIComponent(parts[parts.length - 1].split('?')[0]) || 'Döküman İndir';
+        } catch {
+          cleanName = parts[parts.length - 1].split('?')[0] || 'Döküman İndir';
+        }
+      }
+
+      // Determine extension
+      let ext = '';
+      const extMatch = fullUrl.match(/\.([a-zA-Z0-9]{2,5})(?:[\?#]|$)/);
+      if (extMatch) {
+        ext = extMatch[1].toUpperCase();
+      } else {
+        const nameMatch = cleanName.match(/\.([a-zA-Z0-9]{2,5})$/);
+        if (nameMatch) {
+          ext = nameMatch[1].toUpperCase();
+        } else if (fullUrl.includes('/file/')) {
+          ext = 'PDF';
+        }
+      }
+
+      if (!seenAttachmentUrls.has(fullUrl)) {
+        seenAttachmentUrls.add(fullUrl);
+        attachments.push({ name: cleanName, url: fullUrl, extension: ext || 'FILE' });
+      }
+    };
+
+    // 1. Check table rows from course-list-table, courses-list or tables with files
+    $('table.course-list-table tbody tr, .courses-list table tbody tr, .course-list-table tbody tr, table tbody tr').each((_, tr) => {
+      const row = $(tr);
+      const link = row.find('a').first();
+      const downloadLink = row.find('a[download]').length ? row.find('a[download]') : link;
+      const href = downloadLink.attr('href') || link.attr('href') || row.attr('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
+      const name = link.text().trim() || downloadLink.attr('download') || row.find('td').first().text().trim();
+      if (href && (href.includes('/file/') || href.includes('.pdf') || href.includes('.doc') || href.includes('.xls') || downloadLink.attr('download'))) {
+        addAttachment(name, href);
+      }
+    });
+
+    // 2. Check all document links
+    $('a').each((_, a) => {
+      const href = $(a).attr('href');
+      if (!href) return;
+      const lower = href.toLowerCase();
+      if (
+        lower.includes('/file/') ||
+        lower.includes('/contentfiles/') ||
+        lower.includes('/subdomain_files/') ||
+        lower.endsWith('.pdf') || lower.includes('.pdf?') ||
+        lower.endsWith('.doc') || lower.endsWith('.docx') ||
+        lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
+        lower.endsWith('.zip') || lower.endsWith('.rar')
+      ) {
+        const name = $(a).text().trim() || $(a).attr('download') || '';
+        addAttachment(name, href);
+      }
+    });
     
     if (contentHtml) {
       const $content = cheerio.load(contentHtml, null, false);
@@ -1630,6 +1729,9 @@ app.get('/api/detail', async (req, res) => {
           }
         });
       }
+
+      // Remove separator noise if present
+      $content('.announcement-icon-separator, .title-list').remove();
 
       // 2. Remove duplicate images matching imageUrl or same filename
       const seenImgs = new Set<string>();
@@ -1676,12 +1778,40 @@ app.get('/api/detail', async (req, res) => {
         $content(el).attr('rel', 'noopener noreferrer');
       });
 
+      // 4. Modernize tables & attachment elements inside contentHtml for dark mode & mobile
+      $content('table').each((_, tbl) => {
+        $content(tbl).removeAttr('style');
+        $content(tbl).addClass('w-full border-collapse my-3 text-xs sm:text-sm rounded-xl overflow-hidden');
+        if (!$content(tbl).parent().hasClass('overflow-x-auto')) {
+          $content(tbl).wrap('<div class="overflow-x-auto -mx-1 sm:mx-0 my-3 rounded-xl border border-stone-200 dark:border-white/10 shadow-xs"></div>');
+        }
+      });
+      $content('th').each((_, th) => {
+        $content(th).removeAttr('style');
+        $content(th).addClass('p-2.5 bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left');
+      });
+      $content('td').each((_, td) => {
+        $content(td).removeAttr('style');
+        $content(td).addClass('p-2.5 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200');
+      });
+      $content('tr').each((_, tr) => {
+        $content(tr).removeAttr('style');
+      });
+      // Strip harsh dark text color from links
+      $content('a').each((_, a) => {
+        const style = $content(a).attr('style') || '';
+        if (style) {
+          const cleaned = style.replace(/color:\s*(black|#000000|#000|#111);?/gi, '');
+          $content(a).attr('style', cleaned);
+        }
+      });
+
       contentHtml = $content.html() || '';
       contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
       contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
     }
     
-    res.json({ title, contentHtml, imageUrl, images });
+    res.json({ title, contentHtml, imageUrl, images, attachments });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch detail content' });
   }
