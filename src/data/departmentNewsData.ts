@@ -3040,14 +3040,21 @@ export const FALLBACK_DEPARTMENT_ANNOUNCEMENTS: DepartmentAnnouncementItem[] = [
     "id": "dept-ann-turkdili-1512",
     "title": "2026-2027 Güz Dönemi Ara Sınav/ Vize Programı",
     "date": "23 Ekim 2026",
-    "content": "2026-2027 Güz Dönemi Ara Sınav/ Vize Programı",
+    "content": "",
     "url": "https://turkdili.kilis.edu.tr/tr/announcements-detail/1512",
     "facultyId": "itbf",
     "facultyName": "İnsan ve Toplum Bilimleri Fakültesi",
     "departmentId": "turkdili",
     "departmentName": "Türk Dili ve Edebiyatı Bölümü",
     "category": "Türk Dili ve Edebiyatı Bölümü Duyuruları",
-    "sourceUrl": "https://turkdili.kilis.edu.tr/tr/announcements-all"
+    "sourceUrl": "https://turkdili.kilis.edu.tr/tr/announcements-all",
+    "attachments": [
+      {
+        "name": "TDE Vize Sınav Programı 2026-2027 GÜZ DÖNEMİ.pdf",
+        "url": "https://turkdili.kilis.edu.tr/tr/file/9064",
+        "extension": "PDF"
+      }
+    ]
   },
   {
     "id": "dept-ann-turkdili-1",

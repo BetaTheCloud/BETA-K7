@@ -123,6 +123,11 @@ export interface DepartmentAnnouncementItem {
   departmentName?: string;
   category?: string;
   sourceUrl?: string;
+  attachments?: {
+    name: string;
+    url: string;
+    extension?: string;
+  }[];
 }
 
 export interface AcademicDepartmentUnit {

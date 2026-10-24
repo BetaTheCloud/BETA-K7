@@ -28,22 +28,55 @@ export interface AttachmentItem {
  * Strips redundant repeated headings, duplicate cover images, and modernizes tables from scraped HTML.
  * Ensures clean rendering in both light and dark mode on mobile and desktop.
  */
-function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?: string): string {
+function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?: string, attachmentsCount?: number): string {
   if (!html || typeof window === 'undefined') return html || '';
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
+    // 1. Remove raw file attachment boxes when files are extracted
+    // This prevents broken, unstyled duplicate tables with white headers and squished red icons
+    doc.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((el) => el.remove());
+
+    doc.querySelectorAll('table').forEach((tbl) => {
+      const tblText = (tbl.textContent || '').toLowerCase();
+      if (
+        tblText.includes('döküman ismi') ||
+        tblText.includes('doküman ismi') ||
+        (tblText.includes('indir') && (tblText.includes('.pdf') || tblText.includes('/file/')))
+      ) {
+        const parentWrap = tbl.closest('.overflow-x-auto, .course-list-table, .courses-list, #files');
+        if (parentWrap) {
+          parentWrap.remove();
+        } else {
+          tbl.remove();
+        }
+      }
+    });
+
     const cleanTitle = cleanDuplicateTitle(title || '');
     const normTitle = cleanTitle.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    // 1. Remove duplicate headings matching the page title or being the main h1 inside content
+    // 2. Remove duplicate headings & paragraphs matching the page title
     if (normTitle) {
-      const headings = doc.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header');
+      const headings = doc.querySelectorAll('h1, h2, h3, h4, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header');
       headings.forEach((el) => {
         const text = cleanDuplicateTitle(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
         if (text && (text === normTitle || normTitle.includes(text) || text.includes(normTitle))) {
           el.remove();
+        }
+      });
+
+      // Also remove paragraphs or divs that literally just repeat the title
+      doc.querySelectorAll('p, div.announcement-detail-text, div.news-detail-text, span, strong, b').forEach((el) => {
+        if (el.querySelector('table, img, iframe, video')) return;
+        const pText = cleanDuplicateTitle(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (pText && (pText === normTitle || (normTitle.length > 8 && (pText.includes(normTitle) || normTitle.includes(pText))))) {
+          const parent = el.parentElement;
+          el.remove();
+          if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
+            parent.remove();
+          }
         }
       });
     }
@@ -51,7 +84,7 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     // Remove noisy icons or separators
     doc.querySelectorAll('.announcement-icon-separator, .title-list').forEach((el) => el.remove());
 
-    // 2. Remove duplicate images matching the cover image or already seen
+    // 3. Remove duplicate images matching the cover image or already seen
     const seenSrcs = new Set<string>();
     const normalizeImgKey = (urlStr: string): string => {
       if (!urlStr) return '';
@@ -86,44 +119,67 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
       }
     });
 
-    // 3. Modernize tables & attachment elements for mobile and dark mode
+    // 4. Modernize legitimate data tables (schedules, plans) for mobile and dark mode
     const tables = doc.querySelectorAll('table');
     tables.forEach((tbl) => {
       tbl.removeAttribute('style');
-      tbl.classList.add('w-full', 'border-collapse', 'my-3', 'text-xs', 'sm:text-sm');
+      tbl.className = 'w-full border-collapse my-3 text-xs sm:text-sm rounded-xl overflow-hidden';
       const parent = tbl.parentElement;
       if (!parent || !parent.classList.contains('overflow-x-auto')) {
         const wrap = doc.createElement('div');
-        wrap.className = 'overflow-x-auto -mx-1 sm:mx-0 my-3 rounded-xl border border-stone-200/90 dark:border-white/10 shadow-2xs';
+        wrap.className = 'overflow-x-auto -mx-1 sm:mx-0 my-3 rounded-xl border border-stone-200/90 dark:border-white/10 shadow-2xs bg-white dark:bg-stone-900/60';
         parent?.insertBefore(wrap, tbl);
         wrap.appendChild(tbl);
       }
     });
 
-    doc.querySelectorAll('th').forEach((th) => {
-      th.removeAttribute('style');
-      th.className = 'p-2.5 bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left text-xs';
+    doc.querySelectorAll('thead').forEach((thGroup) => {
+      thGroup.removeAttribute('style');
+      thGroup.className = 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100';
     });
 
-    doc.querySelectorAll('td').forEach((td) => {
-      td.removeAttribute('style');
-      td.className = 'p-2.5 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs';
+    doc.querySelectorAll('tbody').forEach((tb) => {
+      tb.removeAttribute('style');
     });
 
     doc.querySelectorAll('tr').forEach((tr) => {
       tr.removeAttribute('style');
+      tr.className = 'hover:bg-stone-50 dark:hover:bg-white/5 transition-colors border-b border-stone-100 dark:border-white/5';
     });
 
-    // 4. Mark all anchor tags for external opening & strip hardcoded color:black
+    doc.querySelectorAll('th').forEach((th) => {
+      th.removeAttribute('style');
+      th.className = 'p-3 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left text-xs';
+    });
+
+    doc.querySelectorAll('td').forEach((td) => {
+      td.removeAttribute('style');
+      td.className = 'p-3 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs';
+    });
+
+    // 5. Mark all anchor tags for external opening & strip hardcoded color styles
     const links = doc.querySelectorAll('a');
     links.forEach((aEl) => {
       const style = aEl.getAttribute('style') || '';
       if (style) {
-        aEl.setAttribute('style', style.replace(/color:\s*(black|#000000|#000|#111);?/gi, ''));
+        aEl.setAttribute('style', style.replace(/color:\s*[^;]+;?/gi, ''));
       }
       aEl.setAttribute('target', '_blank');
       aEl.setAttribute('rel', 'noopener noreferrer');
     });
+
+    // 6. Clean empty paragraphs or divs
+    doc.querySelectorAll('div, p, span').forEach((el) => {
+      if (el.children.length === 0 && (!el.textContent || el.textContent.trim() === '' || el.textContent.trim() === '&nbsp;')) {
+        el.remove();
+      }
+    });
+
+    const rawText = (doc.body.textContent || '').replace(/\u00a0/g, ' ').trim();
+    const hasMedia = doc.querySelectorAll('img, table, iframe').length > 0;
+    if (!rawText && !hasMedia) {
+      return '';
+    }
 
     return doc.body.innerHTML;
   } catch {
@@ -302,7 +358,7 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
       }
     });
 
-    // 3. Content container (preserves both text and table)
+    // 3. Content container
     const contentBox = doc.querySelector('.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, .announcement-detail-layout') ||
                       doc.querySelector('.announcement-detail-text') ||
                       doc.querySelector('.inner-page__content-description') ||
@@ -315,19 +371,13 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
     if (contentBox) {
       contentBox.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').forEach((h) => h.remove());
       contentBox.querySelectorAll('.announcement-icon-separator, .title-list').forEach((s) => s.remove());
+      // Remove raw file boxes since they are cleanly extracted into attachments
+      contentBox.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((f) => f.remove());
       contentHtml = contentBox.innerHTML;
     }
 
-    // Append table if outside
-    const externalFiles = doc.querySelector('#files, .course-list-table, .courses-list, .flat-all-course');
-    if (externalFiles && !contentHtml.includes('course-list-table') && !contentHtml.includes('courses-list')) {
-      const parentBlock = externalFiles.parentElement;
-      const filesHtml = (parentBlock && parentBlock.tagName !== 'BODY') ? parentBlock.innerHTML : externalFiles.innerHTML;
-      contentHtml += `<div class="announcement-attached-documents mt-6 pt-4 border-t border-stone-200/80 dark:border-white/10">${filesHtml}</div>`;
-    }
-
     // Modernize and clean HTML
-    const cleaned = cleanDetailContentHtml(contentHtml, '', title);
+    const cleaned = cleanDetailContentHtml(contentHtml, '', title, attachments.length);
 
     // Image
     const imgEl = doc.querySelector('.news-detail-image img, .detail-image img, .announcement-detail-image img, .inner-page__image img');
@@ -374,6 +424,10 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const initialDate = item?.date || '';
   const initialDept = item?.departmentName || item?.facultyName || item?.category || '';
 
+  const shouldShowInitialContent = !!initialContent &&
+    cleanDuplicateTitle(initialContent).trim().toLowerCase() !== activeTitle.trim().toLowerCase() &&
+    initialContent.trim().length > 0;
+
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>(item?.attachments || []);
   const [featuredImage, setFeaturedImage] = useState<string>(initialImageUrl);
@@ -400,7 +454,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               const res = await CapacitorHttp.get({ url: activeUrl });
               if (res.status === 200 && typeof res.data === 'string' && res.data.length > 200) {
                 const parsed = parseUniversityAnnouncementHtml(res.data, activeUrl);
-                if (parsed.contentHtml) {
+                if (parsed.contentHtml !== undefined) {
                   setContentHtml(parsed.contentHtml);
                   if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
                   if (parsed.imageUrl && !img) setFeaturedImage(parsed.imageUrl);
@@ -430,28 +484,29 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 setFeaturedImage(data.imageUrl);
                 setImgError(false);
               }
-              if (data.contentHtml) {
-                setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle));
+
+              let currentAttachments = Array.isArray(data.attachments) ? data.attachments : [];
+              if (currentAttachments.length === 0 && data.contentHtml) {
+                currentAttachments = extractAttachmentsFromHtml(data.contentHtml, activeUrl);
               }
-              if (Array.isArray(data.attachments) && data.attachments.length > 0) {
-                setAttachments(data.attachments);
-              } else if (data.contentHtml) {
-                const fallbackAttachments = extractAttachmentsFromHtml(data.contentHtml, activeUrl);
-                if (fallbackAttachments.length > 0) {
-                  setAttachments(fallbackAttachments);
-                }
+              if (currentAttachments.length > 0) {
+                setAttachments(currentAttachments);
               }
 
-              // C. If the API response returned no attachments and no table, attempt direct fetch as safety net
-              const hasAttachments = Array.isArray(data.attachments) && data.attachments.length > 0;
-              const hasTable = data.contentHtml && data.contentHtml.includes('<table');
-              if (!hasAttachments && !hasTable) {
+              if (data.contentHtml) {
+                setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle, currentAttachments.length));
+              } else {
+                setContentHtml('');
+              }
+
+              // C. If the API response returned no attachments and no content, attempt direct fetch as safety net
+              if (currentAttachments.length === 0 && !data.contentHtml) {
                 fetch(activeUrl)
                   .then(r => r.text())
                   .then(raw => {
                     const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
                     if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
-                    if (parsed.contentHtml && parsed.contentHtml.includes('<table')) {
+                    if (parsed.contentHtml) {
                       setContentHtml(parsed.contentHtml);
                     }
                   })
@@ -467,7 +522,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 .then(r => r.text())
                 .then(raw => {
                   const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
-                  if (parsed.contentHtml) setContentHtml(parsed.contentHtml);
+                  if (parsed.contentHtml !== undefined) setContentHtml(parsed.contentHtml);
                   if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
                   setLoading(false);
                 })
@@ -630,7 +685,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               )}
 
               {/* Scraped HTML Content or Fallback Summary Text */}
-              {contentHtml ? (
+              {contentHtml && contentHtml.trim().length > 0 ? (
                 <div
                   className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-1
                     prose-p:text-stone-700 dark:prose-p:text-stone-300 prose-p:leading-relaxed
@@ -661,7 +716,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   }}
                   dangerouslySetInnerHTML={{ __html: contentHtml }}
                 />
-              ) : initialContent ? (
+              ) : shouldShowInitialContent ? (
                 <div className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed space-y-2 pt-1">
                   <p>{initialContent}</p>
                 </div>

@@ -1627,16 +1627,6 @@ app.get('/api/detail', async (req, res) => {
       }
     }
 
-    // Ensure attachments/courses-list/files are not omitted if outside the picked selector
-    const externalFileBlocks = $('#files, .course-list-table, .courses-list, .flat-all-course');
-    if (externalFileBlocks.length > 0 && !contentHtml.includes('course-list-table') && !contentHtml.includes('courses-list')) {
-      const parentBlock = externalFileBlocks.first().parent();
-      const filesHtml = (parentBlock.length && !parentBlock.is('body')) ? parentBlock.html() : externalFileBlocks.html();
-      if (filesHtml) {
-        contentHtml += `<div class="announcement-attached-documents mt-6 pt-4 border-t border-stone-200/80 dark:border-white/10">${filesHtml}</div>`;
-      }
-    }
-
     // Extract structured attachments (PDF, DOCX, XLSX, etc.)
     interface DetailAttachment {
       name: string;
@@ -1656,7 +1646,15 @@ app.get('/api/detail', async (req, res) => {
       }
       let cleanName = (rawName || '').trim().replace(/\s+/g, ' ');
       const lowerName = cleanName.toLowerCase();
-      if (!cleanName || lowerName === 'tıklayınız.' || lowerName === 'tıklayınız' || lowerName === 'indir' || lowerName === 'döküman indir' || cleanName === '.') {
+      if (
+        !cleanName ||
+        lowerName === 'tıklayınız.' ||
+        lowerName === 'tıklayınız' ||
+        lowerName === 'indir' ||
+        lowerName === 'döküman indir' ||
+        lowerName === 'doküman indir' ||
+        cleanName === '.'
+      ) {
         const parts = fullUrl.split('/');
         try {
           cleanName = decodeURIComponent(parts[parts.length - 1].split('?')[0]) || 'Döküman İndir';
@@ -1719,13 +1717,46 @@ app.get('/api/detail', async (req, res) => {
     if (contentHtml) {
       const $content = cheerio.load(contentHtml, null, false);
 
-      // 1. Remove duplicate headings matching page title
+      // 1. Remove raw file attachment boxes when files are extracted
+      // This prevents broken, unstyled duplicate tables with white background and squished red icons
+      $content('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').remove();
+
+      $content('table').each((_, tbl) => {
+        const tblText = $content(tbl).text().toLowerCase();
+        if (
+          tblText.includes('döküman ismi') ||
+          tblText.includes('doküman ismi') ||
+          (tblText.includes('indir') && (tblText.includes('.pdf') || tblText.includes('/file/')))
+        ) {
+          const parentWrap = $content(tbl).closest('.overflow-x-auto, .course-list-table, .courses-list, #files');
+          if (parentWrap.length) {
+            parentWrap.remove();
+          } else {
+            $content(tbl).remove();
+          }
+        }
+      });
+
+      // 2. Remove duplicate headings & paragraphs matching page title
       const normTitle = (title || '').replace(/\s+/g, ' ').trim().toLowerCase();
       if (normTitle) {
-        $content('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').each((_, el) => {
-          const hText = $content(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
+        $content('h1, h2, h3, h4, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').each((_, el) => {
+          const hText = cleanDuplicateTitle($content(el).text()).replace(/\s+/g, ' ').trim().toLowerCase();
           if (hText && (hText === normTitle || normTitle.includes(hText) || hText.includes(normTitle))) {
             $content(el).remove();
+          }
+        });
+
+        // Also remove paragraphs or divs that literally just repeat the title
+        $content('p, div, span, strong, b').each((_, el) => {
+          if ($content(el).find('table, img, iframe, video').length > 0) return;
+          const pText = cleanDuplicateTitle($content(el).text()).replace(/\s+/g, ' ').trim().toLowerCase();
+          if (pText && (pText === normTitle || (normTitle.length > 8 && (pText.includes(normTitle) || normTitle.includes(pText))))) {
+            const parent = $content(el).parent();
+            $content(el).remove();
+            if (parent.length && parent.children().length === 0 && !parent.text().trim()) {
+              parent.remove();
+            }
           }
         });
       }
@@ -1733,7 +1764,7 @@ app.get('/api/detail', async (req, res) => {
       // Remove separator noise if present
       $content('.announcement-icon-separator, .title-list').remove();
 
-      // 2. Remove duplicate images matching imageUrl or same filename
+      // 3. Remove duplicate images matching imageUrl or same filename
       const seenImgs = new Set<string>();
       const normalizeImgKey = (urlStr: string): string => {
         if (!urlStr) return '';
@@ -1767,7 +1798,7 @@ app.get('/api/detail', async (req, res) => {
         }
       });
 
-      // 3. Ensure all links have target="_blank" and rel="noopener noreferrer"
+      // 4. Ensure all links have target="_blank" and rel="noopener noreferrer"
       $content('a').each((_, el) => {
         let href = $content(el).attr('href');
         if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
@@ -1776,9 +1807,14 @@ app.get('/api/detail', async (req, res) => {
         }
         $content(el).attr('target', '_blank');
         $content(el).attr('rel', 'noopener noreferrer');
+        const style = $content(el).attr('style') || '';
+        if (style) {
+          const cleaned = style.replace(/color:\s*[^;]+;?/gi, '');
+          $content(el).attr('style', cleaned);
+        }
       });
 
-      // 4. Modernize tables & attachment elements inside contentHtml for dark mode & mobile
+      // 5. Modernize any legitimate data tables (schedules, lists) for dark mode & mobile
       $content('table').each((_, tbl) => {
         $content(tbl).removeAttr('style');
         $content(tbl).addClass('w-full border-collapse my-3 text-xs sm:text-sm rounded-xl overflow-hidden');
@@ -1786,29 +1822,29 @@ app.get('/api/detail', async (req, res) => {
           $content(tbl).wrap('<div class="overflow-x-auto -mx-1 sm:mx-0 my-3 rounded-xl border border-stone-200 dark:border-white/10 shadow-xs"></div>');
         }
       });
-      $content('th').each((_, th) => {
-        $content(th).removeAttr('style');
-        $content(th).addClass('p-2.5 bg-stone-100 dark:bg-white/10 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left');
-      });
-      $content('td').each((_, td) => {
-        $content(td).removeAttr('style');
-        $content(td).addClass('p-2.5 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200');
-      });
-      $content('tr').each((_, tr) => {
-        $content(tr).removeAttr('style');
-      });
-      // Strip harsh dark text color from links
-      $content('a').each((_, a) => {
-        const style = $content(a).attr('style') || '';
-        if (style) {
-          const cleaned = style.replace(/color:\s*(black|#000000|#000|#111);?/gi, '');
-          $content(a).attr('style', cleaned);
+      $content('thead').removeAttr('style').addClass('bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100');
+      $content('tbody').removeAttr('style');
+      $content('tfoot').removeAttr('style');
+      $content('tr').removeAttr('style').addClass('hover:bg-stone-50 dark:hover:bg-white/5 transition-colors border-b border-stone-100 dark:border-white/5');
+      $content('th').removeAttr('style').addClass('p-3 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left text-xs');
+      $content('td').removeAttr('style').addClass('p-3 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs');
+
+      // 6. Clean empty paragraphs or divs
+      $content('div, p, span').each((_, el) => {
+        if ($content(el).children().length === 0 && !$content(el).text().trim()) {
+          $content(el).remove();
         }
       });
 
       contentHtml = $content.html() || '';
-      contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
-      contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
+      const rawText = contentHtml.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+      const hasMediaOrTables = $content('img, table, iframe').length > 0;
+      if (!rawText && !hasMediaOrTables) {
+        contentHtml = '';
+      } else {
+        contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
+        contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
+      }
     }
     
     res.json({ title, contentHtml, imageUrl, images, attachments });
