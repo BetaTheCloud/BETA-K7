@@ -81,16 +81,23 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
       });
     }
 
-    // Remove noisy icons or separators
-    doc.querySelectorAll('.announcement-icon-separator, .title-list').forEach((el) => el.remove());
+    // Remove noisy icons or separators and unstyled duplicate CMS galleries
+    doc.querySelectorAll(
+      '.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper, .mySwiper, .full-screen-slider, .photo-gallery, .slider, .fotorama'
+    ).forEach((el) => el.remove());
 
-    // 3. Remove duplicate images matching the cover image or already seen
+    // 3. Robust image deduplication: Ensure no image is shown 2 or 3 times
     const seenSrcs = new Set<string>();
     const normalizeImgKey = (urlStr: string): string => {
       if (!urlStr) return '';
       let s = urlStr.trim();
       try { s = decodeURIComponent(s); } catch {}
-      return s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+      let filename = s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+      // Strip CMS timestamp prefixes like "1791370207202.WhatsApp..."
+      filename = filename.replace(/^\d{10,14}\./, '');
+      // Strip thumbnail/preview size prefixes
+      filename = filename.replace(/^(thumb_|small_|large_|medium_|cover_|mini_)/, '');
+      return filename;
     };
 
     if (coverImg) {
@@ -101,20 +108,20 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
 
     const images = doc.querySelectorAll('img');
     images.forEach((imgEl) => {
-      const rawSrc = (imgEl.getAttribute('src') || '').trim();
+      const rawSrc = (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '').trim();
       const normKey = normalizeImgKey(rawSrc);
 
-      if (
-        (normKey && seenSrcs.has(normKey)) ||
-        (rawSrc && seenSrcs.has(rawSrc.toLowerCase()))
-      ) {
+      const isNoise = !rawSrc || rawSrc.includes('logo') || rawSrc.includes('icon') || rawSrc.includes('flag') || rawSrc.endsWith('.svg');
+      const isDuplicate = isNoise || (normKey && seenSrcs.has(normKey)) || (rawSrc && seenSrcs.has(rawSrc.toLowerCase()));
+
+      if (isDuplicate) {
         const parent = imgEl.parentElement;
         imgEl.remove();
         if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
           parent.remove();
         }
-      } else if (normKey) {
-        seenSrcs.add(normKey);
+      } else {
+        if (normKey) seenSrcs.add(normKey);
         if (rawSrc) seenSrcs.add(rawSrc.toLowerCase());
       }
     });
@@ -376,15 +383,32 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
       contentHtml = contentBox.innerHTML;
     }
 
-    // Modernize and clean HTML
-    const cleaned = cleanDetailContentHtml(contentHtml, '', title, attachments.length);
-
-    // Image
-    const imgEl = doc.querySelector('.news-detail-image img, .detail-image img, .announcement-detail-image img, .inner-page__image img');
-    let imageUrl = imgEl?.getAttribute('src') || '';
-    if (imageUrl && !imageUrl.startsWith('http')) {
-      imageUrl = `${origin}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    // Extract primary featured image (from meta tag, prominent container, or first article image)
+    let imageUrl = '';
+    const ogImg = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
+    if (ogImg && !ogImg.includes('logo') && !ogImg.includes('default')) {
+      imageUrl = ogImg.startsWith('http') ? ogImg : `${origin}${ogImg.startsWith('/') ? '' : '/'}${ogImg}`;
     }
+
+    if (!imageUrl) {
+      const imgEl = doc.querySelector('.news-detail-image img, .detail-image img, .announcement-detail-image img, .inner-page__image img');
+      let src = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src') || '';
+      if (src && !src.includes('logo') && !src.includes('icon') && !src.endsWith('.svg')) {
+        imageUrl = src.startsWith('http') ? src : `${origin}${src.startsWith('/') ? '' : '/'}${src}`;
+      }
+    }
+
+    // Fallback: If no imageUrl found yet, check first image in contentBox
+    if (!imageUrl && contentBox) {
+      const firstImg = contentBox.querySelector('img');
+      let src = firstImg?.getAttribute('src') || firstImg?.getAttribute('data-src') || '';
+      if (src && !src.includes('logo') && !src.includes('icon') && !src.endsWith('.svg')) {
+        imageUrl = src.startsWith('http') ? src : `${origin}${src.startsWith('/') ? '' : '/'}${src}`;
+      }
+    }
+
+    // Modernize and clean HTML, passing imageUrl so that it is never duplicated inside the article body
+    const cleaned = cleanDetailContentHtml(contentHtml, imageUrl, title, attachments.length);
 
     return { title, contentHtml: cleaned, attachments, imageUrl };
   } catch (err) {

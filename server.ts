@@ -1761,17 +1761,38 @@ app.get('/api/detail', async (req, res) => {
         });
       }
 
-      // Remove separator noise if present
-      $content('.announcement-icon-separator, .title-list').remove();
+      // Remove separator noise, unstyled CMS Swiper galleries and thumbnail sliders
+      $content('.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper, .mySwiper, .full-screen-slider, .photo-gallery, .slider, .fotorama').remove();
 
-      // 3. Remove duplicate images matching imageUrl or same filename
+      // 3. Robust image deduplication: Ensure no image is shown 2 or 3 times
       const seenImgs = new Set<string>();
       const normalizeImgKey = (urlStr: string): string => {
         if (!urlStr) return '';
         let s = urlStr.trim();
         try { s = decodeURIComponent(s); } catch {}
-        return s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+        let filename = s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
+        // Strip CMS timestamp prefixes like "1791370207202.WhatsApp..."
+        filename = filename.replace(/^\d{10,14}\./, '');
+        // Strip thumbnail size prefixes
+        filename = filename.replace(/^(thumb_|small_|large_|medium_|cover_|mini_)/, '');
+        return filename;
       };
+
+      // If imageUrl was not found in headers, check first real article image to use as cover
+      if (!imageUrl) {
+        $content('img').each((_, el) => {
+          let src = $content(el).attr('src') || $content(el).attr('data-src') || '';
+          if (src) {
+            if (!src.startsWith('http')) {
+              src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+            }
+            const isNoise = src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
+            if (!isNoise && !imageUrl) {
+              imageUrl = src;
+            }
+          }
+        });
+      }
 
       if (imageUrl) {
         seenImgs.add(imageUrl.toLowerCase());
@@ -1780,20 +1801,23 @@ app.get('/api/detail', async (req, res) => {
       }
 
       $content('img').each((_, el) => {
-        let src = $content(el).attr('src') || '';
+        let src = $content(el).attr('src') || $content(el).attr('data-src') || '';
         if (src && !src.startsWith('http')) {
           src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
           $content(el).attr('src', src);
         }
         const fn = normalizeImgKey(src);
-        if ((imageUrl && src === imageUrl) || (fn && seenImgs.has(fn)) || (src && seenImgs.has(src.toLowerCase()))) {
+        const isNoise = !src || src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
+        const isDuplicate = isNoise || (imageUrl && src === imageUrl) || (fn && seenImgs.has(fn)) || (src && seenImgs.has(src.toLowerCase()));
+
+        if (isDuplicate) {
           const parent = $content(el).parent();
           $content(el).remove();
           if (parent.length && parent.children().length === 0 && !parent.text().trim()) {
             parent.remove();
           }
-        } else if (fn) {
-          seenImgs.add(fn);
+        } else {
+          if (fn) seenImgs.add(fn);
           if (src) seenImgs.add(src.toLowerCase());
         }
       });
