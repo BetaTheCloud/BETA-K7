@@ -1721,6 +1721,32 @@ app.get('/api/detail', async (req, res) => {
       // This prevents broken, unstyled duplicate tables with white background and squished red icons
       $content('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').remove();
 
+      // Remove sidebar, related announcements, and other news widgets
+      $content('.other-announcements, .related-announcements, .other-news, .related-news, .announcement-list, .news-list, .sidebar, #sidebar, .right-sidebar, .left-sidebar, .widget-announcements, .list-group, .nav-tabs, .pagination, .breadcrumb, .footer, .header, .latest-news, .latest-announcements, .duyuru-list, .haber-list, .department-announcements, .inner-page__sidebar, .col-md-4, .col-lg-4, .right-content').remove();
+
+      // Remove links to OTHER announcements/news pages that are not file attachments
+      $content('a').each((_, aEl) => {
+        const href = ($content(aEl).attr('href') || '').toLowerCase();
+        const isFile = href.includes('/file/') || href.includes('/contentfiles/') || href.includes('/subdomain_files/') || href.endsWith('.pdf') || href.endsWith('.doc') || href.endsWith('.docx') || href.endsWith('.xls') || href.endsWith('.xlsx') || href.endsWith('.zip') || href.endsWith('.rar') || href.includes('.pdf?');
+        const isOtherAnnouncementLink = !isFile && (
+          href.includes('/duyuru') || 
+          href.includes('/haber') || 
+          href.includes('/etkinlik') || 
+          href.includes('/news/') || 
+          href.includes('/announcement/') ||
+          href.includes('kilis.edu.tr/duyuru') ||
+          href.includes('kilis.edu.tr/haber')
+        );
+        if (isOtherAnnouncementLink) {
+          const parentLi = $content(aEl).closest('li, tr, p, div.list-group-item');
+          if (parentLi.length) {
+            parentLi.remove();
+          } else {
+            $content(aEl).remove();
+          }
+        }
+      });
+
       $content('table').each((_, tbl) => {
         const tblText = $content(tbl).text().toLowerCase();
         if (
