@@ -1,18 +1,19 @@
-# Bölüm Duyuruları ve Detay Modalı Düzeltme Planı
+# Görsel Tekrarlama ve Çoklu Gösterim Sorununun Çözümü
 
-## Tespit Edilen Kök Nedenler ve Yapılan Düzeltmeler
+## Tespit Edilen Tekrarlama Noktaları
 
-1. **İstemci Ortamı Algılama ve API Yönlendirme Hatası (`src/config.ts`)**:
-   - **Kök Neden**: `@capacitor/core` kütüphanesinin projede yüklü olması nedeniyle tarayıcı ortamında dahi `window.Capacitor` nesnesi tanımlı gelmekteydi. Bu durum `isMobileAppEnvironment()` fonksiyonunun web tarayıcısında da `true` dönmesine ve tüm API isteklerinin (`/api/detail`, `/api/department-announcements`) harici Render sunucusuna (`beta-k7.onrender.com`) yönlenmesine neden oluyordu. Render sunucusu güncel olmayan yapı nedeniyle boş yanıt (`{"title":"","contentHtml":"","imageUrl":"","images":[],"attachments":[]}`) dönmekteydi.
-   - **Çözüm**: `isMobileAppEnvironment()` fonksiyonu doğrudan `Capacitor.isNativePlatform()` kontrolüne bağlandı; web tarayıcısı, yerel geliştirme ve önizleme ortamlarında göreceli (same-origin `''`) API rotalarının kullanılması sağlandı ve tarayıcı yerel hafızasındaki eski Render adresi temizlendi.
+1. **Kapak Görseli ve Gövde Metni (`contentHtml`) Arasındaki Çift Gösterim**:
+   - Duyuru afişi hem modalın üst kısmında ana kapak görseli (`currentDisplayImage`) olarak gösterilip hem de altındaki `contentHtml` gövdesi içerisinde ikinci kez render ediliyordu.
+   - **Çözüm**: `cleanDetailContentHtml` içerisinde `areImagesEqual(safeSrc, coverImg)` kontrolü eklenerek, modalın üstünde zaten tam boyutta sergilenen afişin metin gövdesi içerisinde tekrar etmesi engellendi.
 
-2. **Paragraf ve Metinlerin Silinmesi Hatası (`server.ts` & `src/components/DetailModal.tsx`)**:
-   - **Kök Neden**: Üniversite bölüm duyurularının birçoğunda (örneğin İTBF duyuru 1516: "Değerli öğrencilerimiz, 2026-2027 Eğitim-Öğretim Yılı Güz Dönemi Vize sınav programları..."), duyurunun tek paragrafı başlıkla birebir aynı cümleden oluşmaktaydı. Başlık tekrarını önleme mantığı duyurunun tek ve asıl metin paragrafını "tekrar eden başlık" sayarak siliyor, ardından boş kalan ana kapsayıcıyı da DOM'dan kaldırarak metni tamamen yok ediyordu.
-   - **Çözüm**: Yalnızca `h1` ve `h2` başlık etiketlerinin temizlenmesi sağlandı; duyuru gövdesindeki `<p>`, `<span>`, `<div>` paragrafları ve metinler kesinlikle silinmeyecek şekilde koruma altına alındı.
+2. **Farklı Dizin Yollarındaki Aynı Dosyaların Galeri Küçük Resimlerinde Tekrarlaması**:
+   - Üniversite CMS sistemi aynı görseli hem `/images/announcements/` hem de `/contentFiles/` altına farklı zaman damgası önekleriyle yüklemekteydi (örneğin MMF 1514 duyurusu). Bu durum `allImages` dizisinde 2 adet birebir aynı resim oluşmasına ve altta gereksiz switcher butonları çıkmasına sebep oluyordu.
+   - **Çözüm**: `getImageSignature` ve `areImagesEqual` algoritmaları entegre edildi. Sunucu ve istemci tarafında kanonik dosya imzası eşleşen kopyalar tekilleştirildi (`images count: 1`).
 
-3. **Görsellerin Detay Modalında Gizlenmesi ve Kapsayıcı Hataları (`DetailModal.tsx`)**:
-   - **Kök Neden**: `cleanDetailContentHtml` fonksiyonunda kapak görseli (`coverImg`) bulunan duyurularda, gövde içerisindeki aynı görsel etiketi kopya sayılarak siliniyordu. Afiş ve broşür formatındaki duyurularda metin bulunmadığı ve görsel de silindiği için içerik boş kalıyordu. Ayrıca tek bir görsel yüklenemediğinde tüm görsel alanı gizleniyordu.
-   - **Çözüm**: Gövde görsellerinin silinmesi engellendi; afişler tıklandığında büyütülebilir (lightbox zoom) hale getirildi; görsel yükleme hatası durumunda dahi kullanıcıya doğrudan "Görseli Aç / İndir" bağlantısı sunan zarif bir yedek kart eklendi.
+3. **Görsellerin "Ekli Belgeler ve Dosyalar" Bölümünde 3. Kez Tekrarlaması**:
+   - Duyuru afişine verilen linkler (`.jpeg`, `.png`), ekli belge tarayıcısı tarafından PDF veya Word belgesi gibi algılanıp "Ekli Belgeler" listesine ekleniyordu (örneğin Eğitim Fakültesi 1517 duyurusu).
+   - **Çözüm**: Ekli belge listesi taranırken, duyurunun kapak veya galeri görseliyle eşleşen resim dosyaları ekli dosya listesinden filtrelendi. Yalnızca gerçek dökümanlar (PDF, Word, Excel, sınav takvimleri) listede tutuldu.
 
-4. **Tüm Akademik Birimlerde Uçtan Uca Doğrulama**:
-   - Mühendislik-Mimarlık (MMF), İnsan ve Toplum Bilimleri (İTBF), İktisadi ve İdari Bilimler (İİBF), Eğitim ve Teknik Bilimler MYO gibi farklı birimlerin duyuruları canlı olarak test edildi; metin, afiş görselleri ve ekli PDF sınav takvimlerinin eksiksiz yüklendiği doğrulandı.
+## Doğrulama
+- `compile_applet` ve `lint_applet` sıfır hatayla geçti.
+- MMF, İİBF, İTBF ve Eğitim fakültesi duyurularında görsel sayısı 1'e indirgendi, dökümanlar (İİBF PDF vize takvimi) ve metinler (İTBF açıklaması) bozulmadan korundu.

@@ -10,6 +10,7 @@ import { AUTHENTIC_FORMS_DATA, cleanTurkishFormTitle } from './src/data/formsDat
 import { ACADEMIC_STAFF_DATA, STAFF_FACULTIES_LIST } from './src/data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS, ACADEMIC_UNITS_WITH_DEPARTMENTS } from './src/data/departmentNewsData';
 import { PHONE_DIRECTORY_DATA, DirectoryUnit, DirectoryContact } from './src/data/phoneDirectoryData';
+import { getImageSignature, areImagesEqual } from './src/lib/utils';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1558,6 +1559,7 @@ app.get('/api/detail', async (req, res) => {
     // Extract images (Cover + Gallery)
     let imageUrl = '';
     const images: string[] = [];
+    const seenImageSignatures = new Set<string>();
 
     const addImage = (rawSrc?: string | null) => {
       if (!rawSrc) return;
@@ -1580,7 +1582,10 @@ app.get('/api/detail', async (req, res) => {
 
       if (!isNoise) {
         const safe = ensureSafeUrl(full);
-        if (safe && !images.includes(safe)) {
+        const sig = getImageSignature(safe);
+        const isDuplicate = images.some(img => areImagesEqual(img, safe)) || (sig && seenImageSignatures.has(sig));
+        if (safe && !isDuplicate) {
+          if (sig) seenImageSignatures.add(sig);
           images.push(safe);
           if (!imageUrl) imageUrl = safe;
         }
@@ -1713,6 +1718,14 @@ app.get('/api/detail', async (req, res) => {
       }
 
       const safeUrl = ensureSafeUrl(fullUrl);
+      const isImgFile = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'AVIF'].includes(ext);
+      if (isImgFile) {
+        const isDuplicateOfGallery = images.some(img => areImagesEqual(img, safeUrl)) || areImagesEqual(imageUrl, safeUrl);
+        if (isDuplicateOfGallery) {
+          return;
+        }
+      }
+
       if (!seenAttachmentUrls.has(safeUrl)) {
         seenAttachmentUrls.add(safeUrl);
         attachments.push({ name: cleanName, url: safeUrl, extension: ext || 'FILE' });

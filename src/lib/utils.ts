@@ -81,6 +81,41 @@ export function ensureSafeUrl(url?: string | null): string {
   }
 }
 
+/**
+ * Computes a normalized signature for an image URL based on its canonical filename
+ * (stripping server-generated numeric prefixes like timestamps or random IDs).
+ * Used to deduplicate identical images uploaded to different subdirectories or thumbnail paths.
+ */
+export function getImageSignature(url?: string | null): string {
+  if (!url) return '';
+  try {
+    const raw = decodeURIComponent(url.split('?')[0].split('#')[0]);
+    const filename = raw.substring(raw.lastIndexOf('/') + 1).toLowerCase().trim();
+    // Strip leading numeric/timestamp prefixes like "191622271481792762980.ChatGPT..." -> "chatgpt..."
+    const cleaned = filename.replace(/^[\d_-]+\.?/, '');
+    return cleaned || filename;
+  } catch {
+    return (url || '').toLowerCase().trim();
+  }
+}
+
+/**
+ * Checks whether two image URLs refer to the same image asset, comparing both full URLs
+ * and canonical filename signatures.
+ */
+export function areImagesEqual(urlA?: string | null, urlB?: string | null): boolean {
+  if (!urlA || !urlB) return false;
+  const trimmedA = urlA.trim();
+  const trimmedB = urlB.trim();
+  if (trimmedA === trimmedB) return true;
+  const safeA = ensureSafeUrl(trimmedA).toLowerCase();
+  const safeB = ensureSafeUrl(trimmedB).toLowerCase();
+  if (safeA === safeB) return true;
+  const sigA = getImageSignature(trimmedA);
+  const sigB = getImageSignature(trimmedB);
+  return !!sigA && !!sigB && sigA === sigB;
+}
+
 const TURKISH_MONTHS: Record<string, number> = {
   ocak: 0, oca: 0,
   subat: 1, şubat: 1, sub: 1, şub: 1,

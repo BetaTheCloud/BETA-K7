@@ -1,6 +1,6 @@
 {
-  "summary":  "Bölüm duyurularındaki görsel, metin ve dökümanların detay modalında görüntülenememesi sorununun kök nedenleri tespit edilip giderildi. Web ortamında API yönlendirmesi, paragraf/görsel silinme hatası ve lightbox önizlemeleri düzeltildi.",
-  "updatedAt":  "2026-10-25T18:33:26.283424819Z",
+  "summary":  "Detay modalındaki görsel tekilleştirme (deduplication) sistemi tamamlandı. Kapak görseli ile gövde içi görsel, çoklu galeri switcher'ı ve ekli dosyalar arasındaki mükerrer gösterimler giderildi. Diğer sistemler (metinler, PDF ekleri, hava durumu, kampüs modülleri) eksiksiz korunarak çalışır durumda bırakıldı.",
+  "updatedAt":  "2026-10-25T20:15:47.406246268Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

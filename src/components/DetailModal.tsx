@@ -18,7 +18,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { cleanDuplicateTitle, ensureSafeUrl, cn } from '../lib/utils';
+import { cleanDuplicateTitle, ensureSafeUrl, cn, areImagesEqual, getImageSignature } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
 
@@ -87,7 +87,7 @@ function cleanDetailContentHtml(
       '.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper-button-next, .swiper-button-prev, .swiper-pagination'
     ).forEach((el) => el.remove());
 
-    // 3. Ensure images have safe URLs and styling (never strip images simply because coverImg exists)
+    // 3. Ensure images have safe URLs and prevent duplicating the cover hero image in contentHtml
     const seenSrcs = new Set<string>();
 
     doc.querySelectorAll('img').forEach((imgEl) => {
@@ -106,11 +106,21 @@ function cleanDetailContentHtml(
       }
 
       const safeSrc = ensureSafeUrl(rawSrc);
-      const isDuplicate = seenSrcs.has(safeSrc.toLowerCase());
+      const isSameAsCover = coverImg ? areImagesEqual(safeSrc, coverImg) : false;
+      const sig = getImageSignature(safeSrc);
+      const isDuplicate = isSameAsCover || seenSrcs.has(safeSrc.toLowerCase()) || (sig ? seenSrcs.has(sig) : false);
+
       if (isDuplicate) {
-        imgEl.remove();
+        // If the duplicate image was wrapped inside an <a> with no extra text, remove the whole wrapper
+        const parentAnchor = imgEl.closest('a');
+        if (parentAnchor && (!parentAnchor.textContent || !parentAnchor.textContent.trim())) {
+          parentAnchor.remove();
+        } else {
+          imgEl.remove();
+        }
       } else {
         seenSrcs.add(safeSrc.toLowerCase());
+        if (sig) seenSrcs.add(sig);
         imgEl.setAttribute('src', safeSrc);
         imgEl.removeAttribute('srcset');
         imgEl.className = 'w-full max-h-[500px] object-contain rounded-xl my-3 shadow-xs border border-stone-200/90 dark:border-white/10 cursor-zoom-in';
@@ -482,7 +492,23 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
       setZoomImage(null);
       setActiveImageIndex(0);
 
-      const initImages = item?.images && item.images.length > 0 ? item.images.map(ensureSafeUrl) : (img ? [img] : []);
+      const deduplicateImagesList = (list: string[]): string[] => {
+        const result: string[] = [];
+        const seenSigs = new Set<string>();
+        for (const raw of list) {
+          if (!raw) continue;
+          const safe = ensureSafeUrl(raw);
+          const sig = getImageSignature(safe);
+          const isDup = result.some((item) => areImagesEqual(item, safe)) || (sig ? seenSigs.has(sig) : false);
+          if (!isDup) {
+            if (sig) seenSigs.add(sig);
+            result.push(safe);
+          }
+        }
+        return result;
+      };
+
+      const initImages = deduplicateImagesList(item?.images && item.images.length > 0 ? item.images : (img ? [img] : []));
       setAllImages(initImages);
 
       if (activeUrl && activeUrl.startsWith('http')) {
@@ -499,7 +525,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   setContentHtml(parsed.contentHtml);
                   if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
                   if (parsed.imageUrl && !img) setFeaturedImage(parsed.imageUrl);
-                  if (parsed.images.length > 0) setAllImages(parsed.images);
+                  if (parsed.images.length > 0) setAllImages(deduplicateImagesList(parsed.images));
                   setLoading(false);
                   return true;
                 }
@@ -527,18 +553,33 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 setImgError(false);
               }
 
-              if (Array.isArray(data.images) && data.images.length > 0) {
-                setAllImages(data.images.map(ensureSafeUrl));
-              } else if (safeImg) {
-                setAllImages([safeImg]);
-              }
+              const rawImages = Array.isArray(data.images) && data.images.length > 0 ? data.images : (safeImg ? [safeImg] : []);
+              const cleanImages = deduplicateImagesList(rawImages);
+              setAllImages(cleanImages);
 
               let currentAttachments = Array.isArray(data.attachments) ? data.attachments : [];
               if (currentAttachments.length === 0 && data.contentHtml) {
                 currentAttachments = extractAttachmentsFromHtml(data.contentHtml, activeUrl);
               }
-              if (currentAttachments.length > 0) {
-                setAttachments(currentAttachments);
+
+              // Filter out duplicate image attachments that are already shown as cover/gallery images
+              const nonDuplicateAttachments = currentAttachments.filter((att) => {
+                if (!att || !att.url) return false;
+                const ext = (att.extension || '').toUpperCase();
+                const isImg = ['JPG', 'JPEG', 'PNG', 'WEBP', 'GIF', 'AVIF'].includes(ext);
+                if (isImg) {
+                  const isAlreadyCoverOrGallery = (safeImg && areImagesEqual(safeImg, att.url)) || cleanImages.some((cImg) => areImagesEqual(cImg, att.url));
+                  if (isAlreadyCoverOrGallery) {
+                    return false;
+                  }
+                }
+                return true;
+              });
+
+              if (nonDuplicateAttachments.length > 0) {
+                setAttachments(nonDuplicateAttachments);
+              } else {
+                setAttachments([]);
               }
 
               if (data.contentHtml && data.contentHtml.trim().length > 0) {
