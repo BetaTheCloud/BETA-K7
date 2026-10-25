@@ -38,43 +38,6 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     // This prevents broken, unstyled duplicate tables with white headers and squished red icons
     doc.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((el) => el.remove());
 
-    // Remove sidebar, related announcements, and other news widgets
-    doc.querySelectorAll(
-      '.other-announcements, .related-announcements, .other-news, .related-news, .announcement-list, .news-list, .sidebar, #sidebar, .right-sidebar, .left-sidebar, .widget-announcements, .list-group, .nav-tabs, .pagination, .breadcrumb, .footer, .header, .latest-news, .latest-announcements, .duyuru-list, .haber-list, .department-announcements, .inner-page__sidebar, .col-md-4, .col-lg-4, .right-content'
-    ).forEach((el) => el.remove());
-
-    // Remove any links pointing to OTHER announcement/news pages that are NOT file attachments
-    doc.querySelectorAll('a').forEach((aEl) => {
-      const href = (aEl.getAttribute('href') || '').toLowerCase();
-      const isFile =
-        href.includes('/file/') ||
-        href.includes('/contentfiles/') ||
-        href.includes('/subdomain_files/') ||
-        href.endsWith('.pdf') || href.includes('.pdf?') ||
-        href.endsWith('.doc') || href.endsWith('.docx') ||
-        href.endsWith('.xls') || href.endsWith('.xlsx') ||
-        href.endsWith('.zip') || href.endsWith('.rar');
-
-      const isOtherAnnouncementLink =
-        !isFile &&
-        (href.includes('/duyuru') ||
-          href.includes('/haber') ||
-          href.includes('/etkinlik') ||
-          href.includes('/news/') ||
-          href.includes('/announcement/') ||
-          href.includes('kilis.edu.tr/duyuru') ||
-          href.includes('kilis.edu.tr/haber'));
-
-      if (isOtherAnnouncementLink) {
-        const parentLi = aEl.closest('li, tr, p, div.list-group-item');
-        if (parentLi) {
-          parentLi.remove();
-        } else {
-          aEl.remove();
-        }
-      }
-    });
-
     doc.querySelectorAll('table').forEach((tbl) => {
       const tblText = (tbl.textContent || '').toLowerCase();
       if (
@@ -413,9 +376,6 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
 
     let contentHtml = '';
     if (contentBox) {
-      contentBox.querySelectorAll(
-        '.other-announcements, .related-announcements, .other-news, .related-news, .announcement-list, .news-list, .sidebar, #sidebar, .right-sidebar, .left-sidebar, .widget-announcements, .list-group, .nav-tabs, .pagination, .breadcrumb, .footer, .header, .latest-news, .latest-announcements, .duyuru-list, .haber-list, .department-announcements, .inner-page__sidebar, .col-md-4, .col-lg-4, .right-content'
-      ).forEach((el) => el.remove());
       contentBox.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').forEach((h) => h.remove());
       contentBox.querySelectorAll('.announcement-icon-separator, .title-list').forEach((s) => s.remove());
       // Remove raw file boxes since they are cleanly extracted into attachments
