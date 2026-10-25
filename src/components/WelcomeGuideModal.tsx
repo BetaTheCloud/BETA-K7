@@ -236,8 +236,8 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
 
               {/* Centered Brand Stack */}
               <div className="flex flex-col items-center">
-                <div className="p-2 sm:p-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner mb-2.5">
-                  <K7Logo className="w-10 h-10 sm:w-11 sm:h-11" />
+                <div className="mb-2.5">
+                  <K7Logo className="w-12 h-12 sm:w-14 sm:h-14" />
                 </div>
 
                 {/* Institutional Tag in Pure Turkish Title Case */}
