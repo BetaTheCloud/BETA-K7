@@ -70,16 +70,16 @@ export function AboutContent({ isModal = false }: AboutContentProps) {
 
         <p className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5">
           <strong className="text-stone-900 dark:text-white font-bold block mb-1">
-            Gizlilik ve Veri Güvenliği
+            Telif Hakları & Teknolojik Altyapı
           </strong>
-          Bu uygulamayı hiçbir ticari amaç gütmeden geliştirdim. Uygulama, kullanıcı verisi toplamamakta olup kullanılan tüm bilgiler kamuya açık kaynaklardan derlenmiştir. Sunucularda hiçbir veri depolanmamakta, veriler yalnızca kullanıcının kendi cihazında muhafaza edilmektedir.
+          Kaynak kodları tamamen özgün olup, tüm hakları tarafıma (<span className="font-semibold text-stone-900 dark:text-white">Davut ŞAHİN</span>) aittir. Geliştirme sürecinde TypeScript, JavaScript (ESNext & CommonJS), HTML5, CSS3 & Tailwind CSS, JSON ve daha birçok modern teknoloji ile altyapı kullanılmıştır.
         </p>
 
         <p className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5">
           <strong className="text-stone-900 dark:text-white font-bold block mb-1">
-            Telif Hakları & Teknolojik Altyapı
+            Gizlilik ve Veri Güvenliği
           </strong>
-          Kaynak kodları tamamen özgün olup, tüm hakları tarafıma (<span className="font-semibold text-stone-900 dark:text-white">Davut ŞAHİN</span>) aittir. Geliştirme sürecinde TypeScript, JavaScript (ESNext & CommonJS), HTML5, CSS3 & Tailwind CSS, JSON ve daha birçok modern teknoloji ile altyapı kullanılmıştır.
+          Bu uygulamayı hiçbir ticari amaç gütmeden geliştirdim. Uygulama, kullanıcı verisi toplamamakta olup kullanılan tüm bilgiler kamuya açık kaynaklardan derlenmiştir. Sunucularda hiçbir veri depolanmamakta, veriler yalnızca kullanıcının kendi cihazında muhafaza edilmektedir.
         </p>
 
         <div className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

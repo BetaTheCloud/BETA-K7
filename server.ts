@@ -1518,6 +1518,51 @@ app.get('/api/detail', async (req, res) => {
     
     const response = await axiosInstance.get(targetUrl, { timeout: 7000 });
     const $ = cheerio.load(response.data);
+
+    // 0. Remove CMS sidebars, recent/other announcements lists, navigation widgets
+    $(
+      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
+      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
+      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
+      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
+      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
+      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
+      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
+      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
+    ).remove();
+
+    $('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').each((_, el) => {
+      const txt = $(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
+      if (
+        txt.includes('son duyurular') ||
+        txt.includes('diğer duyurular') ||
+        txt.includes('diger duyurular') ||
+        txt.includes('son haberler') ||
+        txt.includes('diğer haberler') ||
+        txt.includes('diger haberler') ||
+        txt.includes('ilgili duyurular') ||
+        txt.includes('ilgili haberler') ||
+        txt.includes('tüm duyurular') ||
+        txt.includes('tum duyurular') ||
+        txt.includes('duyuru arşivi') ||
+        txt.includes('duyuru arsivi') ||
+        txt.includes('son eklenenler') ||
+        txt.includes('diğer içerikler') ||
+        txt.includes('diger icerikler') ||
+        txt.includes('önemli duyurular') ||
+        txt.includes('son etkinlikler') ||
+        txt.includes('diğer etkinlikler') ||
+        txt.includes('benzer duyurular')
+      ) {
+        const parentWidget = $(el).closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
+        if (parentWidget.length && parentWidget.find('a').length > 1) {
+          parentWidget.remove();
+        } else {
+          $(el).nextAll('ul, ol, .list, .announcement-list, .news-list, div').remove();
+          $(el).remove();
+        }
+      }
+    });
     
     let title = $('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1').first().text().trim();
     title = cleanDuplicateTitle(title);
@@ -1598,6 +1643,8 @@ app.get('/api/detail', async (req, res) => {
       '.inner-page__content-description',
       '.announcement-detail-text',
       '.news-detail-text',
+      '.inner-page__content .left-side',
+      '.inner-page__content .main-content',
       '.inner-page__content',
       '.news-content-body',
       '.content-block',
@@ -1763,6 +1810,62 @@ app.get('/api/detail', async (req, res) => {
 
       // Remove separator noise, unstyled CMS Swiper galleries and thumbnail sliders
       $content('.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper, .mySwiper, .full-screen-slider, .photo-gallery, .slider, .fotorama').remove();
+
+      // Remove nested sidebars, recent/other announcements lists & navigation widgets
+      $content(
+        '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
+        '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
+        '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
+        '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
+        '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
+        '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
+        '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
+        '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
+      ).remove();
+
+      $content('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').each((_, el) => {
+        const txt = $content(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
+        if (
+          txt.includes('son duyurular') ||
+          txt.includes('diğer duyurular') ||
+          txt.includes('diger duyurular') ||
+          txt.includes('son haberler') ||
+          txt.includes('diğer haberler') ||
+          txt.includes('diger haberler') ||
+          txt.includes('ilgili duyurular') ||
+          txt.includes('ilgili haberler') ||
+          txt.includes('tüm duyurular') ||
+          txt.includes('tum duyurular') ||
+          txt.includes('duyuru arşivi') ||
+          txt.includes('duyuru arsivi') ||
+          txt.includes('son eklenenler') ||
+          txt.includes('diğer içerikler') ||
+          txt.includes('diger icerikler') ||
+          txt.includes('önemli duyurular') ||
+          txt.includes('son etkinlikler') ||
+          txt.includes('diğer etkinlikler') ||
+          txt.includes('benzer duyurular')
+        ) {
+          const parentWidget = $content(el).closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
+          if (parentWidget.length && parentWidget.find('a').length > 1) {
+            parentWidget.remove();
+          } else {
+            $content(el).nextAll('ul, ol, .list, .announcement-list, .news-list, div').remove();
+            $content(el).remove();
+          }
+        }
+      });
+
+      // Remove stray lists of announcement/news detail links
+      $content('ul, ol, div').each((_, container) => {
+        const annLinks = $content(container).find('a[href*="announcements-detail"], a[href*="announcement-detail"], a[href*="news-detail"]');
+        if (annLinks.length >= 2) {
+          const text = $content(container).text().toLowerCase();
+          if (text.includes('duyuru') || text.includes('haber') || text.includes('tarih:')) {
+            $content(container).remove();
+          }
+        }
+      });
 
       // 3. Robust image deduplication: Ensure no image is shown 2 or 3 times
       const seenImgs = new Set<string>();

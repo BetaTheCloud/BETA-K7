@@ -38,6 +38,69 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     // This prevents broken, unstyled duplicate tables with white headers and squished red icons
     doc.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((el) => el.remove());
 
+    // 1b. Remove CMS sidebars, recent/other announcements lists & navigation widgets
+    doc.querySelectorAll(
+      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
+      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
+      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
+      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
+      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
+      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
+      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
+      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
+    ).forEach((el) => el.remove());
+
+    doc.querySelectorAll('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').forEach((el) => {
+      const txt = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (
+        txt.includes('son duyurular') ||
+        txt.includes('diğer duyurular') ||
+        txt.includes('diger duyurular') ||
+        txt.includes('son haberler') ||
+        txt.includes('diğer haberler') ||
+        txt.includes('diger haberler') ||
+        txt.includes('ilgili duyurular') ||
+        txt.includes('ilgili haberler') ||
+        txt.includes('tüm duyurular') ||
+        txt.includes('tum duyurular') ||
+        txt.includes('duyuru arşivi') ||
+        txt.includes('duyuru arsivi') ||
+        txt.includes('son eklenenler') ||
+        txt.includes('diğer içerikler') ||
+        txt.includes('diger icerikler') ||
+        txt.includes('önemli duyurular') ||
+        txt.includes('son etkinlikler') ||
+        txt.includes('diğer etkinlikler') ||
+        txt.includes('benzer duyurular')
+      ) {
+        const parentWidget = el.closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
+        if (parentWidget && parentWidget.querySelectorAll('a').length > 1) {
+          parentWidget.remove();
+        } else {
+          let sibling = el.nextElementSibling;
+          while (sibling) {
+            const next = sibling.nextElementSibling;
+            if (sibling.tagName === 'UL' || sibling.tagName === 'OL' || sibling.classList.contains('list') || sibling.querySelector('a')) {
+              sibling.remove();
+            }
+            sibling = next;
+          }
+          el.remove();
+        }
+      }
+    });
+
+    // Remove stray lists of announcement/news detail links
+    doc.querySelectorAll('ul, ol, div').forEach((container) => {
+      const annLinks = container.querySelectorAll('a[href*="announcements-detail"], a[href*="announcement-detail"], a[href*="news-detail"]');
+      if (annLinks.length >= 2) {
+        const text = (container.textContent || '').toLowerCase();
+        if (text.includes('duyuru') || text.includes('haber') || text.includes('tarih:')) {
+          container.remove();
+        }
+      }
+    });
+
     doc.querySelectorAll('table').forEach((tbl) => {
       const tblText = (tbl.textContent || '').toLowerCase();
       if (
@@ -281,6 +344,58 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
     const doc = parser.parseFromString(rawHtml, 'text/html');
     const origin = new URL(pageUrl).origin;
 
+    // 0. Remove sidebars, recent/other announcements, and navigation lists before selecting contentBox
+    doc.querySelectorAll(
+      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
+      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
+      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
+      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
+      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
+      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
+      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
+      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
+    ).forEach((el) => el.remove());
+
+    doc.querySelectorAll('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').forEach((el) => {
+      const txt = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (
+        txt.includes('son duyurular') ||
+        txt.includes('diğer duyurular') ||
+        txt.includes('diger duyurular') ||
+        txt.includes('son haberler') ||
+        txt.includes('diğer haberler') ||
+        txt.includes('diger haberler') ||
+        txt.includes('ilgili duyurular') ||
+        txt.includes('ilgili haberler') ||
+        txt.includes('tüm duyurular') ||
+        txt.includes('tum duyurular') ||
+        txt.includes('duyuru arşivi') ||
+        txt.includes('duyuru arsivi') ||
+        txt.includes('son eklenenler') ||
+        txt.includes('diğer içerikler') ||
+        txt.includes('diger icerikler') ||
+        txt.includes('önemli duyurular') ||
+        txt.includes('son etkinlikler') ||
+        txt.includes('diğer etkinlikler') ||
+        txt.includes('benzer duyurular')
+      ) {
+        const parentWidget = el.closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
+        if (parentWidget && parentWidget.querySelectorAll('a').length > 1) {
+          parentWidget.remove();
+        } else {
+          let sibling = el.nextElementSibling;
+          while (sibling) {
+            const next = sibling.nextElementSibling;
+            if (sibling.tagName === 'UL' || sibling.tagName === 'OL' || sibling.classList.contains('list') || sibling.querySelector('a')) {
+              sibling.remove();
+            }
+            sibling = next;
+          }
+          el.remove();
+        }
+      }
+    });
+
     // 1. Title
     const titleEl = doc.querySelector('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1');
     const title = cleanDuplicateTitle(titleEl?.textContent || '');
@@ -369,6 +484,8 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
     const contentBox = doc.querySelector('.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, .announcement-detail-layout') ||
                       doc.querySelector('.announcement-detail-text') ||
                       doc.querySelector('.inner-page__content-description') ||
+                      doc.querySelector('.inner-page__content .left-side') ||
+                      doc.querySelector('.inner-page__content .main-content') ||
                       doc.querySelector('.inner-page__content') ||
                       doc.querySelector('.news-detail-text') ||
                       doc.querySelector('article') ||
