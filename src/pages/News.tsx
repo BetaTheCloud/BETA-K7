@@ -663,6 +663,7 @@ export default function News() {
                                           date: newsItem.date,
                                           category: newsItem.category || category,
                                           content: newsItem.content,
+                                          attachments: (newsItem as any).attachments || [],
                                           imageUrl: (newsItem as any).img || (newsItem as any).imageUrl,
                                           images: (newsItem as any).img ? [(newsItem as any).img] : ((newsItem as any).images || [])
                                         })
@@ -937,7 +938,8 @@ export default function News() {
                             category: item.category || 'Bölüm Haberi',
                             departmentName: item.departmentName || activeDepartment?.name || activeFacultyGroup.shortName,
                             facultyName: item.facultyName || activeFacultyGroup.facultyName,
-                            content: item.content
+                            content: item.content,
+                            attachments: (item as any).attachments || []
                           })
                         }
                         className="p-4 sm:p-5 bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"

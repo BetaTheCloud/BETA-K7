@@ -713,6 +713,7 @@ export default function Home() {
                         date: n.date,
                         category: n.category,
                         content: n.content,
+                        attachments: (n as any).attachments || [],
                         imageUrl: (n as any).imageUrl || (n as any).img
                       })
                     }
@@ -775,7 +776,8 @@ export default function Home() {
                         title: announcement.title,
                         date: announcement.date,
                         category: announcement.category,
-                        content: announcement.content
+                        content: announcement.content,
+                        attachments: (announcement as any).attachments || []
                       })
                     }
                     className="w-full text-left block bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-xl p-4 sm:p-5 hover:bg-[#f4f1ea] dark:hover:bg-white/10 hover:border-amber-500/40 hover:shadow-xs transition-all focus:outline-none cursor-pointer"
@@ -834,6 +836,7 @@ export default function Home() {
                         date: ev.date,
                         category: ev.category,
                         content: ev.content,
+                        attachments: (ev as any).attachments || [],
                         imageUrl: ev.img
                       })
                     }

@@ -1,6 +1,6 @@
 {
-  "summary":  "Revised architecture report for a 100% client-side, Firebase-free local background notification and service worker sync system for Android devices.",
-  "updatedAt":  "2026-10-24T20:59:05.291818703Z",
+  "summary":  "Bölüm duyurularındaki görsel, metin ve dökümanların detay modalında görüntülenememesi sorununun kök nedenleri tespit edilip giderildi. Web ortamında API yönlendirmesi, paragraf/görsel silinme hatası ve lightbox önizlemeleri düzeltildi.",
+  "updatedAt":  "2026-10-25T18:33:26.283424819Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

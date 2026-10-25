@@ -1599,7 +1599,8 @@ export default function CampusHub() {
                       images: ev.img ? [ev.img] : [],
                       date: ev.date,
                       category: ev.category || 'Etkinlik',
-                      content: ev.content || ev.description || ev.title
+                      content: ev.content || ev.description || ev.title,
+                      attachments: (ev as any).attachments || []
                     })}
                     className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between"
                   >

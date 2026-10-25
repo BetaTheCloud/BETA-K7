@@ -34,9 +34,10 @@ import {
   Filter,
   X,
   Calendar,
-  ChevronRight
+  ChevronRight,
+  Paperclip
 } from 'lucide-react';
-import { cn, parseDateToTimestamp, cleanDuplicateTitle } from '../lib/utils';
+import { cn, parseDateToTimestamp, cleanDuplicateTitle, ensureSafeUrl } from '../lib/utils';
 import { openExternalUrl } from '../lib/openExternal';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import PullToRefresh from '../components/PullToRefresh';
@@ -689,6 +690,8 @@ export default function Announcements() {
                                         setSelectedItem({
                                           url: annItem.url || '',
                                           title: annItem.title,
+                                          imageUrl: (annItem as any).imageUrl,
+                                          images: (annItem as any).images && (annItem as any).images.length > 0 ? (annItem as any).images : ((annItem as any).imageUrl ? [(annItem as any).imageUrl] : []),
                                           date: annItem.date,
                                           category: annItem.category || category,
                                           content: annItem.content
@@ -974,7 +977,7 @@ export default function Announcements() {
                       {item.imageUrl && (
                         <div className="w-full h-44 rounded-xl overflow-hidden mb-3 bg-stone-100 dark:bg-black/20 border border-stone-200/60 dark:border-white/10 relative">
                           <img
-                            src={item.imageUrl}
+                            src={ensureSafeUrl(item.imageUrl)}
                             alt={item.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
@@ -994,6 +997,18 @@ export default function Announcements() {
                           <span className="text-[10px] sm:text-[11px] font-semibold text-stone-400 dark:text-white/50 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {item.date}
+                          </span>
+                        )}
+                        {(item.title.toLowerCase().includes('program') ||
+                          item.title.toLowerCase().includes('vize') ||
+                          item.title.toLowerCase().includes('sınav') ||
+                          item.title.toLowerCase().includes('takvim') ||
+                          item.title.toLowerCase().includes('çizelge') ||
+                          item.title.toLowerCase().includes('liste') ||
+                          (item as any).attachments?.length > 0) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">
+                            <Paperclip className="w-3 h-3" />
+                            <span>Ekli Belge</span>
                           </span>
                         )}
                       </div>

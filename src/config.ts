@@ -122,19 +122,26 @@ function onFetchEnd(success: boolean) {
 }
 
 /**
- * Determines whether the app is running in a mobile APK / WebView / Hybrid container.
+ * Determines whether the app is running in a native mobile APK / WebView / Hybrid container.
+ * In a standard web browser (localhost, AI Studio preview, deployed web domain), this MUST return false
+ * so that full-stack relative routes ('') are used.
  */
 export function isMobileAppEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   
-  const isCapacitor = !!(window as any).Capacitor;
-  const isCordova = !!(window as any).cordova;
-  const isFileProtocol = window.location.protocol === 'file:';
-  const isCapacitorOrigin = 
-    window.location.origin === 'capacitor://localhost' || 
-    window.location.origin === 'ionic://localhost';
+  const protocol = window.location.protocol;
+  const origin = window.location.origin;
 
-  return isCapacitor || isCordova || isFileProtocol || isCapacitorOrigin;
+  // Capacitor native platform check: Capacitor.isNativePlatform() returns true ONLY on native Android/iOS
+  const isCapacitorNative = !!(window as any).Capacitor?.isNativePlatform?.();
+  const isCapacitorOrigin = 
+    origin === 'capacitor://localhost' || 
+    origin === 'ionic://localhost' ||
+    protocol === 'capacitor:';
+  const isFileProtocol = protocol === 'file:';
+  const isCordovaNative = !!(window as any).cordova && protocol !== 'http:' && protocol !== 'https:';
+
+  return isCapacitorNative || isCapacitorOrigin || isFileProtocol || isCordovaNative;
 }
 
 export function getEffectiveApiBase(): string {
@@ -151,14 +158,21 @@ export function getEffectiveApiBase(): string {
   }
 
   // 2. Web runtime (AI Studio preview, local dev, unified full-stack):
-  // Always use same-origin relative endpoints ('') so the app communicates directly with its own backend
+  // Clean up any stale localStorage that pointed to beta-k7.onrender.com
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('CUSTOM_API_BASE_URL');
+    if (custom && custom.includes('beta-k7.onrender.com')) {
+      try {
+        localStorage.removeItem('CUSTOM_API_BASE_URL');
+      } catch {}
+    }
+    // Only return custom if it's explicitly set by user to an active alternative server
     if (custom && custom.trim().length > 0 && !custom.includes('beta-k7.onrender.com')) {
       return custom.trim().replace(/\/+$/, '');
     }
   }
 
+  // Always use same-origin relative endpoints ('') so the app communicates directly with its own backend
   return '';
 }
 

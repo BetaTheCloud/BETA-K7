@@ -10,10 +10,15 @@ import {
   Building2,
   Paperclip,
   Download,
-  FileText
+  FileText,
+  Image as ImageIcon,
+  ZoomIn,
+  Copy,
+  Check,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
-import { cleanDuplicateTitle, cn } from '../lib/utils';
+import { cleanDuplicateTitle, ensureSafeUrl, cn } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
 
@@ -25,81 +30,27 @@ export interface AttachmentItem {
 }
 
 /**
- * Strips redundant repeated headings, duplicate cover images, and modernizes tables from scraped HTML.
- * Ensures clean rendering in both light and dark mode on mobile and desktop.
+ * Modernizes and cleans scraped HTML for university announcement bodies:
+ * - Removes raw file tables (since they are shown in the dedicated Attachments card)
+ * - Removes duplicate headings that repeat the modal title
+ * - PRESERVES all legitimate text paragraphs and links (never deletes text just for mentioning title)
+ * - Converts image URLs to safe-encoded absolute URLs
+ * - Styles data tables for mobile and dark mode
  */
-function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?: string, attachmentsCount?: number): string {
+function cleanDetailContentHtml(
+  html?: string | null,
+  coverImg?: string,
+  title?: string,
+  baseUrl?: string
+): string {
   if (!html || typeof window === 'undefined') return html || '';
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
+    const origin = baseUrl ? new URL(baseUrl).origin : window.location.origin;
 
-    // 1. Remove raw file attachment boxes when files are extracted
-    // This prevents broken, unstyled duplicate tables with white headers and squished red icons
+    // 1. Remove raw file attachment boxes since they are displayed in the structured section
     doc.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((el) => el.remove());
-
-    // 1b. Remove CMS sidebars, recent/other announcements lists & navigation widgets
-    doc.querySelectorAll(
-      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
-      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
-      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
-      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
-      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
-      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
-      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
-      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
-    ).forEach((el) => el.remove());
-
-    doc.querySelectorAll('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').forEach((el) => {
-      const txt = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (
-        txt.includes('son duyurular') ||
-        txt.includes('diğer duyurular') ||
-        txt.includes('diger duyurular') ||
-        txt.includes('son haberler') ||
-        txt.includes('diğer haberler') ||
-        txt.includes('diger haberler') ||
-        txt.includes('ilgili duyurular') ||
-        txt.includes('ilgili haberler') ||
-        txt.includes('tüm duyurular') ||
-        txt.includes('tum duyurular') ||
-        txt.includes('duyuru arşivi') ||
-        txt.includes('duyuru arsivi') ||
-        txt.includes('son eklenenler') ||
-        txt.includes('diğer içerikler') ||
-        txt.includes('diger icerikler') ||
-        txt.includes('önemli duyurular') ||
-        txt.includes('son etkinlikler') ||
-        txt.includes('diğer etkinlikler') ||
-        txt.includes('benzer duyurular')
-      ) {
-        const parentWidget = el.closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
-        if (parentWidget && parentWidget.querySelectorAll('a').length > 1) {
-          parentWidget.remove();
-        } else {
-          let sibling = el.nextElementSibling;
-          while (sibling) {
-            const next = sibling.nextElementSibling;
-            if (sibling.tagName === 'UL' || sibling.tagName === 'OL' || sibling.classList.contains('list') || sibling.querySelector('a')) {
-              sibling.remove();
-            }
-            sibling = next;
-          }
-          el.remove();
-        }
-      }
-    });
-
-    // Remove stray lists of announcement/news detail links
-    doc.querySelectorAll('ul, ol, div').forEach((container) => {
-      const annLinks = container.querySelectorAll('a[href*="announcements-detail"], a[href*="announcement-detail"], a[href*="news-detail"]');
-      if (annLinks.length >= 2) {
-        const text = (container.textContent || '').toLowerCase();
-        if (text.includes('duyuru') || text.includes('haber') || text.includes('tarih:')) {
-          container.remove();
-        }
-      }
-    });
 
     doc.querySelectorAll('table').forEach((tbl) => {
       const tblText = (tbl.textContent || '').toLowerCase();
@@ -120,78 +71,54 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     const cleanTitle = cleanDuplicateTitle(title || '');
     const normTitle = cleanTitle.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    // 2. Remove duplicate headings & paragraphs matching the page title
+    // 2. Remove ONLY duplicate headings that literally just repeat the page title
     if (normTitle) {
-      const headings = doc.querySelectorAll('h1, h2, h3, h4, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header');
+      const headings = doc.querySelectorAll('h1, h2, .announcement-detail-title, .news-detail-title, .inner-page__content-header');
       headings.forEach((el) => {
         const text = cleanDuplicateTitle(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (text && (text === normTitle || normTitle.includes(text) || text.includes(normTitle))) {
+        if (text && (text === normTitle || text === cleanTitle.toLowerCase())) {
           el.remove();
-        }
-      });
-
-      // Also remove paragraphs or divs that literally just repeat the title
-      doc.querySelectorAll('p, div.announcement-detail-text, div.news-detail-text, span, strong, b').forEach((el) => {
-        if (el.querySelector('table, img, iframe, video')) return;
-        const pText = cleanDuplicateTitle(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (pText && (pText === normTitle || (normTitle.length > 8 && (pText.includes(normTitle) || normTitle.includes(pText))))) {
-          const parent = el.parentElement;
-          el.remove();
-          if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
-            parent.remove();
-          }
         }
       });
     }
 
-    // Remove noisy icons or separators and unstyled duplicate CMS galleries
+    // Remove noise elements and unstyled sliders
     doc.querySelectorAll(
-      '.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper, .mySwiper, .full-screen-slider, .photo-gallery, .slider, .fotorama'
+      '.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper-button-next, .swiper-button-prev, .swiper-pagination'
     ).forEach((el) => el.remove());
 
-    // 3. Robust image deduplication: Ensure no image is shown 2 or 3 times
+    // 3. Ensure images have safe URLs and styling (never strip images simply because coverImg exists)
     const seenSrcs = new Set<string>();
-    const normalizeImgKey = (urlStr: string): string => {
-      if (!urlStr) return '';
-      let s = urlStr.trim();
-      try { s = decodeURIComponent(s); } catch {}
-      let filename = s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
-      // Strip CMS timestamp prefixes like "1791370207202.WhatsApp..."
-      filename = filename.replace(/^\d{10,14}\./, '');
-      // Strip thumbnail/preview size prefixes
-      filename = filename.replace(/^(thumb_|small_|large_|medium_|cover_|mini_)/, '');
-      return filename;
-    };
 
-    if (coverImg) {
-      const normCover = normalizeImgKey(coverImg);
-      if (normCover) seenSrcs.add(normCover);
-      seenSrcs.add(coverImg.trim().toLowerCase());
-    }
-
-    const images = doc.querySelectorAll('img');
-    images.forEach((imgEl) => {
-      const rawSrc = (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '').trim();
-      const normKey = normalizeImgKey(rawSrc);
-
-      const isNoise = !rawSrc || rawSrc.includes('logo') || rawSrc.includes('icon') || rawSrc.includes('flag') || rawSrc.endsWith('.svg');
-      const isDuplicate = isNoise || (normKey && seenSrcs.has(normKey)) || (rawSrc && seenSrcs.has(rawSrc.toLowerCase()));
-
-      if (isDuplicate) {
-        const parent = imgEl.parentElement;
+    doc.querySelectorAll('img').forEach((imgEl) => {
+      let rawSrc = (imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '').trim();
+      if (!rawSrc) {
         imgEl.remove();
-        if (parent && parent.children.length === 0 && !parent.textContent?.trim()) {
-          parent.remove();
-        }
+        return;
+      }
+      if (!rawSrc.startsWith('http')) {
+        rawSrc = `${origin}${rawSrc.startsWith('/') ? '' : '/'}${rawSrc}`;
+      }
+      const isNoise = rawSrc.includes('logo') || rawSrc.includes('icon') || rawSrc.includes('flag') || rawSrc.endsWith('.svg');
+      if (isNoise) {
+        imgEl.remove();
+        return;
+      }
+
+      const safeSrc = ensureSafeUrl(rawSrc);
+      const isDuplicate = seenSrcs.has(safeSrc.toLowerCase());
+      if (isDuplicate) {
+        imgEl.remove();
       } else {
-        if (normKey) seenSrcs.add(normKey);
-        if (rawSrc) seenSrcs.add(rawSrc.toLowerCase());
+        seenSrcs.add(safeSrc.toLowerCase());
+        imgEl.setAttribute('src', safeSrc);
+        imgEl.removeAttribute('srcset');
+        imgEl.className = 'w-full max-h-[500px] object-contain rounded-xl my-3 shadow-xs border border-stone-200/90 dark:border-white/10 cursor-zoom-in';
       }
     });
 
-    // 4. Modernize legitimate data tables (schedules, plans) for mobile and dark mode
-    const tables = doc.querySelectorAll('table');
-    tables.forEach((tbl) => {
+    // 4. Modernize data tables for mobile and dark mode
+    doc.querySelectorAll('table').forEach((tbl) => {
       tbl.removeAttribute('style');
       tbl.className = 'w-full border-collapse my-3 text-xs sm:text-sm rounded-xl overflow-hidden';
       const parent = tbl.parentElement;
@@ -206,10 +133,6 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     doc.querySelectorAll('thead').forEach((thGroup) => {
       thGroup.removeAttribute('style');
       thGroup.className = 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100';
-    });
-
-    doc.querySelectorAll('tbody').forEach((tb) => {
-      tb.removeAttribute('style');
     });
 
     doc.querySelectorAll('tr').forEach((tr) => {
@@ -227,15 +150,21 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
       td.className = 'p-3 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs';
     });
 
-    // 5. Mark all anchor tags for external opening & strip hardcoded color styles
-    const links = doc.querySelectorAll('a');
-    links.forEach((aEl) => {
+    // 5. Ensure all links have target="_blank" and safe URLs
+    doc.querySelectorAll('a').forEach((aEl) => {
+      let href = (aEl.getAttribute('href') || '').trim();
+      if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+        href = `${origin}${href.startsWith('/') ? '' : '/'}${href}`;
+      }
+      if (href) {
+        aEl.setAttribute('href', ensureSafeUrl(href));
+      }
+      aEl.setAttribute('target', '_blank');
+      aEl.setAttribute('rel', 'noopener noreferrer');
       const style = aEl.getAttribute('style') || '';
       if (style) {
         aEl.setAttribute('style', style.replace(/color:\s*[^;]+;?/gi, ''));
       }
-      aEl.setAttribute('target', '_blank');
-      aEl.setAttribute('rel', 'noopener noreferrer');
     });
 
     // 6. Clean empty paragraphs or divs
@@ -246,14 +175,14 @@ function cleanDetailContentHtml(html?: string | null, coverImg?: string, title?:
     });
 
     const rawText = (doc.body.textContent || '').replace(/\u00a0/g, ' ').trim();
-    const hasMedia = doc.querySelectorAll('img, table, iframe').length > 0;
+    const hasMedia = doc.querySelectorAll('img, table, iframe, a').length > 0;
     if (!rawText && !hasMedia) {
       return '';
     }
 
     return doc.body.innerHTML;
   } catch {
-    return html;
+    return html || '';
   }
 }
 
@@ -267,18 +196,28 @@ function extractAttachmentsFromHtml(html?: string | null, baseUrl?: string): Att
     const doc = parser.parseFromString(html, 'text/html');
     const list: AttachmentItem[] = [];
     const seen = new Set<string>();
+    const origin = baseUrl ? new URL(baseUrl).origin : '';
 
     const add = (name: string, url: string) => {
       if (!url) return;
       let full = url.trim();
-      if (!full.startsWith('http') && baseUrl) {
-        try {
-          const origin = new URL(baseUrl).origin;
-          full = `${origin}${full.startsWith('/') ? '' : '/'}${full}`;
-        } catch {}
+      if (!full.startsWith('http') && origin) {
+        full = `${origin}${full.startsWith('/') ? '' : '/'}${full}`;
       }
+
+      const lowerUrl = full.toLowerCase();
+      const isNoiseDoc =
+        lowerUrl.includes('oa_yonerge.pdf') ||
+        lowerUrl.includes('hizmet%20ici') ||
+        lowerUrl.includes('stratejik%20plan') ||
+        lowerUrl.includes('kurumsal%20izleme') ||
+        lowerUrl.includes('odul%20yonergesi');
+
+      if (isNoiseDoc) return;
+
       let cName = name.trim().replace(/\s+/g, ' ');
-      if (!cName || cName.toLowerCase() === 'tıklayınız.' || cName.toLowerCase() === 'tıklayınız' || cName.toLowerCase() === 'indir' || cName === '.') {
+      const lower = cName.toLowerCase();
+      if (!cName || lower === 'tıklayınız.' || lower === 'tıklayınız' || lower === 'tıklayın' || lower === 'indir' || lower === 'döküman indir' || cName === '.') {
         const parts = full.split('/');
         try {
           cName = decodeURIComponent(parts[parts.length - 1].split('?')[0]) || 'Döküman İndir';
@@ -289,12 +228,13 @@ function extractAttachmentsFromHtml(html?: string | null, baseUrl?: string): Att
       let ext = '';
       const match = full.match(/\.([a-zA-Z0-9]{2,5})(?:[\?#]|$)/);
       if (match) ext = match[1].toUpperCase();
-      else if (cName.match(/\.([a-zA-Z0-9]{2,5})$/)) ext = cName.match(/\.([a-zA-Z0-9]{2,5})$/)[1].toUpperCase();
+      else if (cName.match(/\.([a-zA-Z0-9]{2,5})$/)) ext = cName.match(/\.([a-zA-Z0-9]{2,5})$/)![1].toUpperCase();
       else if (full.includes('/file/')) ext = 'PDF';
 
-      if (!seen.has(full)) {
-        seen.add(full);
-        list.push({ name: cName, url: full, extension: ext || 'FILE' });
+      const safe = ensureSafeUrl(full);
+      if (!seen.has(safe)) {
+        seen.add(safe);
+        list.push({ name: cName, url: safe, extension: ext || 'FILE' });
       }
     };
 
@@ -308,18 +248,20 @@ function extractAttachmentsFromHtml(html?: string | null, baseUrl?: string): Att
       }
     });
 
-    doc.querySelectorAll('a').forEach((a) => {
+    doc.querySelectorAll('#files a, .announcement-detail-content-box a, .announcement-detail-card a, article a').forEach((a) => {
       const href = a.getAttribute('href');
       if (!href) return;
       const lower = href.toLowerCase();
       if (
         lower.includes('/file/') ||
         lower.includes('/contentfiles/') ||
+        lower.includes('/documentfiles/') ||
         lower.includes('/subdomain_files/') ||
         lower.endsWith('.pdf') || lower.includes('.pdf?') ||
         lower.endsWith('.doc') || lower.endsWith('.docx') ||
         lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
-        lower.endsWith('.zip') || lower.endsWith('.rar')
+        lower.endsWith('.zip') || lower.endsWith('.rar') ||
+        lower.includes('drive.google.com/file')
       ) {
         const name = a.textContent?.trim() || a.getAttribute('download') || '';
         add(name, href);
@@ -333,68 +275,16 @@ function extractAttachmentsFromHtml(html?: string | null, baseUrl?: string): Att
 }
 
 /**
- * Direct client-side university announcement parser.
- * Used natively in mobile Capacitor APK to bypass any remote proxy or unpatched backend limitations,
- * and as an instant fallback when HTML is retrieved directly.
+ * Direct client-side announcement parser (used natively in Capacitor or on direct fetch fallback)
  */
 function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
-  if (!rawHtml || typeof window === 'undefined') return { contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '' };
+  if (!rawHtml || typeof window === 'undefined') {
+    return { title: '', contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '', images: [] as string[] };
+  }
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(rawHtml, 'text/html');
     const origin = new URL(pageUrl).origin;
-
-    // 0. Remove sidebars, recent/other announcements, and navigation lists before selecting contentBox
-    doc.querySelectorAll(
-      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
-      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
-      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
-      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
-      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
-      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
-      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
-      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
-    ).forEach((el) => el.remove());
-
-    doc.querySelectorAll('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').forEach((el) => {
-      const txt = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (
-        txt.includes('son duyurular') ||
-        txt.includes('diğer duyurular') ||
-        txt.includes('diger duyurular') ||
-        txt.includes('son haberler') ||
-        txt.includes('diğer haberler') ||
-        txt.includes('diger haberler') ||
-        txt.includes('ilgili duyurular') ||
-        txt.includes('ilgili haberler') ||
-        txt.includes('tüm duyurular') ||
-        txt.includes('tum duyurular') ||
-        txt.includes('duyuru arşivi') ||
-        txt.includes('duyuru arsivi') ||
-        txt.includes('son eklenenler') ||
-        txt.includes('diğer içerikler') ||
-        txt.includes('diger icerikler') ||
-        txt.includes('önemli duyurular') ||
-        txt.includes('son etkinlikler') ||
-        txt.includes('diğer etkinlikler') ||
-        txt.includes('benzer duyurular')
-      ) {
-        const parentWidget = el.closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
-        if (parentWidget && parentWidget.querySelectorAll('a').length > 1) {
-          parentWidget.remove();
-        } else {
-          let sibling = el.nextElementSibling;
-          while (sibling) {
-            const next = sibling.nextElementSibling;
-            if (sibling.tagName === 'UL' || sibling.tagName === 'OL' || sibling.classList.contains('list') || sibling.querySelector('a')) {
-              sibling.remove();
-            }
-            sibling = next;
-          }
-          el.remove();
-        }
-      }
-    });
 
     // 1. Title
     const titleEl = doc.querySelector('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1');
@@ -410,6 +300,18 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
       if (!fullUrl.startsWith('http')) {
         fullUrl = `${origin}${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
       }
+
+      const lowerUrl = fullUrl.toLowerCase();
+      if (
+        lowerUrl.includes('oa_yonerge.pdf') ||
+        lowerUrl.includes('hizmet%20ici') ||
+        lowerUrl.includes('stratejik%20plan') ||
+        lowerUrl.includes('kurumsal%20izleme') ||
+        lowerUrl.includes('odul%20yonergesi')
+      ) {
+        return;
+      }
+
       let cleanName = (rawName || '').trim().replace(/\s+/g, ' ');
       const lowerName = cleanName.toLowerCase();
       if (
@@ -417,10 +319,9 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
         lowerName === 'tıklayınız.' ||
         lowerName === 'tıklayınız' ||
         lowerName === 'tıklayın' ||
-        lowerName === 'tıklayın.' ||
         lowerName === 'indir' ||
         lowerName === 'döküman indir' ||
-        lowerName === 'tıkla' ||
+        lowerName === 'doküman indir' ||
         cleanName === '.'
       ) {
         const parts = fullUrl.split('/');
@@ -444,14 +345,15 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
         }
       }
 
-      if (!seenUrls.has(fullUrl)) {
-        seenUrls.add(fullUrl);
-        attachments.push({ name: cleanName, url: fullUrl, extension: ext || 'FILE' });
+      const safeUrl = ensureSafeUrl(fullUrl);
+      if (!seenUrls.has(safeUrl)) {
+        seenUrls.add(safeUrl);
+        attachments.push({ name: cleanName, url: safeUrl, extension: ext || 'FILE' });
       }
     };
 
-    // Table rows
-    doc.querySelectorAll('table.course-list-table tbody tr, .courses-list table tbody tr, .course-list-table tbody tr, table tbody tr').forEach((tr) => {
+    // Scrape files from tables and containers
+    doc.querySelectorAll('#files tr, .course-list-table tr, .courses-list tr, table tr').forEach((tr) => {
       const link = tr.querySelector('a');
       const downloadLink = tr.querySelector('a[download]') || link;
       const href = downloadLink?.getAttribute('href') || link?.getAttribute('href') || tr.getAttribute('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
@@ -461,76 +363,69 @@ function parseUniversityAnnouncementHtml(rawHtml: string, pageUrl: string) {
       }
     });
 
-    // Document links
-    doc.querySelectorAll('a').forEach((a) => {
-      const href = a.getAttribute('href');
-      if (!href) return;
-      const lower = href.toLowerCase();
-      if (
-        lower.includes('/file/') ||
-        lower.includes('/contentfiles/') ||
-        lower.includes('/subdomain_files/') ||
-        lower.endsWith('.pdf') || lower.includes('.pdf?') ||
-        lower.endsWith('.doc') || lower.endsWith('.docx') ||
-        lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
-        lower.endsWith('.zip') || lower.endsWith('.rar')
-      ) {
-        const name = a.textContent?.trim() || a.getAttribute('download') || '';
-        addAttachment(name, href);
+    const contentBox = doc.querySelector('.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, .announcement-detail-layout, .inner-page__content-description, .announcement-detail-text, .news-detail-text, article');
+
+    if (contentBox) {
+      contentBox.querySelectorAll('a').forEach((a) => {
+        const href = a.getAttribute('href');
+        if (!href) return;
+        const lower = href.toLowerCase();
+        if (
+          lower.includes('/file/') ||
+          lower.includes('/contentfiles/') ||
+          lower.includes('/documentfiles/') ||
+          lower.includes('/subdomain_files/') ||
+          lower.endsWith('.pdf') || lower.includes('.pdf?') ||
+          lower.endsWith('.doc') || lower.endsWith('.docx') ||
+          lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
+          lower.endsWith('.zip') || lower.endsWith('.rar') ||
+          lower.includes('drive.google.com/file')
+        ) {
+          const name = a.textContent?.trim() || a.getAttribute('download') || '';
+          addAttachment(name, href);
+        }
+      });
+    }
+
+    // 3. Images
+    const images: string[] = [];
+    let imageUrl = '';
+
+    const addImg = (raw?: string | null) => {
+      if (!raw) return;
+      let src = raw.trim();
+      if (!src.startsWith('http')) {
+        src = `${origin}${src.startsWith('/') ? '' : '/'}${src}`;
       }
+      const isNoise = src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
+      if (!isNoise) {
+        const safe = ensureSafeUrl(src);
+        if (safe && !images.includes(safe)) {
+          images.push(safe);
+          if (!imageUrl) imageUrl = safe;
+        }
+      }
+    };
+
+    const ogImg = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
+    if (ogImg) addImg(ogImg);
+
+    doc.querySelectorAll('.announcement-detail-content-box img, .announcement-detail-text img, .swiper-slide img, .inner-page__image img, .detail-image img, article img').forEach((el) => {
+      addImg(el.getAttribute('src') || el.getAttribute('data-src'));
     });
 
-    // 3. Content container
-    const contentBox = doc.querySelector('.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, .announcement-detail-layout') ||
-                      doc.querySelector('.announcement-detail-text') ||
-                      doc.querySelector('.inner-page__content-description') ||
-                      doc.querySelector('.inner-page__content .left-side') ||
-                      doc.querySelector('.inner-page__content .main-content') ||
-                      doc.querySelector('.inner-page__content') ||
-                      doc.querySelector('.news-detail-text') ||
-                      doc.querySelector('article') ||
-                      doc.querySelector('.content-block');
-
+    // 4. Content HTML
     let contentHtml = '';
     if (contentBox) {
-      contentBox.querySelectorAll('h1, h2, h3, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').forEach((h) => h.remove());
-      contentBox.querySelectorAll('.announcement-icon-separator, .title-list').forEach((s) => s.remove());
-      // Remove raw file boxes since they are cleanly extracted into attachments
-      contentBox.querySelectorAll('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').forEach((f) => f.remove());
-      contentHtml = contentBox.innerHTML;
+      const textNode = contentBox.querySelector('.announcement-detail-text, .news-detail-text, .inner-page__content-description') || contentBox;
+      contentHtml = textNode.innerHTML;
     }
 
-    // Extract primary featured image (from meta tag, prominent container, or first article image)
-    let imageUrl = '';
-    const ogImg = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
-    if (ogImg && !ogImg.includes('logo') && !ogImg.includes('default')) {
-      imageUrl = ogImg.startsWith('http') ? ogImg : `${origin}${ogImg.startsWith('/') ? '' : '/'}${ogImg}`;
-    }
-
-    if (!imageUrl) {
-      const imgEl = doc.querySelector('.news-detail-image img, .detail-image img, .announcement-detail-image img, .inner-page__image img');
-      let src = imgEl?.getAttribute('src') || imgEl?.getAttribute('data-src') || '';
-      if (src && !src.includes('logo') && !src.includes('icon') && !src.endsWith('.svg')) {
-        imageUrl = src.startsWith('http') ? src : `${origin}${src.startsWith('/') ? '' : '/'}${src}`;
-      }
-    }
-
-    // Fallback: If no imageUrl found yet, check first image in contentBox
-    if (!imageUrl && contentBox) {
-      const firstImg = contentBox.querySelector('img');
-      let src = firstImg?.getAttribute('src') || firstImg?.getAttribute('data-src') || '';
-      if (src && !src.includes('logo') && !src.includes('icon') && !src.endsWith('.svg')) {
-        imageUrl = src.startsWith('http') ? src : `${origin}${src.startsWith('/') ? '' : '/'}${src}`;
-      }
-    }
-
-    // Modernize and clean HTML, passing imageUrl so that it is never duplicated inside the article body
-    const cleaned = cleanDetailContentHtml(contentHtml, imageUrl, title, attachments.length);
-
-    return { title, contentHtml: cleaned, attachments, imageUrl };
+    const cleaned = cleanDetailContentHtml(contentHtml, imageUrl, title, pageUrl);
+    return { title, contentHtml: cleaned, attachments, imageUrl, images };
   } catch (err) {
     console.warn('parseUniversityAnnouncementHtml failed:', err);
-    return { contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '' };
+    return { title: '', contentHtml: '', attachments: [] as AttachmentItem[], imageUrl: '', images: [] as string[] };
   }
 }
 
@@ -551,7 +446,6 @@ export interface DetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   item?: DetailModalItem | null;
-  // Legacy backward compatibility
   url?: string;
   title?: string;
 }
@@ -560,35 +454,41 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const rawTitle = item?.title || title || '';
   const activeTitle = cleanDuplicateTitle(rawTitle);
   const activeUrl = item?.url || url || '';
-  const initialImageUrl = item?.imageUrl || '';
+  const initialImageUrl = item?.imageUrl ? ensureSafeUrl(item.imageUrl) : '';
   const initialContent = item?.content || '';
   const initialDate = item?.date || '';
   const initialDept = item?.departmentName || item?.facultyName || item?.category || '';
 
-  const shouldShowInitialContent = !!initialContent &&
-    cleanDuplicateTitle(initialContent).trim().toLowerCase() !== activeTitle.trim().toLowerCase() &&
-    initialContent.trim().length > 0;
-
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>(item?.attachments || []);
   const [featuredImage, setFeaturedImage] = useState<string>(initialImageUrl);
+  const [allImages, setAllImages] = useState<string[]>(item?.images && item.images.length > 0 ? item.images.map(ensureSafeUrl) : (initialImageUrl ? [initialImageUrl] : []));
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      const img = item?.imageUrl || initialImageUrl || '';
+      const img = item?.imageUrl ? ensureSafeUrl(item.imageUrl) : initialImageUrl;
       setFeaturedImage(img);
       setImgError(false);
       setContentHtml(null);
       setAttachments(item?.attachments || []);
       setError(false);
+      setCopiedLink(false);
+      setZoomImage(null);
+      setActiveImageIndex(0);
+
+      const initImages = item?.images && item.images.length > 0 ? item.images.map(ensureSafeUrl) : (img ? [img] : []);
+      setAllImages(initImages);
 
       if (activeUrl && activeUrl.startsWith('http')) {
         setLoading(true);
 
-        // A. If running in native Capacitor (Android APK), use native CapacitorHttp for 100% direct CORS-free fetch
+        // A. Native Capacitor HTTP direct fetch (if in mobile app)
         const tryNativeDirect = async (): Promise<boolean> => {
           if (Capacitor.isNativePlatform()) {
             try {
@@ -599,12 +499,13 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   setContentHtml(parsed.contentHtml);
                   if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
                   if (parsed.imageUrl && !img) setFeaturedImage(parsed.imageUrl);
+                  if (parsed.images.length > 0) setAllImages(parsed.images);
                   setLoading(false);
                   return true;
                 }
               }
             } catch (nativeErr) {
-              console.warn('Capacitor native direct fetch notice:', nativeErr);
+              console.warn('Capacitor direct fetch notice:', nativeErr);
             }
           }
           return false;
@@ -613,17 +514,23 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
         tryNativeDirect().then((success) => {
           if (success) return;
 
-          // B. Otherwise or if fallback needed: call /api/detail
+          // B. Full-stack proxy endpoint /api/detail
           safeFetch(getApiUrl(`/api/detail?url=${encodeURIComponent(activeUrl)}&_t=${Date.now()}`))
-            .then(res => {
+            .then((res) => {
               if (!res.ok) throw new Error('Network response was not ok');
               return res.json();
             })
-            .then(data => {
-              const bestImg = img || data.imageUrl || '';
-              if (data.imageUrl && !img) {
-                setFeaturedImage(data.imageUrl);
+            .then((data) => {
+              const safeImg = data.imageUrl ? ensureSafeUrl(data.imageUrl) : img;
+              if (safeImg) {
+                setFeaturedImage(safeImg);
                 setImgError(false);
+              }
+
+              if (Array.isArray(data.images) && data.images.length > 0) {
+                setAllImages(data.images.map(ensureSafeUrl));
+              } else if (safeImg) {
+                setAllImages([safeImg]);
               }
 
               let currentAttachments = Array.isArray(data.attachments) ? data.attachments : [];
@@ -634,61 +541,52 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 setAttachments(currentAttachments);
               }
 
-              if (data.contentHtml) {
-                setContentHtml(cleanDetailContentHtml(data.contentHtml, bestImg, activeTitle, currentAttachments.length));
+              if (data.contentHtml && data.contentHtml.trim().length > 0) {
+                setContentHtml(cleanDetailContentHtml(data.contentHtml, safeImg, activeTitle, activeUrl));
+              } else if (initialContent) {
+                setContentHtml(null); // Will render initialContent nicely
               } else {
                 setContentHtml('');
               }
 
-              // C. If the API response returned no attachments and no content, attempt direct fetch as safety net
-              if (currentAttachments.length === 0 && !data.contentHtml) {
-                fetch(activeUrl)
-                  .then(r => r.text())
-                  .then(raw => {
-                    const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
-                    if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
-                    if (parsed.contentHtml) {
-                      setContentHtml(parsed.contentHtml);
-                    }
-                  })
-                  .catch(() => {});
-              }
-
               setLoading(false);
             })
-            .catch(err => {
-              console.warn('Detail fetch notice:', err);
-              // Direct fetch fallback on network error
-              fetch(activeUrl)
-                .then(r => r.text())
-                .then(raw => {
-                  const parsed = parseUniversityAnnouncementHtml(raw, activeUrl);
-                  if (parsed.contentHtml !== undefined) setContentHtml(parsed.contentHtml);
-                  if (parsed.attachments.length > 0) setAttachments(parsed.attachments);
-                  setLoading(false);
-                })
-                .catch(() => {
-                  if (!initialContent && !img) setError(true);
-                  setLoading(false);
-                });
+            .catch((err) => {
+              console.warn('Detail fetch notice:', err?.message || err);
+              // Fallback to initialContent if available
+              if (initialContent) {
+                setContentHtml(null);
+              }
+              if (!initialContent && !img && (!attachments || attachments.length === 0)) {
+                setError(true);
+              }
+              setLoading(false);
             });
         });
       }
     }
   }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
 
-  // Lock body scroll when modal is open and bind Escape key / header back event
+  // Lock body scroll when modal is open and bind Escape key / back event
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          onClose();
+          if (zoomImage) {
+            setZoomImage(null);
+          } else {
+            onClose();
+          }
         }
       };
       const handleHeaderBack = (e: Event) => {
         e.preventDefault();
-        onClose();
+        if (zoomImage) {
+          setZoomImage(null);
+        } else {
+          onClose();
+        }
       };
       window.addEventListener('keydown', handleKeyDown);
       window.addEventListener('k7_header_back', handleHeaderBack);
@@ -700,32 +598,44 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     } else {
       document.body.style.overflow = 'unset';
     }
-  }, [isOpen, onClose]);
+  }, [isOpen, zoomImage, onClose]);
 
   if (typeof document === 'undefined') return null;
+
+  const currentDisplayImage = allImages.length > 0 ? allImages[activeImageIndex] : featuredImage;
+  const hasMultipleImages = allImages.length > 1;
+
+  const handleCopyLink = () => {
+    if (!activeUrl) return;
+    try {
+      navigator.clipboard.writeText(activeUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {}
+  };
 
   return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center overflow-hidden">
-          {/* Full viewport Backdrop */}
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-0"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-0"
           />
 
-          {/* Modal Container: Fullscreen on mobile, centered card on desktop */}
+          {/* Modal Container */}
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-            className="relative z-10 w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl bg-[#fcfbf9] dark:bg-[#1d3540] flex flex-col md:rounded-2xl shadow-2xl overflow-hidden md:border border-[#e6e2d6] dark:border-white/10"
+            className="relative z-10 w-full h-full md:h-auto md:max-h-[90vh] md:max-w-3xl bg-[#fcfbf9] dark:bg-[#1d3540] flex flex-col md:rounded-2xl shadow-2xl overflow-hidden md:border border-[#e6e2d6] dark:border-white/10"
           >
-            {/* Header: Dedicated safe area padding preventing clash with mobile status bars / headers */}
+            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653] shrink-0 gap-3 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] shadow-sm">
               <button
                 type="button"
@@ -737,18 +647,38 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 <span>Geri Dön</span>
               </button>
 
-              <span className="text-xs sm:text-sm font-display font-bold text-stone-700 dark:text-stone-300 leading-tight truncate flex-1 text-center px-2">
-                {item?.category || (item?.departmentName ? `${item.departmentName} Duyurusu` : 'Duyuru Detayı')}
-              </span>
+              <div className="flex-1 text-center truncate px-2">
+                <span className="text-xs sm:text-sm font-display font-bold text-stone-800 dark:text-stone-200 leading-tight truncate block">
+                  {item?.category || (item?.departmentName ? `${item.departmentName} Duyurusu` : 'Duyuru Detayı')}
+                </span>
+                {initialDept && (
+                  <span className="text-[10px] text-stone-500 dark:text-white/50 truncate block">
+                    {initialDept}
+                  </span>
+                )}
+              </div>
 
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500 dark:text-stone-300 shrink-0 cursor-pointer"
-                aria-label="Kapat"
-              >
-                <X className="w-5 h-5" strokeWidth={1.8} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {activeUrl && (
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-stone-500 dark:text-stone-300 transition-colors cursor-pointer"
+                    title="Bağlantıyı Kopyala"
+                    aria-label="Bağlantıyı Kopyala"
+                  >
+                    {copiedLink ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 transition-colors text-stone-500 dark:text-stone-300 cursor-pointer"
+                  aria-label="Kapat"
+                >
+                  <X className="w-5 h-5" strokeWidth={1.8} />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Article Body */}
@@ -768,47 +698,109 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                       <span>{initialDate}</span>
                     </span>
                   )}
-                  {item?.category && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-300">
-                      {item.category}
+                  {attachments.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
+                      <Paperclip className="w-3 h-3" />
+                      <span>{attachments.length} Ekli Dosya</span>
                     </span>
                   )}
                 </div>
               )}
 
               {/* Title inside article body for full readability */}
-              <h1 className="font-display font-bold text-lg sm:text-xl text-stone-900 dark:text-white leading-snug">
+              <h1 className="font-display font-extrabold text-lg sm:text-2xl text-stone-900 dark:text-white leading-snug">
                 {activeTitle}
               </h1>
 
-              {/* Natural Featured Image without cropping or ZoomIn button */}
-              {featuredImage && !imgError && (
-                <div className="rounded-2xl overflow-hidden bg-stone-100/90 dark:bg-stone-900/60 border border-stone-200/80 dark:border-white/10 shadow-sm flex items-center justify-center p-2 sm:p-3">
-                  <img
-                    src={featuredImage}
-                    alt={activeTitle}
-                    className="w-full max-h-[500px] object-contain rounded-xl transition-all"
-                    loading="lazy"
-                    onError={() => {
-                      setImgError(true);
-                    }}
-                  />
+              {/* Featured / Carousel Images */}
+              {currentDisplayImage && (
+                <div className="space-y-2">
+                  <div className="rounded-2xl overflow-hidden bg-stone-100/90 dark:bg-stone-900/60 border border-stone-200/80 dark:border-white/10 shadow-sm relative group">
+                    {!imgError ? (
+                      <>
+                        <img
+                          src={currentDisplayImage}
+                          alt={activeTitle}
+                          className="w-full max-h-[520px] object-contain rounded-xl transition-all cursor-zoom-in bg-stone-50 dark:bg-black/20"
+                          loading="lazy"
+                          onClick={() => setZoomImage(currentDisplayImage)}
+                          onError={() => setImgError(true)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setZoomImage(currentDisplayImage)}
+                          className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 text-white text-xs font-bold backdrop-blur-md transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" />
+                          <span>Büyüt</span>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="p-6 text-center space-y-2 bg-stone-50 dark:bg-stone-900/40">
+                        <ImageIcon className="w-8 h-8 mx-auto text-amber-600/70 dark:text-amber-400/70" />
+                        <p className="text-xs font-medium text-stone-600 dark:text-stone-300">
+                          Duyuru Görseli
+                        </p>
+                        <a
+                          href={currentDisplayImage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => openExternalUrl(currentDisplayImage, e)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors cursor-pointer"
+                        >
+                          <span>Görseli Aç / İndir</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Multiple image switcher thumbnails */}
+                  {hasMultipleImages && (
+                    <div className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 custom-scrollbar">
+                      {allImages.map((imgSrc, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setActiveImageIndex(idx);
+                            setImgError(false);
+                          }}
+                          className={cn(
+                            "w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer relative",
+                            activeImageIndex === idx
+                              ? "border-amber-500 ring-2 ring-amber-500/30 scale-105"
+                              : "border-stone-200 dark:border-white/10 opacity-70 hover:opacity-100"
+                          )}
+                        >
+                          <img
+                            src={imgSrc}
+                            alt={`Görsel ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Loading State for Additional Scraped Content */}
+              {/* Loading State for Additional Content */}
               {loading && !contentHtml && (
-                <div className="flex flex-col items-center justify-center py-6 text-stone-500 space-y-2">
-                  <Loader2 strokeWidth={1.8} className="w-6 h-6 animate-spin text-amber-600 dark:text-amber-400" />
-                  <p className="text-xs">Detaylı haber içeriği yükleniyor...</p>
+                <div className="flex flex-col items-center justify-center py-8 text-stone-500 space-y-2">
+                  <Loader2 strokeWidth={2} className="w-7 h-7 animate-spin text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs font-medium">Duyuru içeriği ve ekli belgeler yükleniyor...</p>
                 </div>
               )}
 
-              {/* Error Notice Only if No Initial Content Available */}
-              {error && !contentHtml && !initialContent && (
+              {/* Error Notice Only if No Initial Content and No Image */}
+              {error && !contentHtml && !initialContent && attachments.length === 0 && !featuredImage && (
                 <div className="p-6 bg-stone-50 dark:bg-white/5 border border-[#e6e2d6] dark:border-white/10 rounded-2xl text-center space-y-3">
                   <p className="text-xs text-stone-500 dark:text-white/60">
-                    Önizleme sunucusuna ulaşılamadı. Haberin tamamını resmi web sitesinden görüntüleyebilirsiniz.
+                    Önizleme sunucusuna ulaşılamadı. Duyurunun tamamını ve ekli dosyalarını resmi web sayfasından görüntüleyebilirsiniz.
                   </p>
                   {activeUrl && (
                     <a
@@ -816,7 +808,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => openExternalUrl(activeUrl, e)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors shadow-sm cursor-pointer"
                     >
                       <span>Resmi Sayfada Aç</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -825,16 +817,22 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                 </div>
               )}
 
-              {/* Scraped HTML Content or Fallback Summary Text */}
+              {/* Scraped HTML Content */}
               {contentHtml && contentHtml.trim().length > 0 ? (
                 <div
                   className="prose prose-sm sm:prose-base dark:prose-invert max-w-none pt-1
-                    prose-p:text-stone-700 dark:prose-p:text-stone-300 prose-p:leading-relaxed
-                    prose-a:text-amber-600 dark:prose-a:text-amber-400 prose-a:font-semibold hover:prose-a:underline
-                    prose-img:rounded-xl prose-img:mx-auto prose-img:max-h-[500px] prose-img:object-contain prose-img:shadow-sm prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10
+                    prose-p:text-stone-800 dark:prose-p:text-stone-200 prose-p:leading-relaxed prose-p:text-sm sm:prose-p:text-base
+                    prose-a:text-amber-600 dark:prose-a:text-amber-400 prose-a:font-bold hover:prose-a:underline
+                    prose-img:rounded-xl prose-img:mx-auto prose-img:max-h-[500px] prose-img:object-contain prose-img:shadow-sm prose-img:border prose-img:border-stone-200 dark:prose-img:border-white/10 prose-img:cursor-zoom-in
                     prose-headings:font-display prose-headings:font-bold prose-headings:text-stone-900 dark:prose-headings:text-white"
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
+                    const clickedImg = target.closest('img');
+                    if (clickedImg && clickedImg.src) {
+                      e.preventDefault();
+                      setZoomImage(clickedImg.src);
+                      return;
+                    }
                     const anchor = target.closest('a');
                     if (anchor && anchor.href) {
                       openExternalUrl(anchor.href, e);
@@ -857,35 +855,77 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   }}
                   dangerouslySetInnerHTML={{ __html: contentHtml }}
                 />
-              ) : shouldShowInitialContent ? (
-                <div className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed space-y-2 pt-1">
+              ) : initialContent && cleanDuplicateTitle(initialContent).trim().length > 0 ? (
+                <div className="text-sm sm:text-base text-stone-800 dark:text-stone-200 leading-relaxed space-y-2 pt-1 font-normal bg-stone-50 dark:bg-white/5 p-4 rounded-xl border border-stone-200/60 dark:border-white/10">
                   <p>{initialContent}</p>
+                </div>
+              ) : !loading && attachments.length > 0 ? (
+                /* Informative card when announcement body consists solely of file attachment (e.g. Exam Timetable) */
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/25 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white">
+                      Resmi Ekli Belge Duyurusu
+                    </h4>
+                    <p className="text-xs text-stone-600 dark:text-white/70 mt-0.5 leading-relaxed">
+                      Bu duyuru metin yerine resmi döküman/çizelge olarak yayınlanmıştır. Aşağıdaki ekli belgeleri ve dosyaları cihazınıza indirebilir veya tek dokunuşla görüntüleyebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              ) : !loading && currentDisplayImage ? (
+                /* Informative card when announcement is an image poster */
+                <div className="p-4 rounded-2xl bg-stone-100 dark:bg-white/5 border border-stone-200/80 dark:border-white/10 flex items-center gap-3">
+                  <ImageIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <p className="text-xs text-stone-600 dark:text-white/70">
+                    Duyuru afiş formatında yayınlanmıştır. Yukarıdaki görseli büyüterek detayları inceleyebilirsiniz.
+                  </p>
+                </div>
+              ) : !loading ? (
+                /* Fallback if university page didn't provide additional text */
+                <div className="p-4 rounded-2xl bg-stone-100/70 dark:bg-white/5 border border-stone-200/70 dark:border-white/10 flex items-start gap-3">
+                  <Building2 className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-stone-700 dark:text-stone-300 font-medium">
+                      {activeTitle}
+                    </p>
+                    <p className="text-[11px] text-stone-500 dark:text-white/60 mt-1">
+                      Bu duyuruya ait ek açıklamaları ve güncellemeleri aşağıdaki "Resmi Sayfada Aç" düğmesini kullanarak ilgili birimin web sayfasında görebilirsiniz.
+                    </p>
+                  </div>
                 </div>
               ) : null}
 
               {/* Attached Documents & Files Section */}
               {attachments.length > 0 && (
-                <div className="rounded-2xl p-4 bg-stone-100/90 dark:bg-stone-900/50 border border-stone-200/90 dark:border-white/10 space-y-3 shadow-xs my-3">
+                <div className="rounded-2xl p-4 sm:p-5 bg-stone-100/90 dark:bg-stone-900/60 border border-stone-200/90 dark:border-white/10 space-y-3.5 shadow-xs my-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-500/15 dark:bg-amber-400/15 flex items-center justify-center text-amber-700 dark:text-amber-300">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 dark:bg-amber-400/15 flex items-center justify-center text-amber-700 dark:text-amber-300">
                         <Paperclip className="w-4 h-4" />
                       </div>
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-stone-800 dark:text-stone-200">
-                        Ekli Belgeler ve Dosyalar ({attachments.length})
-                      </h3>
+                      <div>
+                        <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wider text-stone-900 dark:text-white">
+                          Ekli Belgeler ve Dosyalar ({attachments.length})
+                        </h3>
+                        <p className="text-[10px] text-stone-500 dark:text-white/50">
+                          Resmi kurum dökümanları ve sınav/ders listeleri
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-semibold text-stone-500 dark:text-white/50">
+                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-md">
                       Dokun ve İndir
                     </span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {attachments.map((file, idx) => {
                       const ext = (file.extension || '').toUpperCase();
                       const isPdf = ext === 'PDF' || file.name.toLowerCase().endsWith('.pdf');
                       const isDoc = ext === 'DOC' || ext === 'DOCX';
                       const isXls = ext === 'XLS' || ext === 'XLSX';
+                      const isImg = ext === 'JPG' || ext === 'JPEG' || ext === 'PNG';
 
                       return (
                         <a
@@ -894,31 +934,41 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => openExternalUrl(file.url, e)}
-                          className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-white/5 border border-stone-200/80 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-400/50 shadow-2xs hover:shadow-xs transition-all group active:scale-[0.99] cursor-pointer"
+                          className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-white dark:bg-white/5 border border-stone-200/80 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-amber-400/50 shadow-2xs hover:shadow-xs transition-all group active:scale-[0.99] cursor-pointer"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div
                               className={cn(
-                                'w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 transition-transform group-hover:scale-105 shadow-2xs',
+                                'w-10 h-10 rounded-xl flex items-center justify-center font-bold text-[11px] shrink-0 transition-transform group-hover:scale-105 shadow-2xs',
                                 isPdf
                                   ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25'
                                   : isDoc
                                   ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25'
                                   : isXls
                                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25'
+                                  : isImg
+                                  ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25'
                                   : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25'
                               )}
                             >
-                              {ext || 'FILE'}
+                              {isPdf ? (
+                                'PDF'
+                              ) : isDoc ? (
+                                'DOC'
+                              ) : isXls ? (
+                                <FileSpreadsheet className="w-4 h-4" />
+                              ) : (
+                                ext || 'FILE'
+                              )}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-xs text-stone-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+                              <p className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
                                 {file.name}
                               </p>
                               <p className="text-[10px] text-stone-400 dark:text-white/40 flex items-center gap-1.5 mt-0.5">
-                                <span>{isPdf ? 'PDF Belgesi' : isDoc ? 'Word Dökümanı' : isXls ? 'Excel Tablosu' : 'Dosya Eki'}</span>
+                                <span>{isPdf ? 'PDF Belgesi' : isDoc ? 'Word Belgesi' : isXls ? 'Excel Tablosu' : isImg ? 'Görsel Dosyası' : 'Dosya Eki'}</span>
                                 <span>·</span>
-                                <span className="text-amber-600 dark:text-amber-400 font-medium">İndir / Görüntüle</span>
+                                <span className="text-amber-600 dark:text-amber-400 font-bold">Görüntüle / İndir</span>
                               </p>
                             </div>
                           </div>
@@ -959,6 +1009,53 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               )}
             </div>
           </motion.div>
+
+          {/* Fullscreen Image Lightbox Modal */}
+          {zoomImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] bg-black/95 flex flex-col justify-between p-3 sm:p-5"
+            >
+              <div className="flex items-center justify-between text-white shrink-0 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+                <span className="text-xs font-semibold text-white/70 truncate max-w-[70%]">
+                  {activeTitle}
+                </span>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={zoomImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openExternalUrl(zoomImage, e)}
+                    className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Kaydet</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setZoomImage(null)}
+                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 flex items-center justify-center overflow-auto p-2">
+                <img
+                  src={zoomImage}
+                  alt={activeTitle}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                />
+              </div>
+
+              <div className="text-center text-[11px] text-white/50 shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
+                Kapatmak için sağ üstteki çarpıya dokunun veya ESC tuşuna basın
+              </div>
+            </motion.div>
+          )}
         </div>
       )}
     </AnimatePresence>,

@@ -57,6 +57,30 @@ export function cleanDuplicateTitle(raw?: string | null): string {
   return s;
 }
 
+/**
+ * Safely normalizes and encodes a URL so that spaces (e.g. "WhatsApp Image 2026...")
+ * and non-ASCII Turkish characters are validly encoded without breaking protocols or query strings.
+ */
+export function ensureSafeUrl(url?: string | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  try {
+    const u = new URL(trimmed);
+    const safePath = u.pathname
+      .split('/')
+      .map(segment => encodeURIComponent(decodeURIComponent(segment)))
+      .join('/');
+    return `${u.origin}${safePath}${u.search ? '?' + u.searchParams.toString() : ''}${u.hash || ''}`;
+  } catch {
+    try {
+      return encodeURI(decodeURI(trimmed));
+    } catch {
+      return trimmed;
+    }
+  }
+}
+
 const TURKISH_MONTHS: Record<string, number> = {
   ocak: 0, oca: 0,
   subat: 1, şubat: 1, sub: 1, şub: 1,

@@ -947,9 +947,21 @@ export const getDepartmentAnnouncements = async (
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
-        setStoredWithTTL(cacheKey, data);
+        const mergedData = data.map((item: any) => {
+          const fallbackMatch = FALLBACK_DEPARTMENT_ANNOUNCEMENTS.find(
+            f => (f.url && item.url && f.url === item.url) || (f.title && item.title && f.title.trim().toLowerCase() === item.title.trim().toLowerCase())
+          );
+          if (fallbackMatch && fallbackMatch.attachments && fallbackMatch.attachments.length > 0) {
+            return {
+              ...item,
+              attachments: fallbackMatch.attachments
+            };
+          }
+          return item;
+        });
+        setStoredWithTTL(cacheKey, mergedData);
         notifySyncSuccess('live');
-        return data;
+        return mergedData;
       }
     }
   } catch (err) {

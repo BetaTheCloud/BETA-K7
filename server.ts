@@ -1516,53 +1516,8 @@ app.get('/api/detail', async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
     
-    const response = await axiosInstance.get(targetUrl, { timeout: 7000 });
+    const response = await axiosInstance.get(targetUrl, { timeout: 8000 });
     const $ = cheerio.load(response.data);
-
-    // 0. Remove CMS sidebars, recent/other announcements lists, navigation widgets
-    $(
-      '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
-      '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
-      '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
-      '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
-      '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
-      '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
-      '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
-      '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
-    ).remove();
-
-    $('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').each((_, el) => {
-      const txt = $(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
-      if (
-        txt.includes('son duyurular') ||
-        txt.includes('diğer duyurular') ||
-        txt.includes('diger duyurular') ||
-        txt.includes('son haberler') ||
-        txt.includes('diğer haberler') ||
-        txt.includes('diger haberler') ||
-        txt.includes('ilgili duyurular') ||
-        txt.includes('ilgili haberler') ||
-        txt.includes('tüm duyurular') ||
-        txt.includes('tum duyurular') ||
-        txt.includes('duyuru arşivi') ||
-        txt.includes('duyuru arsivi') ||
-        txt.includes('son eklenenler') ||
-        txt.includes('diğer içerikler') ||
-        txt.includes('diger icerikler') ||
-        txt.includes('önemli duyurular') ||
-        txt.includes('son etkinlikler') ||
-        txt.includes('diğer etkinlikler') ||
-        txt.includes('benzer duyurular')
-      ) {
-        const parentWidget = $(el).closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
-        if (parentWidget.length && parentWidget.find('a').length > 1) {
-          parentWidget.remove();
-        } else {
-          $(el).nextAll('ul, ol, .list, .announcement-list, .news-list, div').remove();
-          $(el).remove();
-        }
-      }
-    });
     
     let title = $('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1').first().text().trim();
     title = cleanDuplicateTitle(title);
@@ -1570,109 +1525,112 @@ app.get('/api/detail', async (req, res) => {
     const urlObj = new URL(targetUrl);
     const baseUrl = urlObj.origin;
 
+    // Helper to safely encode URLs
+    const ensureSafeUrl = (urlStr?: string | null): string => {
+      if (!urlStr) return '';
+      const trimmed = urlStr.trim();
+      if (!trimmed) return '';
+      try {
+        const u = new URL(trimmed);
+        const safePath = u.pathname
+          .split('/')
+          .map(seg => encodeURIComponent(decodeURIComponent(seg)))
+          .join('/');
+        return `${u.origin}${safePath}${u.search ? '?' + u.searchParams.toString() : ''}${u.hash || ''}`;
+      } catch {
+        try {
+          return encodeURI(decodeURI(trimmed));
+        } catch {
+          return trimmed;
+        }
+      }
+    };
+
+    // Target primary article container to avoid picking up site-wide navigation/footer links
+    const contentContainer = $(
+      '.announcement-detail-content-box, .announcement-detail-card, .announcement-detail-wrapper, ' +
+      '.announcement-detail-layout, .event-detail-content, .event-detail-text, .inner-page__content-description, ' +
+      '.announcement-detail-text, .news-detail-text, .inner-page__content, article, .detail-content, .content-block, #main, main'
+    ).first();
+
+    const searchScope = contentContainer.length > 0 ? contentContainer : $('body');
+
     // Extract images (Cover + Gallery)
     let imageUrl = '';
     const images: string[] = [];
 
+    const addImage = (rawSrc?: string | null) => {
+      if (!rawSrc) return;
+      let full = rawSrc.trim();
+      if (!full) return;
+      if (!full.startsWith('http')) {
+        full = `${baseUrl}${full.startsWith('/') ? '' : '/'}${full}`;
+      }
+      const lower = full.toLowerCase();
+      const isNoise =
+        lower.includes('logo') ||
+        lower.includes('icon') ||
+        lower.includes('flag') ||
+        lower.endsWith('.svg') ||
+        lower.includes('firat_logo') ||
+        lower.includes('logo%20web') ||
+        lower.includes('logo web') ||
+        lower.includes('kilis-logo') ||
+        lower.includes('avatar');
+
+      if (!isNoise) {
+        const safe = ensureSafeUrl(full);
+        if (safe && !images.includes(safe)) {
+          images.push(safe);
+          if (!imageUrl) imageUrl = safe;
+        }
+      }
+    };
+
     // 1. Check meta tags
     const ogImg = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content');
-    if (ogImg && !ogImg.includes('logo') && !ogImg.includes('default')) {
-      imageUrl = ogImg.startsWith('http') ? ogImg : `${baseUrl}${ogImg.startsWith('/') ? '' : '/'}${ogImg}`;
-    }
+    if (ogImg) addImage(ogImg);
 
-    // 2. Check prominent news detail image containers
+    // 2. Check prominent image containers & swipers
     const imgSelectors = [
+      '.announcement-detail-content-box img',
+      '.announcement-detail-text img',
+      '.announcement-detail-card img',
       '.news-detail-image img',
       '.detail-image img',
       '.announcement-detail-image img',
       '.inner-page__image img',
-      '.news-img img',
+      '.swiper-slide img',
+      '.full-screen-slider img',
+      '.photo-gallery img',
       '.featured-image img',
-      '.slider img',
-      '.fotorama img',
-      '.content-block img',
       'article img',
       '.inner-page__content img'
     ];
 
     for (const sel of imgSelectors) {
       $(sel).each((_, el) => {
-        let src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-large');
-        if (src) {
-          if (!src.startsWith('http')) {
-            src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
-          }
-          const isNoise = src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
-          if (!isNoise && !images.includes(src)) {
-            images.push(src);
-            if (!imageUrl) imageUrl = src;
-          }
-        }
+        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-large');
+        addImage(src);
       });
     }
 
-    // 3. Fallback to all page images with news pattern
-    if (!imageUrl) {
-      $('img').each((_, el) => {
-        let src = $(el).attr('src') || $(el).attr('data-src');
-        if (src && (src.includes('/news/') || src.includes('/haber') || src.includes('/duyuru') || src.includes('/upload/'))) {
-          if (!src.startsWith('http')) {
-            src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
-          }
-          if (!images.includes(src)) {
-            images.push(src);
-            if (!imageUrl) imageUrl = src;
-          }
-        }
-      });
-    }
-    
-    let contentHtml = '';
-    
-    // Prioritize comprehensive containers that house both text descriptions and attachment tables
-    const contentSelectors = [
-      '.event-detail-content',
-      '.event-detail-text',
-      '.event-content',
-      '.etkinlik-detail',
-      '.etkinlik-content',
-      '.announcement-detail-content-box',
-      '.announcement-detail-card',
-      '.announcement-detail-wrapper',
-      '.announcement-detail-layout',
-      '.inner-page__content-description',
-      '.announcement-detail-text',
-      '.news-detail-text',
-      '.inner-page__content .left-side',
-      '.inner-page__content .main-content',
-      '.inner-page__content',
-      '.news-content-body',
-      '.content-block',
-      'article',
-      '.detail-content'
-    ];
-    
-    for (const selector of contentSelectors) {
-      const el = $(selector);
-      if (el.length > 0) {
-        contentHtml = el.html() || '';
-        break;
+    // 3. Fallback to all images with announcement/photos/content path
+    searchScope.find('img').each((_, el) => {
+      const src = $(el).attr('src') || $(el).attr('data-src');
+      if (
+        src &&
+        (src.includes('/photos/') ||
+         src.includes('/announcements/') ||
+         src.includes('/contentFiles/') ||
+         src.includes('/subdomain_files/') ||
+         src.includes('/upload/') ||
+         src.includes('/news/') ||
+         src.includes('/duyuru/'))
+      ) {
+        addImage(src);
       }
-    }
-    
-    if (!contentHtml) {
-      const contentBlock = $('h1.title').closest('div').parent().find('p').first().parent();
-      if (contentBlock.length) {
-        contentHtml = contentBlock.html() || '';
-      }
-    }
-    
-    if (!contentHtml) {
-      const ps = $('p');
-      if (ps.length > 0) {
-        contentHtml = ps.map((_, p) => `<p>${$(p).html()}</p>`).get().join('');
-      }
-    }
+    });
 
     // Extract structured attachments (PDF, DOCX, XLSX, etc.)
     interface DetailAttachment {
@@ -1691,15 +1649,45 @@ app.get('/api/detail', async (req, res) => {
       if (!fullUrl.startsWith('http')) {
         fullUrl = `${baseUrl}${fullUrl.startsWith('/') ? '' : '/'}${fullUrl}`;
       }
+
+      // Filter out global university footer/navigation docs that appear statically on every page
+      const lowerUrl = fullUrl.toLowerCase();
+      const lowerName = (rawName || '').toLowerCase().trim();
+      
+      const isNoiseDoc =
+        lowerUrl.includes('oa_yonerge.pdf') ||
+        lowerUrl.includes('hizmet%20ici%20egitim') ||
+        lowerUrl.includes('hizmet%20i%cc%87%c3%a7i%cc%87%20egi%cc%87ti%cc%87m') ||
+        lowerUrl.includes('stratejik%20plan') ||
+        lowerUrl.includes('kurumsal%20izleme') ||
+        lowerUrl.includes('odul%20yonergesi') ||
+        lowerUrl.includes('performans%20degerlendirme') ||
+        lowerUrl.includes('proje%20destek%20ofisi') ||
+        lowerUrl.includes('tto)%20yonergesi') ||
+        lowerUrl.includes('kalite%20el%20kitab') ||
+        lowerUrl.includes('ogrenci%20el%20kalite%20el%20kitab') ||
+        lowerName === 'eğiticilerin eğitimi' ||
+        lowerName === 'izleme ve iyileştirme kanıtları' ||
+        lowerName === 'hizmet içi eğitim uygulamalarına ilişkin planlamalar' ||
+        lowerName === 'ödül yönergesi' ||
+        lowerName === 'idari personel performans değerlendirme yönergesi' ||
+        lowerName === 'proje destek ofisi yönergesi' ||
+        lowerName === 'teknoloji transfer ofisi yönergesi' ||
+        lowerName === 'süreç yönetimi el kitapları' ||
+        lowerName === 'öğrenci el kitabı';
+
+      if (isNoiseDoc) return;
+
       let cleanName = (rawName || '').trim().replace(/\s+/g, ' ');
-      const lowerName = cleanName.toLowerCase();
       if (
         !cleanName ||
         lowerName === 'tıklayınız.' ||
         lowerName === 'tıklayınız' ||
+        lowerName === 'tıklayın' ||
         lowerName === 'indir' ||
         lowerName === 'döküman indir' ||
         lowerName === 'doküman indir' ||
+        lowerName === 'dosyayı indir' ||
         cleanName === '.'
       ) {
         const parts = fullUrl.split('/');
@@ -1724,48 +1712,75 @@ app.get('/api/detail', async (req, res) => {
         }
       }
 
-      if (!seenAttachmentUrls.has(fullUrl)) {
-        seenAttachmentUrls.add(fullUrl);
-        attachments.push({ name: cleanName, url: fullUrl, extension: ext || 'FILE' });
+      const safeUrl = ensureSafeUrl(fullUrl);
+      if (!seenAttachmentUrls.has(safeUrl)) {
+        seenAttachmentUrls.add(safeUrl);
+        attachments.push({ name: cleanName, url: safeUrl, extension: ext || 'FILE' });
       }
     };
 
-    // 1. Check table rows from course-list-table, courses-list or tables with files
-    $('table.course-list-table tbody tr, .courses-list table tbody tr, .course-list-table tbody tr, table tbody tr').each((_, tr) => {
-      const row = $(tr);
-      const link = row.find('a').first();
-      const downloadLink = row.find('a[download]').length ? row.find('a[download]') : link;
-      const href = downloadLink.attr('href') || link.attr('href') || row.attr('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
-      const name = link.text().trim() || downloadLink.attr('download') || row.find('td').first().text().trim();
-      if (href && (href.includes('/file/') || href.includes('.pdf') || href.includes('.doc') || href.includes('.xls') || downloadLink.attr('download'))) {
-        addAttachment(name, href);
-      }
+    // 1. Scrape explicitly dedicated file attachment containers (#files, .course-list-table, .courses-list)
+    $('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').each((_, containerEl) => {
+      $(containerEl).find('tr').each((__, tr) => {
+        const row = $(tr);
+        const link = row.find('a').first();
+        const downloadLink = row.find('a[download]').length ? row.find('a[download]') : link;
+        const href = downloadLink.attr('href') || link.attr('href') || row.attr('onclick')?.match(/get_url\(['"]([^'"]+)['"]\)/)?.[1];
+        const name = link.text().trim() || downloadLink.attr('download') || row.find('td').first().text().trim();
+        if (href) {
+          addAttachment(name, href);
+        }
+      });
+
+      // Also search any free links inside #files
+      $(containerEl).find('a').each((__, a) => {
+        const href = $(a).attr('href');
+        const name = $(a).text().trim() || $(a).attr('download') || '';
+        if (href) addAttachment(name, href);
+      });
     });
 
-    // 2. Check all document links
-    $('a').each((_, a) => {
+    // 2. Scrape file links directly inside the announcement content container
+    searchScope.find('a').each((_, a) => {
       const href = $(a).attr('href');
       if (!href) return;
       const lower = href.toLowerCase();
       if (
         lower.includes('/file/') ||
         lower.includes('/contentfiles/') ||
+        lower.includes('/documentfiles/') ||
         lower.includes('/subdomain_files/') ||
         lower.endsWith('.pdf') || lower.includes('.pdf?') ||
         lower.endsWith('.doc') || lower.endsWith('.docx') ||
         lower.endsWith('.xls') || lower.endsWith('.xlsx') ||
-        lower.endsWith('.zip') || lower.endsWith('.rar')
+        lower.endsWith('.zip') || lower.endsWith('.rar') ||
+        lower.includes('drive.google.com/file')
       ) {
         const name = $(a).text().trim() || $(a).attr('download') || '';
         addAttachment(name, href);
       }
     });
-    
+
+    // 3. Extract and Clean Content HTML
+    let contentHtml = '';
+    const textContainer = contentContainer.find('.announcement-detail-text, .news-detail-text, .inner-page__content-description, .event-detail-content').first();
+    if (textContainer.length > 0) {
+      contentHtml = textContainer.html() || '';
+    } else if (contentContainer.length > 0) {
+      contentHtml = contentContainer.html() || '';
+    }
+
+    if (!contentHtml) {
+      const ps = searchScope.find('p');
+      if (ps.length > 0) {
+        contentHtml = ps.map((_, p) => `<p>${$(p).html()}</p>`).get().join('');
+      }
+    }
+
     if (contentHtml) {
       const $content = cheerio.load(contentHtml, null, false);
 
-      // 1. Remove raw file attachment boxes when files are extracted
-      // This prevents broken, unstyled duplicate tables with white background and squished red icons
+      // Remove raw file attachment tables since they are presented in the structured Attachments list
       $content('#files, .course-list-table, .courses-list, .flat-all-course, .announcement-attached-documents').remove();
 
       $content('table').each((_, tbl) => {
@@ -1784,164 +1799,57 @@ app.get('/api/detail', async (req, res) => {
         }
       });
 
-      // 2. Remove duplicate headings & paragraphs matching page title
+      // Remove ONLY duplicate h1/h2 headings matching title, NEVER delete body paragraphs or text
       const normTitle = (title || '').replace(/\s+/g, ' ').trim().toLowerCase();
       if (normTitle) {
-        $content('h1, h2, h3, h4, .title, .announcement-detail-title, .news-detail-title, .inner-page__content-header').each((_, el) => {
+        $content('h1, h2, .announcement-detail-title, .news-detail-title, .inner-page__content-header').each((_, el) => {
           const hText = cleanDuplicateTitle($content(el).text()).replace(/\s+/g, ' ').trim().toLowerCase();
-          if (hText && (hText === normTitle || normTitle.includes(hText) || hText.includes(normTitle))) {
+          if (hText && (hText === normTitle || hText === cleanDuplicateTitle(title).toLowerCase())) {
             $content(el).remove();
-          }
-        });
-
-        // Also remove paragraphs or divs that literally just repeat the title
-        $content('p, div, span, strong, b').each((_, el) => {
-          if ($content(el).find('table, img, iframe, video').length > 0) return;
-          const pText = cleanDuplicateTitle($content(el).text()).replace(/\s+/g, ' ').trim().toLowerCase();
-          if (pText && (pText === normTitle || (normTitle.length > 8 && (pText.includes(normTitle) || normTitle.includes(pText))))) {
-            const parent = $content(el).parent();
-            $content(el).remove();
-            if (parent.length && parent.children().length === 0 && !parent.text().trim()) {
-              parent.remove();
-            }
           }
         });
       }
 
-      // Remove separator noise, unstyled CMS Swiper galleries and thumbnail sliders
-      $content('.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper, .mySwiper, .full-screen-slider, .photo-gallery, .slider, .fotorama').remove();
+      // Remove noise separators and slider controls
+      $content('.announcement-icon-separator, .title-list, .photo-gallery-header, .swiper-button-next, .swiper-button-prev, .swiper-pagination').remove();
 
-      // Remove nested sidebars, recent/other announcements lists & navigation widgets
-      $content(
-        '.sidebar, #sidebar, .right-sidebar, .left-sidebar, .inner-page__sidebar, ' +
-        '.sidebar-news, .sidebar-announcements, .sidebar-box, .sidebar-card, ' +
-        '.recent-announcements, .latest-announcements, .other-announcements, .other-news, ' +
-        '.related-announcements, .related-news, .announcements-sidebar, .announcement-sidebar, .news-sidebar, ' +
-        '.right-content, .sidebar-item, .sidebar-widget, .widget, .other-contents, .other-posts, ' +
-        '.announcement-all-list, .news-all-list, .sidebar-list, .announcement-list, .news-list, ' +
-        '.side-menu, .side-nav, .right-menu, .left-menu, .sidebar-wrapper, .right-side, .side-bar, ' +
-        '.announcements-right, .announcements-left, .announcement-detail-right, .announcement-detail-left'
-      ).remove();
-
-      $content('h1, h2, h3, h4, h5, h6, .title, .sidebar-title, .widget-title, .block-title, strong, b, p, div, span').each((_, el) => {
-        const txt = $content(el).text().replace(/\s+/g, ' ').trim().toLowerCase();
-        if (
-          txt.includes('son duyurular') ||
-          txt.includes('diğer duyurular') ||
-          txt.includes('diger duyurular') ||
-          txt.includes('son haberler') ||
-          txt.includes('diğer haberler') ||
-          txt.includes('diger haberler') ||
-          txt.includes('ilgili duyurular') ||
-          txt.includes('ilgili haberler') ||
-          txt.includes('tüm duyurular') ||
-          txt.includes('tum duyurular') ||
-          txt.includes('duyuru arşivi') ||
-          txt.includes('duyuru arsivi') ||
-          txt.includes('son eklenenler') ||
-          txt.includes('diğer içerikler') ||
-          txt.includes('diger icerikler') ||
-          txt.includes('önemli duyurular') ||
-          txt.includes('son etkinlikler') ||
-          txt.includes('diğer etkinlikler') ||
-          txt.includes('benzer duyurular')
-        ) {
-          const parentWidget = $content(el).closest('.sidebar-box, .widget, .card, .block, .sidebar-item, div, section, aside');
-          if (parentWidget.length && parentWidget.find('a').length > 1) {
-            parentWidget.remove();
-          } else {
-            $content(el).nextAll('ul, ol, .list, .announcement-list, .news-list, div').remove();
-            $content(el).remove();
-          }
-        }
-      });
-
-      // Remove stray lists of announcement/news detail links
-      $content('ul, ol, div').each((_, container) => {
-        const annLinks = $content(container).find('a[href*="announcements-detail"], a[href*="announcement-detail"], a[href*="news-detail"]');
-        if (annLinks.length >= 2) {
-          const text = $content(container).text().toLowerCase();
-          if (text.includes('duyuru') || text.includes('haber') || text.includes('tarih:')) {
-            $content(container).remove();
-          }
-        }
-      });
-
-      // 3. Robust image deduplication: Ensure no image is shown 2 or 3 times
-      const seenImgs = new Set<string>();
-      const normalizeImgKey = (urlStr: string): string => {
-        if (!urlStr) return '';
-        let s = urlStr.trim();
-        try { s = decodeURIComponent(s); } catch {}
-        let filename = s.split('/').pop()?.split('?')[0]?.trim().toLowerCase() || '';
-        // Strip CMS timestamp prefixes like "1791370207202.WhatsApp..."
-        filename = filename.replace(/^\d{10,14}\./, '');
-        // Strip thumbnail size prefixes
-        filename = filename.replace(/^(thumb_|small_|large_|medium_|cover_|mini_)/, '');
-        return filename;
-      };
-
-      // If imageUrl was not found in headers, check first real article image to use as cover
-      if (!imageUrl) {
-        $content('img').each((_, el) => {
-          let src = $content(el).attr('src') || $content(el).attr('data-src') || '';
-          if (src) {
-            if (!src.startsWith('http')) {
-              src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
-            }
-            const isNoise = src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
-            if (!isNoise && !imageUrl) {
-              imageUrl = src;
-            }
-          }
-        });
-      }
-
-      if (imageUrl) {
-        seenImgs.add(imageUrl.toLowerCase());
-        const coverFn = normalizeImgKey(imageUrl);
-        if (coverFn) seenImgs.add(coverFn);
-      }
-
+      // Normalize images in HTML with safe URLs
       $content('img').each((_, el) => {
         let src = $content(el).attr('src') || $content(el).attr('data-src') || '';
-        if (src && !src.startsWith('http')) {
-          src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
-          $content(el).attr('src', src);
-        }
-        const fn = normalizeImgKey(src);
-        const isNoise = !src || src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
-        const isDuplicate = isNoise || (imageUrl && src === imageUrl) || (fn && seenImgs.has(fn)) || (src && seenImgs.has(src.toLowerCase()));
-
-        if (isDuplicate) {
-          const parent = $content(el).parent();
-          $content(el).remove();
-          if (parent.length && parent.children().length === 0 && !parent.text().trim()) {
-            parent.remove();
+        if (src) {
+          if (!src.startsWith('http')) {
+            src = `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
           }
-        } else {
-          if (fn) seenImgs.add(fn);
-          if (src) seenImgs.add(src.toLowerCase());
+          const safeSrc = ensureSafeUrl(src);
+          const isNoise = !src || src.includes('logo') || src.includes('icon') || src.includes('flag') || src.endsWith('.svg');
+          if (isNoise) {
+            $content(el).remove();
+          } else {
+            $content(el).attr('src', safeSrc);
+            $content(el).removeAttr('srcset');
+            $content(el).addClass('rounded-xl mx-auto my-3 max-h-[500px] object-contain shadow-sm border border-stone-200 dark:border-white/10');
+          }
         }
       });
 
-      // 4. Ensure all links have target="_blank" and rel="noopener noreferrer"
+      // Normalize links
       $content('a').each((_, el) => {
         let href = $content(el).attr('href');
         if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
           href = `${baseUrl}${href.startsWith('/') ? '' : '/'}${href}`;
-          $content(el).attr('href', href);
+        }
+        if (href) {
+          $content(el).attr('href', ensureSafeUrl(href));
         }
         $content(el).attr('target', '_blank');
         $content(el).attr('rel', 'noopener noreferrer');
         const style = $content(el).attr('style') || '';
         if (style) {
-          const cleaned = style.replace(/color:\s*[^;]+;?/gi, '');
-          $content(el).attr('style', cleaned);
+          $content(el).attr('style', style.replace(/color:\s*[^;]+;?/gi, ''));
         }
       });
 
-      // 5. Modernize any legitimate data tables (schedules, lists) for dark mode & mobile
+      // Modernize tables
       $content('table').each((_, tbl) => {
         $content(tbl).removeAttr('style');
         $content(tbl).addClass('w-full border-collapse my-3 text-xs sm:text-sm rounded-xl overflow-hidden');
@@ -1951,29 +1859,25 @@ app.get('/api/detail', async (req, res) => {
       });
       $content('thead').removeAttr('style').addClass('bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100');
       $content('tbody').removeAttr('style');
-      $content('tfoot').removeAttr('style');
       $content('tr').removeAttr('style').addClass('hover:bg-stone-50 dark:hover:bg-white/5 transition-colors border-b border-stone-100 dark:border-white/5');
       $content('th').removeAttr('style').addClass('p-3 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold border-b border-stone-200 dark:border-white/10 text-left text-xs');
       $content('td').removeAttr('style').addClass('p-3 border-b border-stone-100 dark:border-white/5 text-stone-800 dark:text-stone-200 text-xs');
 
-      // 6. Clean empty paragraphs or divs
+      // Clean empty tags
       $content('div, p, span').each((_, el) => {
-        if ($content(el).children().length === 0 && !$content(el).text().trim()) {
+        if ($content(el).children().length === 0 && (!$content(el).text() || !$content(el).text().trim() || $content(el).text().trim() === '&nbsp;')) {
           $content(el).remove();
         }
       });
 
       contentHtml = $content.html() || '';
       const rawText = contentHtml.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-      const hasMediaOrTables = $content('img, table, iframe').length > 0;
+      const hasMediaOrTables = $content('img, table, iframe, a').length > 0;
       if (!rawText && !hasMediaOrTables) {
         contentHtml = '';
-      } else {
-        contentHtml = contentHtml.replace(/href="\//g, `href="${baseUrl}/`);
-        contentHtml = contentHtml.replace(/src="\//g, `src="${baseUrl}/`);
       }
     }
-    
+
     res.json({ title, contentHtml, imageUrl, images, attachments });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch detail content' });
