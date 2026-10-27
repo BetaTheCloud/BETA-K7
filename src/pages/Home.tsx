@@ -46,7 +46,8 @@ import {
   Bus,
   Hotel,
   Landmark,
-  CalendarClock
+  CalendarClock,
+  AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
@@ -56,6 +57,7 @@ import PullToRefresh from '../components/PullToRefresh';
 import TodayScheduleWidget from '../components/TodayScheduleWidget';
 import ScheduleManagerModal from '../components/ScheduleManagerModal';
 import SectionHeader from '../components/SectionHeader';
+import { getAcademicSummaryEvents } from '../utils/calendarHelpers';
 import {
   getHomeWidgetConfigs,
   saveHomeWidgetConfigs,
@@ -91,7 +93,9 @@ export default function Home() {
     return getCachedOrFallback<CampusEvent[]>('k7_cached_events_v5', FALLBACK_EVENTS);
   });
 
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
+    return getCachedOrFallback<CalendarEvent[]>('k7_cached_calendar', []);
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [todayMenuInfo, setTodayMenuInfo] = useState<TodayMenuInfo<MenuItem>>(() => {
@@ -316,14 +320,17 @@ export default function Home() {
     return unique.slice(0, 3);
   }, [events, searchQuery]);
 
-  // Academic highlight items
-  const upcomingCalendarItems = useMemo(() => {
+  // Academic highlight items (shows ongoing process first, followed by upcoming milestones)
+  const academicSummary = useMemo(() => {
     const list = calendarEvents.length > 0 ? calendarEvents : [
+      { id: 'g8', title: 'Güz Yarıyılı Derslerinin Başlaması ve Sona Ermesi', date: '2026-09-14', endDate: '2026-12-25', term: 'Güz Yarıyılı', type: 'other' as const },
+      { id: 't1', title: 'Cumhuriyet Bayramı', date: '2026-10-29', term: 'Resmi Tatiller', type: 'holiday' as const },
       { id: 'g9', title: 'Güz Yarıyılı Ara Sınavları (Vize)', date: '2026-10-31', endDate: '2026-11-08', term: 'Güz Yarıyılı', type: 'exam' as const },
-      { id: 't1', title: 'Cumhuriyet Bayramı Tatili', date: '2026-10-29', term: 'Resmi Tatiller', type: 'holiday' as const },
-      { id: 'g10', title: 'Yarıyıl Sonu Sınavları (Final)', date: '2026-12-26', endDate: '2027-01-03', term: 'Güz Yarıyılı', type: 'exam' as const }
+      { id: 'g10', title: 'Yarıyıl Sonu Sınavları (Final)', date: '2026-12-26', endDate: '2027-01-03', term: 'Güz Yarıyılı', type: 'exam' as const },
+      { id: 't2', title: 'Yılbaşı Tatili', date: '2027-01-01', term: 'Resmi Tatiller', type: 'holiday' as const },
+      { id: 'g11', title: 'Bütünleme Sınavları', date: '2027-01-11', endDate: '2027-01-15', term: 'Güz Yarıyılı', type: 'exam' as const }
     ];
-    return list.slice(0, 3);
+    return getAcademicSummaryEvents(list, 3);
   }, [calendarEvents]);
 
   const visibleWidgets = useMemo(() => {
@@ -886,7 +893,11 @@ export default function Home() {
                 icon={GraduationCap}
                 theme="purple"
                 title="Akademik Takvim Özeti"
-                subtitle="Dönem Sınavları & Resmi Tatiller"
+                subtitle={
+                  academicSummary.hasOngoing
+                    ? 'Şu An Devam Eden ve Sıradaki Süreçler'
+                    : 'Yaklaşan Sınavlar ve Önemli Tarihler'
+                }
                 action={{
                   label: 'Tüm Takvimi Gör',
                   href: '/calendar',
@@ -895,48 +906,120 @@ export default function Home() {
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {upcomingCalendarItems.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    whileHover={{ y: -2, scale: 1.008 }}
-                    whileTap={{ scale: 0.985 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-                  >
-                    <Link
-                      to="/calendar"
-                      className="p-4 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-purple-500/50 hover:shadow-md transition-all block group h-full"
+                {academicSummary.items.map(({ event, isOngoing, isTodayDeadline, dateBadgeText, dateRangeText }) => {
+                  const isExam = event.type === 'exam';
+                  const isHoliday = event.type === 'holiday';
+                  const isRegistration = event.type === 'registration';
+
+                  // Badge theme colors for term / type
+                  const typePillClass = isHoliday
+                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/25'
+                    : isExam
+                    ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/25'
+                    : isRegistration
+                    ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/25'
+                    : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/25';
+
+                  return (
+                    <motion.div
+                      key={event.id}
+                      whileHover={{ y: -2, scale: 1.008 }}
+                      whileTap={{ scale: 0.985 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                      className="h-full"
                     >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/20">
-                          {item.term || 'Akademik Takvim'}
-                        </span>
-                        <span className="text-[11px] font-bold text-stone-600 dark:text-white/80 tabular-nums">
-                          {(() => {
-                            if (!item.date) return '';
-                            const d1 = new Date(item.date);
-                            if (isNaN(d1.getTime())) return item.date;
-                            if (item.endDate && item.endDate !== item.date) {
-                              const d2 = new Date(item.endDate);
-                              if (!isNaN(d2.getTime())) {
-                                const m1 = d1.toLocaleDateString('tr-TR', { month: 'short' });
-                                const m2 = d2.toLocaleDateString('tr-TR', { month: 'short' });
-                                if (m1 === m2) {
-                                  return `${d1.getDate()}-${d2.getDate()} ${m1}`;
-                                }
-                                return `${d1.getDate()} ${m1} - ${d2.getDate()} ${m2}`;
-                              }
-                            }
-                            return d1.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
-                          })()}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-xs sm:text-sm text-stone-900 dark:text-white line-clamp-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                        {item.title}
-                      </h4>
-                    </Link>
-                  </motion.div>
-                ))}
+                      <Link
+                        to="/calendar"
+                        className={`p-4 rounded-2xl flex flex-col justify-between h-full transition-all group relative overflow-hidden ${
+                          isOngoing
+                            ? 'bg-gradient-to-br from-emerald-500/[0.08] via-[#fcfbf9] to-[#fcfbf9] dark:from-emerald-500/[0.14] dark:via-[#264653] dark:to-[#264653] border-2 border-emerald-500/40 dark:border-emerald-400/40 shadow-sm hover:border-emerald-500/70 hover:shadow-md'
+                            : isTodayDeadline
+                            ? 'bg-gradient-to-br from-rose-500/[0.08] via-[#fcfbf9] to-[#fcfbf9] dark:from-rose-500/[0.14] dark:via-[#264653] dark:to-[#264653] border-2 border-rose-500/40 dark:border-rose-400/40 shadow-sm hover:border-rose-500/70 hover:shadow-md'
+                            : 'bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 hover:border-purple-500/50 hover:shadow-md'
+                        }`}
+                      >
+                        {/* Header Row: Status badge / Category pill */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          {isOngoing ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              Devam Eden Süreç
+                            </span>
+                          ) : isTodayDeadline ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-rose-500/15 text-rose-800 dark:text-rose-300 border border-rose-500/30">
+                              <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
+                              Son Gün!
+                            </span>
+                          ) : (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${typePillClass}`}>
+                              {event.term || 'Akademik Takvim'}
+                            </span>
+                          )}
+
+                          {/* Countdown / remaining time pill */}
+                          <span
+                            className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full ${
+                              isOngoing
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                : isTodayDeadline
+                                ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                                : 'bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-white/80'
+                            }`}
+                          >
+                            {dateBadgeText}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <div className="my-auto py-1">
+                          <h4
+                            className={`font-semibold text-xs sm:text-sm leading-snug line-clamp-2 transition-colors ${
+                              isOngoing
+                                ? 'text-stone-900 dark:text-white font-bold group-hover:text-emerald-700 dark:group-hover:text-emerald-300'
+                                : 'text-stone-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400'
+                            }`}
+                          >
+                            {event.title}
+                          </h4>
+                        </div>
+
+                        {/* Footer: Date Range + Category tag */}
+                        <div className="pt-2.5 mt-2 border-t border-stone-200/60 dark:border-white/10 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 text-stone-500 dark:text-white/60 font-medium">
+                            <Clock
+                              className={`w-3.5 h-3.5 shrink-0 ${
+                                isOngoing
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : isTodayDeadline
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-stone-400 dark:text-white/40'
+                              }`}
+                            />
+                            <span className="tabular-nums font-semibold text-[11px] sm:text-xs text-stone-700 dark:text-white/80">
+                              {dateRangeText}
+                            </span>
+                          </div>
+
+                          {isOngoing && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${typePillClass}`}>
+                              {event.term || 'Akademik'}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
               </div>
+
+              {academicSummary.items.length === 0 && (
+                <div className="p-4 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200 dark:border-white/10 text-stone-500 text-sm">
+                  Akademik takvim verileri güncelleniyor...
+                </div>
+              )}
             </section>
           </div>
         );

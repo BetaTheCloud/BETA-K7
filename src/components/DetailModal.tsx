@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -21,6 +21,8 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { cleanDuplicateTitle, ensureSafeUrl, cn, areImagesEqual, getImageSignature } from '../lib/utils';
 import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
+import { downloadImageToDevice } from '../lib/downloadImage';
+import toast from 'react-hot-toast';
 
 export interface AttachmentItem {
   name: string;
@@ -479,6 +481,8 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [downloadingImage, setDownloadingImage] = useState<string | null>(null);
+  const [downloadedImage, setDownloadedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -491,6 +495,8 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
       setCopiedLink(false);
       setZoomImage(null);
       setActiveImageIndex(0);
+      setDownloadingImage(null);
+      setDownloadedImage(null);
 
       const deduplicateImagesList = (list: string[]): string[] => {
         const result: string[] = [];
@@ -655,6 +661,36 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     } catch {}
   };
 
+  const handleDownloadImage = async (imgUrl: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!imgUrl || downloadingImage === imgUrl) return;
+
+    setDownloadingImage(imgUrl);
+    try {
+      const res = await downloadImageToDevice(imgUrl, activeTitle);
+      if (res.success) {
+        setDownloadedImage(imgUrl);
+        toast.success('Görsel başarıyla cihazınıza kaydedildi', {
+          id: 'img-download-toast',
+          icon: '📥',
+          duration: 3500
+        });
+        setTimeout(() => {
+          setDownloadedImage((current) => (current === imgUrl ? null : current));
+        }, 3000);
+      } else {
+        toast.error(res.error || 'Görsel indirilemedi');
+      }
+    } catch {
+      toast.error('İndirme sırasında bir hata oluştu');
+    } finally {
+      setDownloadingImage(null);
+    }
+  };
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -767,14 +803,49 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                           onClick={() => setZoomImage(currentDisplayImage)}
                           onError={() => setImgError(true)}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setZoomImage(currentDisplayImage)}
-                          className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 text-white text-xs font-bold backdrop-blur-md transition-all shadow-md active:scale-95 cursor-pointer"
-                        >
-                          <ZoomIn className="w-3.5 h-3.5" />
-                          <span>Büyüt</span>
-                        </button>
+                        <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => currentDisplayImage && handleDownloadImage(currentDisplayImage, e)}
+                            disabled={downloadingImage === currentDisplayImage}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold backdrop-blur-md transition-all shadow-md active:scale-95 cursor-pointer border",
+                              downloadedImage === currentDisplayImage
+                                ? "bg-emerald-600/90 border-emerald-400 text-white"
+                                : downloadingImage === currentDisplayImage
+                                ? "bg-black/80 border-amber-400/50 text-amber-300 cursor-wait"
+                                : "bg-black/60 hover:bg-black/85 hover:border-amber-400/40 border-white/20 text-white"
+                            )}
+                            title="Görseli cihaza kaydet"
+                          >
+                            {downloadingImage === currentDisplayImage ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                                <span className="hidden sm:inline">İndiriliyor...</span>
+                              </>
+                            ) : downloadedImage === currentDisplayImage ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Kaydedildi</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Kaydet</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setZoomImage(currentDisplayImage)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 text-white text-xs font-bold backdrop-blur-md transition-all shadow-md active:scale-95 cursor-pointer border border-white/20"
+                            title="Tam ekran büyüt"
+                          >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                            <span>Büyüt</span>
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <div className="p-6 text-center space-y-2 bg-stone-50 dark:bg-stone-900/40">
@@ -1064,16 +1135,37 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                   {activeTitle}
                 </span>
                 <div className="flex items-center gap-2">
-                  <a
-                    href={zoomImage}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => openExternalUrl(zoomImage, e)}
-                    className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1"
+                  <button
+                    type="button"
+                    onClick={(e) => handleDownloadImage(zoomImage, e)}
+                    disabled={downloadingImage === zoomImage}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md border backdrop-blur-md",
+                      downloadedImage === zoomImage
+                        ? "bg-emerald-500/30 border-emerald-400 text-emerald-200"
+                        : downloadingImage === zoomImage
+                        ? "bg-amber-500/25 border-amber-500/50 text-amber-300 cursor-wait"
+                        : "bg-white/15 hover:bg-amber-500/20 hover:border-amber-400/40 border-white/20 text-white"
+                    )}
+                    title="Görseli cihaza kaydet"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Kaydet</span>
-                  </a>
+                    {downloadingImage === zoomImage ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        <span>İndiriliyor...</span>
+                      </>
+                    ) : downloadedImage === zoomImage ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Kaydedildi</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Kaydet</span>
+                      </>
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setZoomImage(null)}

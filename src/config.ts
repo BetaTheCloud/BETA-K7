@@ -209,16 +209,48 @@ export function warmupBackendServer(): void {
 }
 
 /**
- * Robust fetch wrapper for mobile / cloud cold starts
- * Retries on failure and sets a realistic timeout (10s) for backend cold start awakening.
+ * Robust fetch wrapper for mobile / cloud cold starts & slow university network connections.
+ * Enforces a maximum total timeout budget of 60 seconds (60,000ms) across all attempts/retries.
+ * Prevents premature timeout during Render cloud server wake-ups or slow Bologna / departmental scrapes.
  */
-export async function safeFetch(url: string, options: RequestInit = {}, retries = 1): Promise<Response> {
-  const timeoutMs = 6000; // 6s per attempt
+export async function safeFetch(
+  url: string,
+  options: RequestInit = {},
+  retries = 1,
+  totalTimeoutMs = 60000
+): Promise<Response> {
+  const startTime = Date.now();
+  const overallDeadline = startTime + totalTimeoutMs;
   onFetchStart();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const now = Date.now();
+    const remainingTotalMs = overallDeadline - now;
+    if (remainingTotalMs <= 0) {
+      break;
+    }
+
+    // Determine timeout for this attempt:
+    // If retries remain, allocate up to 45 seconds for the first attempt so Render has full time to wake up.
+    // If it's the final attempt, allocate the entire remaining budget.
+    const attemptTimeoutMs = attempt < retries
+      ? Math.min(45000, remainingTotalMs)
+      : remainingTotalMs;
+
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), attemptTimeoutMs);
+
+    // If an external AbortSignal was passed in options, honor it
+    const externalSignal = options.signal;
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        clearTimeout(timer);
+        onFetchEnd(false);
+        throw new Error('Aborted by caller');
+      }
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
 
     try {
       const response = await fetch(url, {
@@ -226,6 +258,10 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         signal: controller.signal
       });
       clearTimeout(timer);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
+
       if (response.ok) {
         // Detect HTML responses disguised as 200 (such as SPA catch-all fallbacks)
         const contentType = response.headers.get('content-type') || '';
@@ -235,26 +271,35 @@ export async function safeFetch(url: string, options: RequestInit = {}, retries 
         onFetchEnd(true);
         return response;
       }
-      // If 5xx error on cold start, retry
-      if (response.status >= 500 && attempt < retries) {
+
+      // If 5xx error on cold start / wake-up and we have remaining attempts and time budget:
+      const timeAfterResponse = Date.now();
+      if (response.status >= 500 && attempt < retries && (overallDeadline - timeAfterResponse > 2000)) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         continue;
       }
+
       onFetchEnd(true);
       return response;
     } catch (error: any) {
       clearTimeout(timer);
-      console.warn(`Fetch attempt ${attempt + 1} failed for ${url}:`, error?.message || error);
-      
-      if (attempt === retries) {
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
+
+      const isTimeRemaining = (overallDeadline - Date.now()) > 2000;
+      console.warn(`Fetch attempt ${attempt + 1} for ${url} notice:`, error?.message || error);
+
+      if (attempt === retries || !isTimeRemaining) {
         onFetchEnd(false);
         throw error;
       }
+
       // Wait 1.5s before retry
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
-  
+
   onFetchEnd(false);
-  throw new Error(`Failed to fetch ${url} after ${retries} retries`);
+  throw new Error(`Failed to fetch ${url} within ${Math.round(totalTimeoutMs / 1000)}s total timeout budget`);
 }

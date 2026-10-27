@@ -57,7 +57,7 @@ export default function SyncStatusBadge() {
     const startTime = performance.now();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000); // 6s timeout
+      const timer = setTimeout(() => controller.abort(), 30000); // 30s timeout for cold start awakening
       const primaryUrl = getApiUrl('/api/health');
       const res = await fetch(primaryUrl, { signal: controller.signal }).catch(() => null);
       clearTimeout(timer);

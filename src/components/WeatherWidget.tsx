@@ -16,7 +16,8 @@ import {
   Clock,
   ChevronRight,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import WeatherDetailModal, { DetailedWeatherInfo, HourlyForecastItem } from './WeatherDetailModal';
 import { getApiUrl } from '../config';
@@ -387,6 +388,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         aria-label="Detaylı 1-2-4-6-8 saatlik hava durumu tahminini aç"
+        title="Detaylı hava durumu tahmini ve saatlik veriler için dokunun"
         className="group relative flex items-center w-full sm:w-auto gap-3.5 bg-white/[0.08] hover:bg-white/[0.14] transition-all backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 hover:border-amber-400/40 shadow-lg overflow-hidden text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400/50"
       >
         {/* Dynamic ambient background glow */}
@@ -445,9 +447,12 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           </div>
         </div>
 
-        {/* Right Arrow / Detail Hint */}
-        <div className="shrink-0 p-1.5 rounded-xl bg-white/5 group-hover:bg-white/15 text-white/60 group-hover:text-amber-300 transition-colors z-10">
-          <ChevronRight className="w-4 h-4" />
+        {/* Detail Action Hint - Minimalist Info Icon */}
+        <div 
+          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.08] group-hover:bg-amber-400/20 border border-white/15 group-hover:border-amber-400/40 text-white/60 group-hover:text-amber-200 transition-all z-10 shadow-sm"
+          title="Detaylı saatlik tahmin ve hava durumu bilgisi"
+        >
+          <Info className="w-4 h-4 transition-transform group-hover:scale-110" strokeWidth={2} />
         </div>
       </motion.button>
 

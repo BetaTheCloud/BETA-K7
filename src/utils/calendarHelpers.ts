@@ -1,4 +1,5 @@
 import { CalendarEvent } from '../types';
+import { classifyCalendarEvent } from './calendarClassifier';
 
 const MONTH_MAP: Record<string, number> = {
   'ocak': 0, 'şubat': 1, 'subat': 1, 'mart': 2, 'nisan': 3, 'mayıs': 4, 'mayis': 4,
@@ -193,6 +194,145 @@ export function analyzeEvent(event: CalendarEvent): ParsedEventInfo {
     daysUntilEnd,
     startFormatted: formatDateInfo(start, event.rawStart),
     endFormatted: end ? formatDateInfo(end, event.rawEnd) : null
+  };
+}
+
+export interface AcademicSummaryItem {
+  event: CalendarEvent;
+  info: ParsedEventInfo;
+  isOngoing: boolean;
+  isTodayDeadline: boolean;
+  dateBadgeText: string;
+  dateRangeText: string;
+}
+
+/**
+ * Formats a clean compact range string, e.g. "14 Eyl - 25 Ara 2026" or "29 Eki 2026"
+ */
+export function formatCompactRange(
+  startDate: Date | null,
+  endDate: Date | null,
+  isRange: boolean,
+  fallback: string
+): string {
+  if (!startDate) return fallback || '';
+  const sm = startDate.toLocaleDateString('tr-TR', { month: 'short' });
+  const sy = startDate.getFullYear();
+  if (!endDate || !isRange) {
+    return `${startDate.getDate()} ${sm} ${sy}`;
+  }
+  const em = endDate.toLocaleDateString('tr-TR', { month: 'short' });
+  const ey = endDate.getFullYear();
+  if (sy === ey) {
+    if (sm === em) {
+      return `${startDate.getDate()} - ${endDate.getDate()} ${sm} ${sy}`;
+    }
+    return `${startDate.getDate()} ${sm} - ${endDate.getDate()} ${em} ${sy}`;
+  }
+  return `${startDate.getDate()} ${sm} ${sy} - ${endDate.getDate()} ${em} ${ey}`;
+}
+
+/**
+ * Computes the academic summary events for the Home page dashboard.
+ * Selects the currently active/ongoing process (or processes) first,
+ * followed by the immediate upcoming events in chronological order.
+ */
+export function getAcademicSummaryEvents(
+  events: CalendarEvent[],
+  limit: number = 3
+): { items: AcademicSummaryItem[]; hasOngoing: boolean } {
+  if (!events || events.length === 0) {
+    return { items: [], hasOngoing: false };
+  }
+
+  const analyzed = events.map((e) => {
+    const classified = classifyCalendarEvent(e);
+    return {
+      event: classified,
+      info: analyzeEvent(classified)
+    };
+  });
+
+  // Filter active / today-deadline events
+  const activeList = analyzed
+    .filter((a) => a.info.status === 'active' || a.info.status === 'today-deadline')
+    .sort((a, b) => {
+      // Prioritize today-deadline, then shorter events (focused exams/deadlines) before semester duration
+      if (a.info.status === 'today-deadline' && b.info.status !== 'today-deadline') return -1;
+      if (b.info.status === 'today-deadline' && a.info.status !== 'today-deadline') return 1;
+      return a.info.durationDays - b.info.durationDays;
+    });
+
+  // Filter upcoming events (chronological order)
+  const upcomingList = analyzed
+    .filter((a) => a.info.status === 'upcoming' && a.info.daysUntilStart >= 0)
+    .sort((a, b) => a.info.daysUntilStart - b.info.daysUntilStart);
+
+  const selected: { event: CalendarEvent; info: ParsedEventInfo }[] = [];
+
+  if (activeList.length > 0) {
+    // Take up to 2 active events, then fill remainder with upcoming
+    const activeToTake = Math.min(activeList.length, 2);
+    selected.push(...activeList.slice(0, activeToTake));
+    const remainder = Math.max(0, limit - selected.length);
+    selected.push(...upcomingList.slice(0, remainder));
+  } else {
+    // If no active events exist: take top upcoming events
+    selected.push(...upcomingList.slice(0, limit));
+  }
+
+  // Graceful fallback if both active and upcoming are empty
+  if (selected.length === 0) {
+    selected.push(...analyzed.slice(-limit));
+  }
+
+  const items: AcademicSummaryItem[] = selected.map(({ event, info }) => {
+    const isOngoing = info.status === 'active';
+    const isTodayDeadline = info.status === 'today-deadline';
+
+    let dateBadgeText = '';
+    if (isTodayDeadline) {
+      dateBadgeText = 'Bugün Son Gün!';
+    } else if (isOngoing) {
+      if (info.daysUntilEnd === 0) {
+        dateBadgeText = 'Bugün Bitiyor!';
+      } else {
+        dateBadgeText = `${info.daysUntilEnd} gün kaldı`;
+      }
+    } else {
+      if (info.daysUntilStart === 0) {
+        dateBadgeText = 'Bugün';
+      } else if (info.daysUntilStart === 1) {
+        dateBadgeText = 'Yarın';
+      } else if (info.daysUntilStart <= 7) {
+        dateBadgeText = `${info.daysUntilStart} gün kaldı`;
+      } else if (info.daysUntilStart <= 30) {
+        dateBadgeText = `${info.daysUntilStart} gün sonra`;
+      } else {
+        dateBadgeText = `${info.daysUntilStart} gün sonra`;
+      }
+    }
+
+    const dateRangeText = formatCompactRange(
+      info.startDate,
+      info.endDate,
+      info.isRange,
+      info.startFormatted.dateStr
+    );
+
+    return {
+      event,
+      info,
+      isOngoing,
+      isTodayDeadline,
+      dateBadgeText,
+      dateRangeText
+    };
+  });
+
+  return {
+    items,
+    hasOngoing: activeList.length > 0
   };
 }
 

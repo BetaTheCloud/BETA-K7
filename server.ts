@@ -53,7 +53,7 @@ const axiosInstance = axios.create({
     'Accept-Encoding': 'gzip, deflate',
     'Cache-Control': 'no-cache'
   },
-  timeout: 12000
+  timeout: 30000
 });
 
 function cleanDuplicateTitle(raw?: string | null): string {
@@ -1501,6 +1501,47 @@ app.get('/api/calendar', async (req, res) => {
   }
 });
 
+// Proxy endpoint to download images with attachment headers and cross-origin bypass
+app.get('/api/download-image', async (req, res) => {
+  try {
+    const imageUrl = req.query.url as string;
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      return res.status(400).json({ error: 'Geçersiz görsel adresi' });
+    }
+
+    const requestedFilename = (req.query.filename as string) || '';
+    let filename = requestedFilename.replace(/[^a-zA-Z0-9_\-\.]/g, '_').trim();
+    if (!filename) {
+      filename = `k7au-duyuru-gorsel-${Date.now()}`;
+    }
+    if (!filename.includes('.')) {
+      filename += '.jpg';
+    }
+
+    const imageRes = await axiosInstance.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 25000,
+      headers: {
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Referer': new URL(imageUrl).origin
+      }
+    });
+
+    const contentType = String(imageRes.headers['content-type'] || 'image/jpeg');
+    const safeAsciiFilename = filename.replace(/[^\x20-\x7E]/g, '_');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeAsciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Type');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(Buffer.from(imageRes.data));
+  } catch (err: any) {
+    console.error('Image download proxy error:', err?.message || err);
+    return res.status(500).json({ error: 'Görsel sunucudan indirilemedi' });
+  }
+});
+
 app.get('/api/detail', async (req, res) => {
   // Prevent any browser, proxy or service worker caching of detail content
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -1517,7 +1558,7 @@ app.get('/api/detail', async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
     
-    const response = await axiosInstance.get(targetUrl, { timeout: 8000 });
+    const response = await axiosInstance.get(targetUrl, { timeout: 25000 });
     const $ = cheerio.load(response.data);
     
     let title = $('h1.title, .announcement-detail-title, .news-detail-title, .inner-page__title, h1').first().text().trim();
