@@ -1,6 +1,6 @@
 {
   "name": "K7AÜ",
-  "description": "Kilis 7 Aralık Üniversitesi öğrencileri ve personeli için duyuru, haber, yemek menüsü ve akademik takvim uygulaması.",
+  "description": "Kilis 7 Aralık Üniversitesi öğrencileri ve personeli için duyuru, haber, akademik takvim ve kapsamlı kampüs rehberi uygulaması.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
