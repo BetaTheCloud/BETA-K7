@@ -672,17 +672,19 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     try {
       const res = await downloadImageToDevice(imgUrl, activeTitle);
       if (res.success) {
-        setDownloadedImage(imgUrl);
-        toast.success('Görsel başarıyla cihazınıza kaydedildi', {
-          id: 'img-download-toast',
-          icon: '📥',
-          duration: 3500
-        });
-        setTimeout(() => {
-          setDownloadedImage((current) => (current === imgUrl ? null : current));
-        }, 3000);
+        if (res.method !== 'cancelled') {
+          setDownloadedImage(imgUrl);
+          toast.success(res.message || 'Görsel başarıyla kaydedildi', {
+            id: 'img-download-toast',
+            icon: res.method === 'gallery' ? '🖼️' : '📥',
+            duration: 3500
+          });
+          setTimeout(() => {
+            setDownloadedImage((current) => (current === imgUrl ? null : current));
+          }, 3000);
+        }
       } else {
-        toast.error(res.error || 'Görsel indirilemedi');
+        toast.error(res.error || 'Görsel kaydedilemedi');
       }
     } catch {
       toast.error('İndirme sırasında bir hata oluştu');
@@ -816,12 +818,12 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                                 ? "bg-black/80 border-amber-400/50 text-amber-300 cursor-wait"
                                 : "bg-black/60 hover:bg-black/85 hover:border-amber-400/40 border-white/20 text-white"
                             )}
-                            title="Görseli cihaza kaydet"
+                            title="Görseli doğrudan galeriye / cihaza kaydet"
                           >
                             {downloadingImage === currentDisplayImage ? (
                               <>
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                                <span className="hidden sm:inline">İndiriliyor...</span>
+                                <span className="hidden sm:inline">Kaydediliyor...</span>
                               </>
                             ) : downloadedImage === currentDisplayImage ? (
                               <>
@@ -831,7 +833,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                             ) : (
                               <>
                                 <Download className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Kaydet</span>
+                                <span>Galeriye Kaydet</span>
                               </>
                             )}
                           </button>
@@ -1147,12 +1149,12 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                         ? "bg-amber-500/25 border-amber-500/50 text-amber-300 cursor-wait"
                         : "bg-white/15 hover:bg-amber-500/20 hover:border-amber-400/40 border-white/20 text-white"
                     )}
-                    title="Görseli cihaza kaydet"
+                    title="Görseli doğrudan galeriye / cihaza kaydet"
                   >
                     {downloadingImage === zoomImage ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                        <span>İndiriliyor...</span>
+                        <span>Kaydediliyor...</span>
                       </>
                     ) : downloadedImage === zoomImage ? (
                       <>
@@ -1162,7 +1164,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
                     ) : (
                       <>
                         <Download className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Kaydet</span>
+                        <span>Galeriye Kaydet</span>
                       </>
                     )}
                   </button>
@@ -1185,7 +1187,7 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
               </div>
 
               <div className="text-center text-[11px] text-white/50 shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
-                Kapatmak için sağ üstteki çarpıya dokunun veya ESC tuşuna basın
+                Kapatmak için çarpıya dokunun • Görseli galerinize kaydetmek için butonu kullanabilir veya üzerine basılı tutabilirsiniz
               </div>
             </motion.div>
           )}

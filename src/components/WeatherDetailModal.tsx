@@ -271,11 +271,12 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
   };
   const obsTimeDisplay = formatObsTime(weather.observationTime);
 
-  // UV index evaluation
-  const getUvLevel = (uv: number) => {
-    if (uv <= 2) return { text: 'Düşük', color: 'text-emerald-400', bg: 'bg-emerald-500/10' };
-    if (uv <= 5) return { text: 'Orta', color: 'text-amber-400', bg: 'bg-amber-500/10' };
-    if (uv <= 7) return { text: 'Yüksek', color: 'text-orange-400', bg: 'bg-orange-500/10' };
+  // UV index evaluation (safe against null / undefined)
+  const getUvLevel = (uv?: number | null) => {
+    const val = typeof uv === 'number' && !isNaN(uv) ? uv : 0;
+    if (val <= 2) return { text: 'Düşük', color: 'text-emerald-400', bg: 'bg-emerald-500/10' };
+    if (val <= 5) return { text: 'Orta', color: 'text-amber-400', bg: 'bg-amber-500/10' };
+    if (val <= 7) return { text: 'Yüksek', color: 'text-orange-400', bg: 'bg-orange-500/10' };
     return { text: 'Çok Yüksek', color: 'text-rose-400', bg: 'bg-rose-500/10' };
   };
 
@@ -374,10 +375,10 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                 <div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-white leading-none">
-                      {Math.round(activeTemp)}°C
+                      {Math.round(activeTemp ?? weather.temperature ?? 17)}°C
                     </span>
                     <span className="text-[11px] sm:text-xs text-stone-300">
-                      Hissedilen {Math.round(activeApparentTemp)}°C
+                      Hissedilen {Math.round(activeApparentTemp ?? activeTemp ?? weather.temperature ?? 17)}°C
                     </span>
                   </div>
                   <div className="text-[11px] font-semibold text-amber-200 mt-1 flex items-center gap-1.5 flex-wrap">
@@ -396,7 +397,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                       </span>
                     ) : (
                       <span className="text-[10px] sm:text-[11px] text-stone-300 font-normal">
-                        {Math.round(weather.tempMin)}° / {Math.round(weather.tempMax)}°
+                        {Math.round(weather.tempMin ?? activeTemp ?? 14)}° / {Math.round(weather.tempMax ?? activeTemp ?? 21)}°
                       </span>
                     )}
                     {isCurrentTime && obsTimeDisplay && (
@@ -586,7 +587,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-sm sm:text-base font-bold text-white">
-                        {activeUv.toFixed(1)}
+                        {activeUv != null && !isNaN(activeUv) ? Number(activeUv).toFixed(1) : '0.0'}
                       </span>
                       <span className={`px-1 py-0.2 rounded text-[8px] sm:text-[9px] font-bold ${uvLevel.bg} ${uvLevel.color}`}>
                         {uvLevel.text}
@@ -602,7 +603,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                       <span className="truncate">Hava Basıncı</span>
                     </div>
                     <div className="text-sm sm:text-base font-bold text-white mt-0.5">
-                      {Math.round(activePressure)} hPa
+                      {Math.round(activePressure ?? 1013)} hPa
                     </div>
                     <div className="text-[9px] text-stone-400 truncate">Barometrik basınç</div>
                   </div>

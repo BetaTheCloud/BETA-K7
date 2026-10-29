@@ -134,6 +134,7 @@ export default function Home() {
       if (eventsData?.length) setEvents(eventsData);
       if (menuData?.length) setTodayMenuInfo(getTodayMenuInfo(menuData));
       if (calendarData?.length) setCalendarEvents(calendarData);
+      window.dispatchEvent(new CustomEvent('k7_force_refreshed'));
     } catch (error) {
       console.error('Yenileme hatası', error);
     }
