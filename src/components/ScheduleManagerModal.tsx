@@ -74,7 +74,7 @@ export default function ScheduleManagerModal({
 
   // Selected Day & Grade Filters for Courses tab
   const [selectedDayFilter, setSelectedDayFilter] = useState<DayOfWeek | 'all'>('all');
-  const [selectedGradeFilter, setSelectedGradeFilter] = useState<number | 'all'>('all');
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState<number>(1);
 
   // Inline Delete confirmation state (avoids blocked window.confirm)
   const [confirmDeleteCourseId, setConfirmDeleteCourseId] = useState<string | null>(null);
@@ -325,11 +325,11 @@ export default function ScheduleManagerModal({
     toast.success('Tüm ders ve sınav programı temizlendi.');
   };
 
-  // Filtered Courses (Day & Grade, c.grade === 0 means Ortak/Seçmeli, visible across all grades)
+  // Filtered Courses (Day & Grade)
   const filteredCourses = courses
     .filter((c) => {
       if (selectedDayFilter !== 'all' && c.day !== selectedDayFilter) return false;
-      if (selectedGradeFilter !== 'all' && c.grade !== selectedGradeFilter && c.grade !== 0) return false;
+      if (c.grade !== selectedGradeFilter && c.grade !== 0) return false;
       return true;
     })
     .sort((a, b) => {
@@ -340,7 +340,7 @@ export default function ScheduleManagerModal({
 
   // Filtered Exams (Grade)
   const filteredExams = exams.filter((e) => {
-    if (selectedGradeFilter !== 'all' && e.grade !== selectedGradeFilter && e.grade !== 0) return false;
+    if (e.grade !== selectedGradeFilter && e.grade !== 0) return false;
     return true;
   });
 
@@ -559,17 +559,6 @@ export default function ScheduleManagerModal({
               {/* 1.-2.-3.-4. Sınıf Minimalist Ayrımı */}
               <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-xs pt-1 border-t border-stone-200/50 dark:border-white/5">
                 <span className="text-[11px] text-stone-400 font-semibold shrink-0 mr-1">Sınıf:</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedGradeFilter('all')}
-                  className={`px-2.5 py-0.5 rounded-lg font-semibold shrink-0 transition-colors cursor-pointer ${
-                    selectedGradeFilter === 'all'
-                      ? 'bg-stone-800 dark:bg-white text-white dark:text-stone-900 font-bold'
-                      : 'bg-stone-200/70 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/20'
-                  }`}
-                >
-                  Tümü
-                </button>
                 {[1, 2, 3, 4].map((g) => {
                   const count = courses.filter((c) => c.grade === g).length;
                   return (
@@ -767,17 +756,6 @@ export default function ScheduleManagerModal({
               {/* Sınıf Filter for exams */}
               <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-xs pt-1 border-t border-stone-200/50 dark:border-white/5">
                 <span className="text-[11px] text-stone-400 font-semibold shrink-0 mr-1">Sınıf:</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedGradeFilter('all')}
-                  className={`px-2.5 py-0.5 rounded-lg font-semibold shrink-0 transition-colors cursor-pointer ${
-                    selectedGradeFilter === 'all'
-                      ? 'bg-stone-800 dark:bg-white text-white dark:text-stone-900 font-bold'
-                      : 'bg-stone-200/70 dark:bg-white/10 text-stone-600 dark:text-white/70 hover:bg-stone-300 dark:hover:bg-white/20'
-                  }`}
-                >
-                  Tümü
-                </button>
                 {[1, 2, 3, 4].map((g) => {
                   const count = exams.filter((e) => e.grade === g).length;
                   return (

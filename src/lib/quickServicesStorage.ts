@@ -35,10 +35,10 @@ export const DEFAULT_QUICK_SERVICES: QuickServiceConfig[] = [
   {
     id: 'schedule',
     title: 'Derslerim',
-    subtitle: 'Ajandam',
+    subtitle: 'Program & Notlar',
     iconName: 'GraduationCap',
-    to: '',
-    isModal: true,
+    to: '/schedule',
+    isModal: false,
     colorName: 'amber',
     visible: true,
     order: 0

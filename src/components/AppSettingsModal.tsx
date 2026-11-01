@@ -643,7 +643,7 @@ export default function AppSettingsModal({
         {activeTab === 'theme' && (
           <div className="flex-1 flex flex-col min-h-0">
             <div className="px-5 py-2.5 border-b border-stone-200/70 dark:border-white/5 bg-white/40 dark:bg-white/2 text-xs text-stone-500 dark:text-white/60 shrink-0">
-              Kilis 7 Aralık Üniversitesi kalkan logosu ve kurumsal kimlik renklerini uygulayın.
+              Kilis 7 Aralık Üniversitesi kurumsal kimlik renklerini ve tema tercihlerini uygulayın.
             </div>
 
             <div className="p-4 sm:p-5 overflow-y-auto space-y-5 flex-1">
@@ -697,7 +697,7 @@ export default function AppSettingsModal({
                       </div>
                       <div>
                         <div className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white">Koyu Mod</div>
-                        <div className="text-[11px] text-stone-500 dark:text-white/60">Gece Kalkanı</div>
+                        <div className="text-[11px] text-stone-500 dark:text-white/60">Gece & Göz Dostu</div>
                       </div>
                     </div>
                     {theme === 'dark' && (

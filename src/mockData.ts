@@ -14,7 +14,7 @@ import {
   DirectoryContact
 } from './types';
 import { getApiUrl, safeFetch } from './config';
-import { cleanDuplicateTitle } from './lib/utils';
+import { cleanDuplicateTitle, parseDateToTimestamp } from './lib/utils';
 import { AUTHENTIC_FORMS_DATA } from './data/formsData';
 import { ACADEMIC_STAFF_DATA } from './data/staffData';
 import { FALLBACK_DEPARTMENT_NEWS, FALLBACK_DEPARTMENT_ANNOUNCEMENTS } from './data/departmentNewsData';
@@ -208,42 +208,52 @@ export const FALLBACK_PHONEBOOK: PhonebookEntry[] = [
 export const FALLBACK_EVENTS: CampusEvent[] = [
   {
     id: 'ev-1',
-    title: "Gazze'de Öğrenci Olmak: Resim Sergisi",
-    date: '02 Ekim 2026',
-    location: 'Muallim Rıfat Eğitim Fakültesi Fuaye Alanı',
-    category: 'Sergi',
-    content: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin zorlu eğitim mücadelesini konu alan resim ve fotoğraf sergisi, Üniversitemiz Muallim Rıfat Eğitim Fakültesi Fuaye Alanında tüm akademisyen, öğrenci ve Kilis halkının ziyaretine açılmıştır.",
-    description: "Filistin'de yaşanan insani dramı ve Filistinli öğrencilerin eğitim mücadelesini konu alan sergi.",
+    title: 'Üniversitemizde “Sektör-Üniversite Buluşmaları”nın İlki Gerçekleştirildi',
+    date: '28 Ekim 2026',
+    location: '15 Temmuz Kongre ve Kültür Merkezi',
+    category: 'Buluşma & Konferans',
+    content: 'Üniversitemiz Kariyer Planlama Uygulama ve Araştırma Merkezi koordinasyonunda düzenlenen “Sektör-Üniversite Buluşmaları” etkinliğinde öğrenciler iş dünyası temsilcileriyle bir araya geldi.',
+    description: 'Öğrencilerimizi sektör temsilcileriyle buluşturan kariyer ve vizyon panelleri.',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   },
   {
     id: 'ev-2',
-    title: '1. Kilis Kitap Fuarı ve Yazar Söyleşileri',
-    date: '29 Eylül 2026',
-    location: '15 Temmuz Kongre ve Kültür Merkezi',
-    category: 'Fuar & Söyleşi',
-    content: "Kilis 7 Aralık Üniversitesi ve Kilis Belediyesi iş birliğiyle düzenlenen 1. Kilis Kitap Fuarı kapsamında seçkin yayınevleri, Türkiye'nin önde gelen yazarları, şairleri ve akademisyenleri imza günleri ve söylesilerle okurlarla buluşuyor.",
-    description: "Yüzlerce yayınevi, akademisyen yazarların katılımıyla düzenlenen imza günleri ve panel söyleşileri.",
+    title: 'Cumhuriyetimizin 103. Yıl Anısına Cumhuriyet Konseri',
+    date: '28 Ekim 2026',
+    location: 'Rektörlük Konferans Salonu',
+    category: 'Konser & Sanat',
+    content: '29 Ekim Cumhuriyet Bayramı kutlamaları kapsamında üniversitemiz Müzik Eğitimi Anabilim Dalı öğretim elemanları ve öğrencileri tarafından Cumhuriyet Konseri icra edildi.',
+    description: 'Cumhuriyet Bayramı kutlamaları kapsamında icra edilen klasik ve çok sesli Türk müziği konseri.',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   },
   {
     id: 'ev-3',
-    title: 'Bilim İletişimi Buluşmaları: Kitap Kahramanları Aramızda',
-    date: '25 Eylül 2026',
-    location: 'Rektörlük Konferans Salonu',
-    category: 'Sempozyum',
-    content: "TÜBİTAK destekli Bilim İletişimi Buluşmaları serisinin ikincisi olan 'Kitap Kahramanları Aramızda' etkinliğinde edebiyat ve bilim dünyasından öne çıkan eserler, disiplinlerarası sunumlar ve atölye çalışmaları ile ele alınacaktır.",
-    description: "TÜBİTAK destekli bilim iletişimi etkinlikleri, disiplinlerarası sunumlar ve interaktif öğrenci atölyeleri.",
+    title: 'Üniversitemizde “Cumhuriyet’in İlanı ve Kazanımları” Konferansı Gerçekleştirildi',
+    date: '27 Ekim 2026',
+    location: 'İnsan ve Toplum Bilimleri Fakültesi Konferans Salonu',
+    category: 'Konferans',
+    content: 'Tarih Bölümü öğretim üyelerimizin sunumuyla cumhuriyetin kuruluş ilkeleri ve modern Türkiye’nin kazanımları ele alındı.',
+    description: 'Tarih perspektifinden Cumhuriyetimizin kuruluşu ve kazanımları üzerine bilimsel konferans.',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   },
   {
     id: 'ev-4',
-    title: 'Modernleşmenin Kavşağında Türkiye Konferansı',
-    date: '20 Eylül 2026',
-    location: 'İnsan ve Toplum Bilimleri Fakültesi Amfi 1',
-    category: 'Konferans',
-    content: "İnsan ve Toplum Bilimleri Fakültesi Tarih Bölümü tarafından organize edilen konferansta, Türkiye'nin modernleşme süreci, sosyo-kültürel değişimler ve iktisadi dönüşümler uzman akademisyenlerin bildirileriyle değerlendirilecektir.",
-    description: "Tarih ve sosyoloji perspektifinden Türkiye'nin modernleşme süreci ve toplumsal dönüşümü.",
+    title: 'Milli Teknoloji Burs Program Tanıtımları ve TEKNOFEST Genel Bilgilendirmesi',
+    date: '26 Ekim 2026',
+    location: 'Mühendislik-Mimarlık Fakültesi Amfi 1',
+    category: 'Bilgilendirme',
+    content: 'T3 Vakfı ve TEKNOFEST yarışma kategorileri, takım kurma süreçleri ve Milli Teknoloji Hamlesi burs programları hakkında bilgilendirme semineri düzenlendi.',
+    description: 'TEKNOFEST yarışmaları ve T3 Vakfı burs programları detaylı öğrenci bilgilendirmesi.',
+    url: 'https://www.kilis.edu.tr/tr/etkinlikler'
+  },
+  {
+    id: 'ev-5',
+    title: 'Türkiye Sibervatan Programı 2027 Dönemi Başlıyor',
+    date: '23 Ekim 2026',
+    location: 'Bilgisayar Mühendisliği Laboratuvarları',
+    category: 'Eğitim & Teknoloji',
+    content: 'Siber güvenlik alanında uzman genç yetenekler yetiştirmeyi amaçlayan Siber Vatan programı yeni dönem başvuruları ve eğitim takvimi açıklandı.',
+    description: 'Siber güvenlik uzmanlığı ve teknik eğitim kampı tanıtımı.',
     url: 'https://www.kilis.edu.tr/tr/etkinlikler'
   }
 ];
@@ -1324,24 +1334,23 @@ export const formatStaffSyncDate = (timestamp?: number | null): string => {
 
 export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> => {
   const normalize = (items: CampusEvent[]) => {
-    return items.map((e) => {
+    const list = items.map((e) => {
       let rawDate = (e.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
       const dateMatch = rawDate.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || rawDate.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
-      let cleanDate = dateMatch ? dateMatch[1] : '';
-      if (!cleanDate || rawDate.toLowerCase().includes('yaklaşan') || rawDate.toLowerCase().includes('devam') || rawDate.toLowerCase().includes('tarih')) {
-        cleanDate = '02 Ekim 2026';
-      }
+      let cleanDate = dateMatch ? dateMatch[1] : (rawDate || '');
       return {
         ...e,
         date: cleanDate,
-        location: 'Konum için bilgi afişini referans alın.'
+        location: e.location || 'Konum için bilgi afişini referans alın.'
       };
     });
+    // Sort chronologically descending (newest first)
+    return list.sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
   };
 
   try {
     if (typeof window !== 'undefined') {
-      ['k7_cached_events', 'k7_cached_events_v1', 'k7_cached_events_v2', 'k7_cached_events_v3', 'k7_cached_events_v4'].forEach((k) => {
+      ['k7_cached_events', 'k7_cached_events_v1', 'k7_cached_events_v2', 'k7_cached_events_v3', 'k7_cached_events_v4', 'k7_cached_events_v5'].forEach((k) => {
         try { localStorage.removeItem(k); } catch {}
       });
     }
@@ -1350,7 +1359,7 @@ export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> 
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const normalized = normalize(data);
-        setStored('k7_cached_events_v5', normalized);
+        setStored('k7_cached_events_v6', normalized);
         notifySyncSuccess('live');
         return normalized;
       }
@@ -1359,7 +1368,7 @@ export const getEvents = async (force: boolean = false): Promise<CampusEvent[]> 
     console.warn("Etkinlikler canlı alınamadı, önbellek kullanılıyor:", err);
     notifySyncSuccess('cached');
   }
-  return normalize(getStored('k7_cached_events_v5', FALLBACK_EVENTS));
+  return normalize(getStored('k7_cached_events_v6', FALLBACK_EVENTS));
 };
 
 export const getForms = async (

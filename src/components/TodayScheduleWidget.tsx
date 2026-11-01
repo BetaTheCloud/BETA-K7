@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   GraduationCap,
@@ -18,7 +19,8 @@ import {
   CalendarCheck,
   AlertCircle,
   BellRing,
-  Share2
+  Share2,
+  FileText
 } from 'lucide-react';
 import {
   CourseScheduleItem,
@@ -28,10 +30,11 @@ import {
   getCourses,
   getSortedExams,
   getCurrentDayOfWeek,
+  getActiveGrade,
   SCHEDULE_UPDATED_EVENT,
   SCHEDULE_CHANGED_EVENT
 } from '../lib/scheduleStorage';
-import ScheduleManagerModal from './ScheduleManagerModal';
+import { isCourseCompletedToday } from '../lib/scheduleNotesStorage';
 import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
 import ScheduleTemplateModal from './schedule/ScheduleTemplateModal';
 import SectionHeader from './SectionHeader';
@@ -41,18 +44,20 @@ interface TodayScheduleWidgetProps {
 }
 
 export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidgetProps) {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<CourseScheduleItem[]>(() => getCourses());
   const [exams, setExams] = useState<ExamScheduleItem[]>(() => getSortedExams());
-  const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [managerInitialTab, setManagerInitialTab] = useState<'courses' | 'exams'>('courses');
 
   // Active view: 'today' | 'tomorrow' | 'exams' | DayOfWeek
   const currentTodayDay = getCurrentDayOfWeek();
   const [activeViewDay, setActiveViewDay] = useState<DayOfWeek>(currentTodayDay);
   const [showOnlyExams, setShowOnlyExams] = useState(false);
-  const [selectedGradeFilter, setSelectedGradeFilter] = useState<number | 'all'>('all');
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState<number>(() => {
+    const g = getActiveGrade();
+    return g > 0 ? g : 1;
+  });
 
   const loadData = () => {
     setCourses(getCourses());
@@ -73,8 +78,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
     if (onOpenManager) {
       onOpenManager();
     } else {
-      setManagerInitialTab(tab);
-      setIsManagerOpen(true);
+      navigate(`/schedule?tab=${tab}`);
     }
   };
 
@@ -176,17 +180,17 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
       <SectionHeader
         icon={GraduationCap}
         theme="amber"
-        title="Günün Ders & Sınav Programı"
+        title="Derslerim & Günün Akışı"
         subtitle={`${activeViewDay === currentTodayDay ? `Bugün: ${currentTodayDay}` : activeViewDay} · ${dayCourses.length} Ders Kayıtlı`}
         secondaryAction={{
-          label: 'Bildirimler (10 & 5 Dk)',
-          onClick: () => setIsNotificationModalOpen(true),
-          icon: BellRing
+          label: 'Ders Notları',
+          onClick: () => navigate('/schedule?tab=notes'),
+          icon: FileText
         }}
         action={{
-          label: 'Programı Düzenle',
-          onClick: () => openManager('courses'),
-          icon: SlidersHorizontal
+          label: 'Derslerime Git',
+          onClick: () => navigate('/schedule?tab=courses'),
+          icon: ChevronRight
         }}
       />
 
@@ -273,6 +277,18 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
           </span>
         </motion.button>
 
+        {/* Ders Notları Quick Button */}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={() => navigate('/schedule?tab=notes')}
+          className="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 text-xs bg-[#8a2a43]/10 text-[#8a2a43] dark:text-[#f4a261] hover:bg-[#8a2a43]/20 border border-[#8a2a43]/25 shadow-2xs"
+          title="Ders Notları Sistemi"
+        >
+          <FileText className="w-3.5 h-3.5 text-[#8a2a43] dark:text-[#f4a261]" />
+          <span>Ders Notları</span>
+        </motion.button>
+
         {/* Şablon Paylaş / Yükle Quick Button */}
         <motion.button
           whileTap={{ scale: 0.95 }}
@@ -291,18 +307,6 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-xs">
         <span className="text-[11px] text-stone-400 font-semibold shrink-0 mr-1">Sınıf:</span>
         <div className="flex items-center p-0.5 rounded-xl bg-stone-100 dark:bg-white/5 border border-stone-200/60 dark:border-white/10">
-          <motion.button
-            whileTap={{ scale: 0.94 }}
-            type="button"
-            onClick={() => setSelectedGradeFilter('all')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-              selectedGradeFilter === 'all'
-                ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white font-bold shadow-2xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            Tümü
-          </motion.button>
           {[1, 2, 3, 4].map((g) => {
             const count = courses.filter((c) => c.grade === g).length;
             return (
@@ -311,7 +315,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
                 whileTap={{ scale: 0.94 }}
                 type="button"
                 onClick={() => setSelectedGradeFilter(g)}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                   selectedGradeFilter === g
                     ? 'bg-amber-600 text-white font-bold shadow-2xs'
                     : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white'
@@ -502,6 +506,27 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
                             💡 {course.notes}
                           </div>
                         )}
+
+                        {/* Tamamlanan Ders Not Ekleme Butonu */}
+                        {isCourseCompletedToday(course as any) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate('/schedule?tab=notes', { state: { tab: 'notes' } });
+                            }}
+                            className="mt-1 w-full flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 transition-colors cursor-pointer"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Bugün Tamamlandı
+                            </span>
+                            <span className="text-[#8a2a43] dark:text-[#f4a261] flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              Not Yaz & Oku →
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -639,12 +664,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         )}
       </AnimatePresence>
 
-      {/* Schedule Manager Modal */}
-      <ScheduleManagerModal
-        isOpen={isManagerOpen}
-        onClose={() => setIsManagerOpen(false)}
-        initialTab={managerInitialTab}
-      />
+
 
       {/* Schedule Notification Modal */}
       <ScheduleNotificationModal

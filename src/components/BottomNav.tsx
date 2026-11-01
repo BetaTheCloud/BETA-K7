@@ -4,16 +4,16 @@
  */
 
 import { NavLink } from 'react-router-dom';
-import { Compass, Megaphone, Newspaper, LayoutGrid, Landmark } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, LayoutGrid, GraduationCap } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function BottomNav() {
   const navItems = [
     { to: '/', label: 'Ana Sayfa', shortLabel: 'Ana Sayfa', icon: Compass },
-    { to: '/news', label: 'Haberler', shortLabel: 'Haberler', icon: Newspaper },
+    { to: '/schedule', label: 'Derslerim', shortLabel: 'Derslerim', icon: GraduationCap },
     { to: '/campus', label: 'Hizmetler', shortLabel: 'Hizmetler', icon: LayoutGrid },
     { to: '/announcements', label: 'Duyurular', shortLabel: 'Duyurular', icon: Megaphone },
-    { to: '/bologna', label: 'Bologna', shortLabel: 'Bologna', icon: Landmark },
+    { to: '/news', label: 'Haberler', shortLabel: 'Haberler', icon: Newspaper },
   ];
 
   return (

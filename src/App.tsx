@@ -42,6 +42,7 @@ export default function App() {
           <Route path="menu" element={<Menu />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="schedule" element={<SchedulePage />} />
+          <Route path="derslerim" element={<SchedulePage />} />
           <Route path="bologna" element={<Bologna />} />
         </Route>
       </Routes>

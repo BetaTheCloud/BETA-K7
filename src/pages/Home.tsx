@@ -49,13 +49,12 @@ import {
   CalendarClock,
   AlertCircle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import WeatherWidget from '../components/WeatherWidget';
 import WeatherBackground from '../components/WeatherBackground';
 import PullToRefresh from '../components/PullToRefresh';
 import TodayScheduleWidget from '../components/TodayScheduleWidget';
-import ScheduleManagerModal from '../components/ScheduleManagerModal';
 import SectionHeader from '../components/SectionHeader';
 import { getAcademicSummaryEvents } from '../utils/calendarHelpers';
 import {
@@ -79,8 +78,8 @@ import { getPinnedUnit } from '../lib/pinnedStorage';
 import toast from 'react-hot-toast';
 
 export default function Home() {
+  const navigate = useNavigate();
   const [pinnedUnit, setPinnedUnit] = useState<string | null>(() => getPinnedUnit());
-  const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
     return getCachedOrFallback<Announcement[]>('k7_cached_announcements', FALLBACK_ANNOUNCEMENTS);
   });
@@ -90,7 +89,7 @@ export default function Home() {
   });
 
   const [events, setEvents] = useState<CampusEvent[]>(() => {
-    return getCachedOrFallback<CampusEvent[]>('k7_cached_events_v5', FALLBACK_EVENTS);
+    return getCachedOrFallback<CampusEvent[]>('k7_cached_events_v6', FALLBACK_EVENTS);
   });
 
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
@@ -217,12 +216,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const handleOpenSchedule = () => setIsScheduleManagerOpen(true);
+    const handleOpenSchedule = () => navigate('/schedule');
     window.addEventListener('k7_open_schedule', handleOpenSchedule);
     return () => {
       window.removeEventListener('k7_open_schedule', handleOpenSchedule);
     };
-  }, []);
+  }, [navigate]);
 
   const handleInlineMove = (id: WidgetId, direction: 'up' | 'down') => {
     setWidgetConfigs((prev) => {
@@ -313,7 +312,8 @@ export default function Home() {
         if (imgKey) seenImgs.add(imgKey);
         return true;
       })
-      .map((e) => ({ ...e, title: cleanDuplicateTitle(e.title) }));
+      .map((e) => ({ ...e, title: cleanDuplicateTitle(e.title) }))
+      .sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
 
     if (searchQuery) {
       return unique.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -539,31 +539,10 @@ export default function Home() {
                 {visibleServices.map((service) => {
                   const colors = getColorClasses(service.colorName);
 
-                  if (service.isModal) {
-                    return (
-                      <button
-                        key={service.id}
-                        type="button"
-                        onClick={() => setIsScheduleManagerOpen(true)}
-                        className={`group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 ${colors.border} hover:shadow-md transition-all active:scale-95 cursor-pointer`}
-                      >
-                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2`}>
-                          {getQuickIcon(service.iconName)}
-                        </div>
-                        <span className="text-[11px] sm:text-xs font-semibold text-stone-800 dark:text-white text-center leading-tight truncate max-w-full">
-                          {service.title}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] text-stone-400 dark:text-white/40 truncate max-w-full">
-                          {service.subtitle}
-                        </span>
-                      </button>
-                    );
-                  }
-
                   return (
                     <Link
                       key={service.id}
-                      to={service.to}
+                      to={service.to || '/schedule'}
                       className={`group flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 ${colors.border} hover:shadow-md transition-all active:scale-95`}
                     >
                       <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform mb-1.5 sm:mb-2`}>
@@ -682,7 +661,7 @@ export default function Home() {
         return (
           <div key={widget.id} className="relative">
             {inlineHeader}
-            <TodayScheduleWidget onOpenManager={() => setIsScheduleManagerOpen(true)} />
+            <TodayScheduleWidget />
           </div>
         );
 
@@ -1156,12 +1135,6 @@ export default function Home() {
           isOpen={!!selectedItem}
           onClose={() => setSelectedItem(null)}
           item={selectedItem}
-        />
-
-        {/* Schedule & Exam Manager Modal */}
-        <ScheduleManagerModal
-          isOpen={isScheduleManagerOpen}
-          onClose={() => setIsScheduleManagerOpen(false)}
         />
       </motion.div>
     </PullToRefresh>

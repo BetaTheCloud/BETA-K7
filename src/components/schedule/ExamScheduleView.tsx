@@ -93,9 +93,18 @@ export default function ExamScheduleView({
         return true;
       })
       .sort((a, b) => {
-        const timeA = new Date(`${a.date}T${a.startTime || '00:00'}`).getTime();
-        const timeB = new Date(`${b.date}T${b.startTime || '00:00'}`).getTime();
-        return timeA - timeB;
+        const parseTs = (dateStr: string, timeStr?: string) => {
+          let d = (dateStr || '').trim();
+          const dot = d.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+          if (dot) d = `${dot[3]}-${dot[2].padStart(2, '0')}-${dot[1].padStart(2, '0')}`;
+          const t = (timeStr || '00:00').trim().slice(0, 5);
+          const val = new Date(`${d}T${t}`).getTime();
+          return isNaN(val) ? 0 : val;
+        };
+        const timeA = parseTs(a.date, a.startTime);
+        const timeB = parseTs(b.date, b.startTime);
+        if (timeA !== timeB) return timeA - timeB;
+        return a.courseName.localeCompare(b.courseName);
       });
   }, [exams, selectedGrade, selectedType, onlyEnrolled, searchQuery]);
 

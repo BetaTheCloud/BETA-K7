@@ -78,3 +78,24 @@ export interface ParsedDocumentResult {
   exams: ExamItem[];
   warnings?: string[];
 }
+
+export interface CourseNoteItem {
+  id: string;
+  courseId: string;
+  courseName: string;
+  courseCode: string;
+  grade?: number;
+  gradeLabel?: string;
+  instructor: string;
+  classroom: string;
+  day: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  title: string;
+  content: string;
+  date: string; // YYYY-MM-DD
+  tags?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+

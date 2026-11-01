@@ -1,9 +1,9 @@
 import { Outlet, NavLink, useLocation, Link } from 'react-router-dom';
 import Header from './Header';
 import BottomNav from './BottomNav';
-import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid, Users, HelpCircle } from 'lucide-react';
+import { Compass, Megaphone, Newspaper, ChefHat, Landmark, CalendarClock, LayoutGrid, Users, HelpCircle, GraduationCap } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Toaster } from 'react-hot-toast';
+import ThemedToaster from './ThemedToaster';
 import { useEffect } from 'react';
 import { OfflineIndicator } from './OfflineIndicator';
 import { ServerColdStartAlert } from './ServerColdStartAlert';
@@ -60,6 +60,7 @@ export default function Layout() {
 
   const navItems = [
     { to: '/', label: 'Ana Sayfa', icon: Compass },
+    { to: '/schedule', label: 'Derslerim', icon: GraduationCap },
     { to: '/directory', label: 'Personel', icon: Users },
     { to: '/news', label: 'Haberler', icon: Newspaper },
     { to: '/campus', label: 'Kampüs Hizmetleri', icon: LayoutGrid },
@@ -71,12 +72,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#f4f1ea] dark:bg-[#1d3540] text-stone-800 dark:text-white/90 font-sans flex flex-col md:flex-row">
-      <Toaster 
-        position="top-center" 
-        containerStyle={{ 
-          top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)' 
-        }} 
-      />
+      <ThemedToaster />
       <OfflineIndicator />
       <ServerColdStartAlert />
       <AboutModal />

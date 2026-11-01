@@ -55,6 +55,19 @@ export default function ScheduleTemplateModal({
   initialMode = 'export'
 }: ScheduleTemplateModalProps) {
   const [activeTab, setActiveTab] = useState<'export' | 'import'>(initialMode);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialMode);
+      setCopiedSuccess(false);
+      setStagedPackage(null);
+    }
+  }, [isOpen, initialMode]);
 
   // --- Export State ---
   const [exportTitle, setExportTitle] = useState(() => {
@@ -74,7 +87,7 @@ export default function ScheduleTemplateModal({
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   // Handle Export File Download
   const handleDownloadFile = () => {
@@ -328,7 +341,6 @@ export default function ScheduleTemplateModal({
                         onChange={(e) => setExportGrade(Number(e.target.value))}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 dark:border-white/10 bg-white dark:bg-stone-900/50 text-xs sm:text-sm text-stone-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
                       >
-                        <option value={0}>Genel / Tüm Sınıflar</option>
                         <option value={1}>1. Sınıf</option>
                         <option value={2}>2. Sınıf</option>
                         <option value={3}>3. Sınıf</option>

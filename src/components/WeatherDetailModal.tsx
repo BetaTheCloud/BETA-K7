@@ -80,6 +80,8 @@ export interface DetailedWeatherInfo {
     maxHumidity?: number;
     windSpeed?: number;
   }[];
+  provider?: 'mgm' | 'openmeteo';
+  fallbackNotice?: string;
 }
 
 interface WeatherDetailModalProps {
@@ -88,6 +90,9 @@ interface WeatherDetailModalProps {
   weather: DetailedWeatherInfo | null;
   onRefresh?: () => Promise<void> | void;
   isRefreshing?: boolean;
+  provider?: 'mgm' | 'openmeteo';
+  onProviderChange?: (newProvider: 'mgm' | 'openmeteo') => void;
+  isProviderSwitching?: boolean;
 }
 
 export function getWeatherConditionInfo(code: number, isDay: number) {
@@ -117,9 +122,20 @@ export function getWeatherConditionInfo(code: number, isDay: number) {
   }
 }
 
-export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh, isRefreshing = false }: WeatherDetailModalProps) {
+export default function WeatherDetailModal({ 
+  isOpen, 
+  onClose, 
+  weather, 
+  onRefresh, 
+  isRefreshing = false,
+  provider,
+  onProviderChange,
+  isProviderSwitching = false
+}: WeatherDetailModalProps) {
   const [selectedHourOffset, setSelectedHourOffset] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
+
+  const activeSourceProvider: 'mgm' | 'openmeteo' = provider || (weather?.provider === 'openmeteo' ? 'openmeteo' : 'mgm');
 
   useEffect(() => {
     setMounted(true);
@@ -370,6 +386,57 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                 </div>
               </div>
 
+              {/* Interactive Dual-Source Segmented Control: MGM (Resmi) vs Open-Meteo */}
+              <div className="mt-2.5 p-1 bg-black/40 rounded-xl border border-white/10 flex items-center gap-1 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => onProviderChange?.('mgm')}
+                  disabled={isProviderSwitching}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                    activeSourceProvider === 'mgm'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md border border-emerald-400/50'
+                      : 'text-stone-300 hover:text-white hover:bg-white/5 active:bg-white/10'
+                  }`}
+                  title="Meteoroloji Genel Müdürlüğü Resmi Kilis İstasyonu (17262)"
+                >
+                  <span className="text-xs">🇹🇷</span>
+                  <span>MGM (Resmi)</span>
+                  {isProviderSwitching && activeSourceProvider === 'mgm' ? (
+                    <RefreshCw className="w-3 h-3 animate-spin text-emerald-200" />
+                  ) : activeSourceProvider === 'mgm' ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  ) : null}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onProviderChange?.('openmeteo')}
+                  disabled={isProviderSwitching}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                    activeSourceProvider === 'openmeteo'
+                      ? 'bg-gradient-to-r from-sky-600 to-blue-700 text-white shadow-md border border-sky-400/50'
+                      : 'text-stone-300 hover:text-white hover:bg-white/5 active:bg-white/10'
+                  }`}
+                  title="Open-Meteo Sayısal Tahmin Modeli (ECMWF / DWD)"
+                >
+                  <span className="text-xs">🌐</span>
+                  <span>Open-Meteo</span>
+                  {isProviderSwitching && activeSourceProvider === 'openmeteo' ? (
+                    <RefreshCw className="w-3 h-3 animate-spin text-sky-200" />
+                  ) : activeSourceProvider === 'openmeteo' ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" />
+                  ) : null}
+                </button>
+              </div>
+
+              {/* Fallback Notice if one source is temporarily offline */}
+              {weather.fallbackNotice && (
+                <div className="mt-1 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-200 text-[10px] flex items-center gap-1.5">
+                  <Info className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>{weather.fallbackNotice}</span>
+                </div>
+              )}
+
               {/* Weather overview banner - Dynamically reflects selected hour */}
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
@@ -385,12 +452,14 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                     <span className="px-1.5 py-0.5 rounded-md bg-white/15 text-amber-200 text-[10px] sm:text-xs font-semibold border border-white/10">
                       {isCurrentTime && weather.conditionText ? weather.conditionText : currentCondition.text}
                     </span>
-                    {weather.source && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-medium border border-emerald-500/30">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span className="truncate">{weather.source}</span>
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                      activeSourceProvider === 'mgm' 
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                    }`}>
+                      <ShieldCheck className={`w-3 h-3 shrink-0 ${activeSourceProvider === 'mgm' ? 'text-emerald-400' : 'text-sky-400'}`} />
+                      <span className="truncate">{weather.source || (activeSourceProvider === 'mgm' ? 'MGM (Resmi İstasyon)' : 'Open-Meteo')}</span>
+                    </span>
                     {!isCurrentTime ? (
                       <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-bold border border-amber-400/40">
                         {activeLabel} ({activeTimeStr})
@@ -401,7 +470,7 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                       </span>
                     )}
                     {isCurrentTime && obsTimeDisplay && (
-                      <span className="text-[10px] text-emerald-200/90 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title="Kilis Meteoroloji İstasyonunun Son Ölçüm Saati (TSI)">
+                      <span className="text-[10px] text-emerald-200/90 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title="Son Ölçüm Saati (TSI)">
                         Ölçüm: {obsTimeDisplay}
                       </span>
                     )}
@@ -610,21 +679,27 @@ export default function WeatherDetailModal({ isOpen, onClose, weather, onRefresh
                 </div>
               </div>
 
-              {/* ================= 2.5. 4 GÜNLÜK RESMİ TAHMİN (MGM) ================= */}
+              {/* ================= 2.5. GÜNLÜK TAHMİN (MGM VEYA OPEN-METEO) ================= */}
               {weather.dailyForecasts && weather.dailyForecasts.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] sm:text-xs font-bold text-white uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                      4 Günlük Resmi Tahmin (MGM)
+                      {activeSourceProvider === 'mgm' 
+                        ? `${weather.dailyForecasts.length} Günlük Resmi Tahmin (MGM)` 
+                        : `${weather.dailyForecasts.length} Günlük Sayısal Tahmin (Open-Meteo)`}
                     </span>
                     <span className="text-[10px] text-stone-300 font-medium">
-                      Kilis İstasyonu
+                      {activeSourceProvider === 'mgm' ? 'Kilis İstasyonu (17262)' : 'ECMWF Sayısal Model'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    {weather.dailyForecasts.slice(0, 4).map((d, dIdx) => {
+                  <div className={`grid gap-1.5 ${
+                    weather.dailyForecasts.length >= 5 
+                      ? 'grid-cols-2 sm:grid-cols-5' 
+                      : 'grid-cols-2 sm:grid-cols-4'
+                  }`}>
+                    {weather.dailyForecasts.slice(0, 5).map((d, dIdx) => {
                       const dCond = getWeatherConditionInfo(d.weatherCode, 1);
                       const DIcon = dCond.Icon;
                       return (

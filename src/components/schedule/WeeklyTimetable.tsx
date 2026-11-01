@@ -19,7 +19,8 @@ import {
   Filter,
   AlertTriangle,
   Bell,
-  BellOff
+  BellOff,
+  FileText
 } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
 import { getOverlappingCourses } from '../../lib/scheduleStorage';
@@ -28,6 +29,7 @@ import {
   toggleItemNotification,
   NOTIFICATIONS_CONFIG_CHANGED_EVENT
 } from '../../lib/scheduleNotificationService';
+import { isCourseCompletedToday } from '../../lib/scheduleNotesStorage';
 import toast from 'react-hot-toast';
 
 interface WeeklyTimetableProps {
@@ -37,11 +39,12 @@ interface WeeklyTimetableProps {
   onToggleEnroll: (id: string) => void;
   onEditCourse: (course: CourseItem) => void;
   onDeleteCourse: (id: string) => void;
+  onAddNote?: (course: CourseItem) => void;
   onlyEnrolled: boolean;
   onToggleOnlyEnrolled: (val: boolean) => void;
 }
 
-const DAYS: DayOfWeek[] = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
+const DEFAULT_DAYS: DayOfWeek[] = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
 
 const TURKISH_DAYS_MAP: Record<number, DayOfWeek> = {
   1: 'Pazartesi',
@@ -60,11 +63,23 @@ export default function WeeklyTimetable({
   onToggleEnroll,
   onEditCourse,
   onDeleteCourse,
+  onAddNote,
   onlyEnrolled,
   onToggleOnlyEnrolled,
 }: WeeklyTimetableProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [, setNotificationTick] = useState(0);
+
+  // Dynamic days (includes Saturday/Sunday if any courses exist on those days or if today is weekend)
+  const activeDays = useMemo<DayOfWeek[]>(() => {
+    const list: DayOfWeek[] = [...DEFAULT_DAYS];
+    const hasSat = courses.some((c) => c.day === 'Cumartesi');
+    const hasSun = courses.some((c) => c.day === 'Pazar');
+    const todayIndex = new Date().getDay();
+    if (hasSat || todayIndex === 6) list.push('Cumartesi');
+    if (hasSun || todayIndex === 0) list.push('Pazar');
+    return list;
+  }, [courses]);
 
   useEffect(() => {
     const handleConfigChange = () => setNotificationTick((t) => t + 1);
@@ -85,15 +100,22 @@ export default function WeeklyTimetable({
   // Current day in Turkish
   const todayIndex = new Date().getDay();
   const currentDayName = TURKISH_DAYS_MAP[todayIndex] || 'Pazartesi';
-  const [activeDayTab, setActiveDayTab] = useState<DayOfWeek>(
-    DAYS.includes(currentDayName) ? currentDayName : 'Pazartesi'
-  );
+  const [activeDayTab, setActiveDayTab] = useState<DayOfWeek>(() => {
+    return activeDays.includes(currentDayName) ? currentDayName : 'Pazartesi';
+  });
+
+  useEffect(() => {
+    if (!activeDays.includes(activeDayTab)) {
+      setActiveDayTab(activeDays[0] || 'Pazartesi');
+    }
+  }, [activeDays, activeDayTab]);
 
   // Filter courses by grade and enrolled status
   const filteredCourses = useMemo(() => {
+    const activeG = selectedGrade > 0 ? selectedGrade : 1;
     return courses.filter((c) => {
       if (onlyEnrolled && !c.isEnrolled) return false;
-      if (selectedGrade !== 0 && c.grade !== selectedGrade && c.grade !== 0) return false;
+      if (c.grade !== activeG && c.grade !== 0) return false;
       return true;
     });
   }, [courses, selectedGrade, onlyEnrolled]);
@@ -127,24 +149,14 @@ export default function WeeklyTimetable({
     <div className="space-y-5">
       {/* Grade Selector & Filter Controls Bar (Option 2: Birleştirilmiş Filtre Çubuğu) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200/80 dark:border-white/10 shadow-xs">
-        {/* Sınıf Seçici: Segmented Control */}
+        {/* Sınıf Seçici: Segmented Control (1., 2., 3., 4. Sınıf) */}
         <div className="flex items-center p-1 rounded-xl bg-stone-100 dark:bg-white/5 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => onGradeChange(0)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              selectedGrade === 0
-                ? 'bg-white dark:bg-white/15 text-stone-900 dark:text-white shadow-xs font-bold'
-                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            Tüm Sınıflar
-          </button>
           {[1, 2, 3, 4].map((g) => (
             <button
               key={g}
               onClick={() => onGradeChange(g)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedGrade === g
+                (selectedGrade === g || (selectedGrade === 0 && g === 1))
                   ? 'bg-amber-600 text-white shadow-xs font-bold'
                   : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white'
               }`}
@@ -202,13 +214,13 @@ export default function WeeklyTimetable({
             Bu sınıf için henüz ders bulunmuyor
           </p>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-            Yukarıdaki "+ Ders Ekle" veya "Metinden İçe Aktar" butonunu kullanarak derslerinizi ekleyebilirsiniz.
+            Yukarıdaki "+ Ders Ekle" butonunu kullanarak derslerinizi ekleyebilirsiniz.
           </p>
         </div>
       ) : viewMode === 'grid' ? (
         /* Weekly Grid View */
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {DAYS.map((day) => {
+        <div className={`grid grid-cols-1 ${activeDays.length > 5 ? 'md:grid-cols-6 lg:grid-cols-7' : 'md:grid-cols-5'} gap-3`}>
+          {activeDays.map((day) => {
             const dayCourses = coursesByDay[day];
             const isToday = day === currentDayName;
 
@@ -306,6 +318,19 @@ export default function WeeklyTimetable({
                                   }`}
                                 />
                               </button>
+                              {onAddNote && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddNote(course);
+                                  }}
+                                  className="p-1 text-stone-300 hover:text-[#8a2a43] dark:hover:text-[#f4a261] transition-colors cursor-pointer"
+                                  title="Ders Notu Ekle"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -324,6 +349,25 @@ export default function WeeklyTimetable({
                               <span className="truncate">{course.instructor}</span>
                             </div>
                           </div>
+
+                          {/* Completed Status & Quick Note Button */}
+                          {isCourseCompletedToday(course) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddNote?.(course);
+                              }}
+                              className="mt-1 w-full flex items-center justify-between text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-lg border border-emerald-500/25 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                              title="Ders bugün tamamlandı. Ders notu eklemek için tıklayın."
+                            >
+                              <span>Bugün Tamamlandı</span>
+                              <span className="flex items-center gap-0.5 text-[#8a2a43] dark:text-[#f4a261]">
+                                <FileText className="w-2.5 h-2.5" />
+                                Not Yaz
+                              </span>
+                            </button>
+                          )}
 
                           {/* Overlap Badge */}
                           {overlapping.length > 0 && (
@@ -372,7 +416,7 @@ export default function WeeklyTimetable({
         <div className="space-y-3">
           {/* Day switcher tabs */}
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {DAYS.map((day) => {
+            {activeDays.map((day) => {
               const count = coursesByDay[day]?.length || 0;
               const isToday = day === currentDayName;
               return (
@@ -484,6 +528,16 @@ export default function WeeklyTimetable({
                         }`}
                       />
                     </button>
+                    {onAddNote && (
+                      <button
+                        type="button"
+                        onClick={() => onAddNote(course)}
+                        className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-400 hover:text-[#8a2a43] dark:hover:text-[#f4a261] transition-colors cursor-pointer"
+                        title="Ders Notu Ekle"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onEditCourse(course)}
                       className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500"

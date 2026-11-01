@@ -16,7 +16,8 @@ interface ExamFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialExam?: ExamItem | null;
-  onSaved: () => void;
+  onSaved: (exam?: ExamItem) => void;
+  defaultGrade?: number;
 }
 
 export default function ExamFormModal({
@@ -24,8 +25,9 @@ export default function ExamFormModal({
   onClose,
   initialExam,
   onSaved,
+  defaultGrade = 1,
 }: ExamFormModalProps) {
-  const [grade, setGrade] = useState<number>(initialExam?.grade ?? 2);
+  const [grade, setGrade] = useState<number>(initialExam?.grade ?? defaultGrade ?? 1);
   const [department, setDepartment] = useState<string>(initialExam?.department ?? '');
   const [category, setCategory] = useState<string>(initialExam?.category ?? 'Zorunlu');
   const [examType, setExamType] = useState<ExamType>(initialExam?.examType ?? 'vize');
@@ -38,8 +40,45 @@ export default function ExamFormModal({
   const [instructor, setInstructor] = useState<string>(initialExam?.instructor ?? '');
   const [supervisor, setSupervisor] = useState<string>(initialExam?.supervisor ?? '');
   const [notes, setNotes] = useState<string>(initialExam?.notes ?? '');
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (initialExam) {
+      setGrade(initialExam.grade ?? defaultGrade ?? 1);
+      setDepartment(initialExam.department ?? '');
+      setCategory(initialExam.category ?? 'Zorunlu');
+      setExamType(initialExam.examType ?? 'vize');
+      setDate(initialExam.date ?? new Date().toISOString().split('T')[0]);
+      setStartTime(initialExam.startTime ?? initialExam.time ?? '10:00');
+      setEndTime(initialExam.endTime ?? '11:30');
+      setCourseCode(initialExam.courseCode ?? '');
+      setCourseName(initialExam.courseName ?? '');
+      setClassroom(initialExam.classroom ?? '');
+      setInstructor(initialExam.instructor ?? '');
+      setSupervisor(initialExam.supervisor ?? '');
+      setNotes(initialExam.notes ?? '');
+    } else {
+      setGrade(defaultGrade ?? 1);
+      setDepartment('');
+      setCategory('Zorunlu');
+      setExamType('vize');
+      setDate(new Date().toISOString().split('T')[0]);
+      setStartTime('10:00');
+      setEndTime('11:30');
+      setCourseCode('');
+      setCourseName('');
+      setClassroom('');
+      setInstructor('');
+      setSupervisor('');
+      setNotes('');
+    }
+  }, [initialExam, isOpen, defaultGrade]);
+
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +108,7 @@ export default function ExamFormModal({
 
     upsertExam(exam);
     toast.success(initialExam ? 'Sınav güncellendi' : 'Yeni sınav eklendi');
-    onSaved();
+    onSaved(exam);
     onClose();
   };
 

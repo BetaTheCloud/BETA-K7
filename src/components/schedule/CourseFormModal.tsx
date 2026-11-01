@@ -15,7 +15,8 @@ interface CourseFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCourse?: CourseItem | null;
-  onSaved: () => void;
+  onSaved: (course?: CourseItem) => void;
+  defaultGrade?: number;
 }
 
 const DAYS: DayOfWeek[] = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -25,20 +26,54 @@ export default function CourseFormModal({
   onClose,
   initialCourse,
   onSaved,
+  defaultGrade = 1,
 }: CourseFormModalProps) {
-  const [grade, setGrade] = useState<number>(initialCourse?.grade ?? 2);
+  const [grade, setGrade] = useState<number>(initialCourse?.grade ?? defaultGrade ?? 1);
   const [day, setDay] = useState<DayOfWeek>(initialCourse?.day ?? 'Pazartesi');
   const [department, setDepartment] = useState<string>(initialCourse?.department ?? '');
   const [category, setCategory] = useState<string>(initialCourse?.category ?? 'Zorunlu');
-  const [startTime, setStartTime] = useState<string>(initialCourse?.startTime ?? '09:00');
-  const [endTime, setEndTime] = useState<string>(initialCourse?.endTime ?? '10:45');
+  const [startTime, setStartTime] = useState<string>(initialCourse?.startTime ?? '08:30');
+  const [endTime, setEndTime] = useState<string>(initialCourse?.endTime ?? '10:15');
   const [courseCode, setCourseCode] = useState<string>(initialCourse?.courseCode ?? '');
   const [courseName, setCourseName] = useState<string>(initialCourse?.courseName ?? '');
   const [classroom, setClassroom] = useState<string>(initialCourse?.classroom ?? '');
   const [instructor, setInstructor] = useState<string>(initialCourse?.instructor ?? '');
   const [color, setColor] = useState<string>(initialCourse?.color ?? '#0284c7');
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (initialCourse) {
+      setGrade(initialCourse.grade ?? defaultGrade ?? 1);
+      setDay(initialCourse.day ?? 'Pazartesi');
+      setDepartment(initialCourse.department ?? '');
+      setCategory(initialCourse.category ?? 'Zorunlu');
+      setStartTime(initialCourse.startTime ?? '08:30');
+      setEndTime(initialCourse.endTime ?? '10:15');
+      setCourseCode(initialCourse.courseCode ?? '');
+      setCourseName(initialCourse.courseName ?? '');
+      setClassroom(initialCourse.classroom ?? '');
+      setInstructor(initialCourse.instructor ?? '');
+      setColor(initialCourse.color ?? '#0284c7');
+    } else {
+      setGrade(defaultGrade ?? 1);
+      setDay('Pazartesi');
+      setDepartment('');
+      setCategory('Zorunlu');
+      setStartTime('08:30');
+      setEndTime('10:15');
+      setCourseCode('');
+      setCourseName('');
+      setClassroom('');
+      setInstructor('');
+      setColor('#0284c7');
+    }
+  }, [initialCourse, isOpen, defaultGrade]);
+
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +110,7 @@ export default function CourseFormModal({
       toast.success(initialCourse ? 'Ders güncellendi' : 'Yeni ders eklendi');
     }
 
-    onSaved();
+    onSaved(course);
     onClose();
   };
 

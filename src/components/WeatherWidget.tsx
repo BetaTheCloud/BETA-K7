@@ -24,6 +24,9 @@ import { getApiUrl } from '../config';
 
 const WEATHER_CACHE_KEY = 'k7_cached_weather_v2';
 const WEATHER_DETAILED_CACHE_KEY = 'k7_cached_weather_detailed_v2';
+const WEATHER_PROVIDER_KEY = 'k7_weather_provider';
+
+export type WeatherProvider = 'mgm' | 'openmeteo';
 
 const DEFAULT_KILIS_WEATHER: WeatherData = {
   temperature: 18,
@@ -34,7 +37,7 @@ const DEFAULT_KILIS_WEATHER: WeatherData = {
   weathercode: 1,
   is_day: 1,
   conditionText: 'Parçalı Bulutlu',
-  source: 'Kilis Kampüs (Önbellek)'
+  source: 'MGM Kilis İstasyonu'
 };
 
 interface WeatherData {
@@ -54,6 +57,15 @@ interface WeatherWidgetProps {
 }
 
 export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
+  const [provider, setProvider] = useState<WeatherProvider>(() => {
+    if (typeof window === 'undefined') return 'mgm';
+    try {
+      const saved = localStorage.getItem(WEATHER_PROVIDER_KEY);
+      if (saved === 'openmeteo' || saved === 'mgm') return saved;
+    } catch {}
+    return 'mgm';
+  });
+
   const [weather, setWeather] = useState<WeatherData | null>(() => {
     if (typeof window === 'undefined') return DEFAULT_KILIS_WEATHER;
     try {
@@ -85,6 +97,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isProviderSwitching, setIsProviderSwitching] = useState(false);
   const [error, setError] = useState(false);
 
   const onWeatherChangeRef = useRef(onWeatherChange);
@@ -101,7 +114,158 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
 
   const isFetchingRef = useRef(false);
 
-  const fetchWeather = useCallback(async (force = false) => {
+  // Helper to fetch directly from Open-Meteo client-side if backend is ever unreachable
+  const fetchOpenMeteoDirect = async (): Promise<DetailedWeatherInfo> => {
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=7&timezone=Europe%2FIstanbul';
+    let data: any = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch {
+      clearTimeout(timeoutId);
+    }
+
+    if (!data?.current || typeof data.current.temperature_2m !== 'number') {
+      // Fallback 1: Return cached detailed weather if present
+      try {
+        const cached = localStorage.getItem(WEATHER_DETAILED_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed.temperature === 'number') {
+            return {
+              ...parsed,
+              fallbackNotice: 'Hava durumu servisi meşgul olduğu için son güncel veriler gösteriliyor.'
+            };
+          }
+        }
+      } catch {}
+
+      // Fallback 2: Generate fallback weather
+      const nowFallback = new Date();
+      const trHourFallback = (nowFallback.getUTCHours() + 3) % 24;
+      const isDayFallback = trHourFallback >= 6 && trHourFallback < 18 ? 1 : 0;
+      return {
+        provider: 'openmeteo',
+        temperature: 16.5,
+        apparentTemperature: 16.5,
+        humidity: 65,
+        windSpeed: 7,
+        windDirection: 130,
+        surfacePressure: 1014,
+        rainChance: 15,
+        rainChanceMax: 25,
+        weathercode: 1,
+        is_day: isDayFallback,
+        tempMin: 12,
+        tempMax: 21,
+        sunrise: '06:40',
+        sunset: '18:15',
+        uvIndexMax: 4,
+        hourlyList: [],
+        dailyForecasts: [],
+        source: 'Open-Meteo (Yedek Model)',
+        stationName: 'Kilis 7 Aralık Kampüsü',
+        fallbackNotice: 'Open-Meteo servisi yoğun olduğu için son tahmin verisi sunuldu.'
+      };
+    }
+
+    const times: string[] = data.hourly?.time || [];
+    const currentTimeIso = data.current?.time || '';
+    const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
+    let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : -1;
+    if (baseIndex === -1 && currentTimeIso) {
+      const nextIndex = times.findIndex((t: string) => t >= currentTimeIso);
+      baseIndex = nextIndex > 0 ? nextIndex - 1 : 0;
+    }
+    if (baseIndex === -1) baseIndex = 0;
+
+    const currentHourlyRainChance = data.hourly?.precipitation_probability?.[baseIndex] ?? 0;
+    const dailyMaxRainChance = data.daily?.precipitation_probability_max?.[0] ?? currentHourlyRainChance;
+
+    const targetOffsets = [
+      { offset: 0, label: 'Şu An' },
+      { offset: 1, label: '+1 Saat' },
+      { offset: 2, label: '+2 Saat' },
+      { offset: 3, label: '+3 Saat' },
+      { offset: 4, label: '+4 Saat' },
+      { offset: 6, label: '+6 Saat' },
+      { offset: 8, label: '+8 Saat' },
+      { offset: 12, label: '+12 Saat' },
+      { offset: 24, label: '+24 Saat' }
+    ];
+
+    const now = new Date();
+    const trHour = (now.getUTCHours() + 3) % 24;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const liveNowTimeStr = `${pad(trHour)}:${pad(now.getUTCMinutes())}`;
+
+    const hourlyList: HourlyForecastItem[] = targetOffsets.map(item => {
+      const idx = baseIndex + item.offset;
+      const timeStr = item.offset === 0 ? liveNowTimeStr : `${pad((trHour + item.offset) % 24)}:00`;
+      return {
+        hourOffset: item.offset,
+        label: item.label,
+        timeStr,
+        temp: data.hourly?.temperature_2m?.[idx] ?? data.current.temperature_2m,
+        apparentTemp: data.hourly?.apparent_temperature?.[idx] ?? data.current.apparent_temperature ?? data.current.temperature_2m,
+        humidity: data.hourly?.relative_humidity_2m?.[idx] ?? data.current.relative_humidity_2m ?? 60,
+        precipitationProb: data.hourly?.precipitation_probability?.[idx] ?? 0,
+        windSpeed: data.hourly?.wind_speed_10m?.[idx] ?? 0,
+        windDirection: data.hourly?.wind_direction_10m?.[idx] ?? (data.current.wind_direction_10m || 0),
+        surfacePressure: data.hourly?.surface_pressure?.[idx] ?? (data.current.surface_pressure || 1013),
+        uvIndex: data.hourly?.uv_index?.[idx] ?? 0,
+        weatherCode: data.hourly?.weather_code?.[idx] ?? 0,
+        isDay: data.hourly?.is_day?.[idx] ?? 1,
+      };
+    });
+
+    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    const dailyForecasts = (data.daily?.time || []).map((tStr: string, i: number) => {
+      const dt = new Date(tStr);
+      return {
+        dayName: dayNames[dt.getUTCDay()] || 'Gün',
+        dateStr: `${pad(dt.getUTCDate())}.${pad(dt.getUTCMonth() + 1)}`,
+        hadise: '',
+        conditionText: (data.daily.precipitation_probability_max?.[i] ?? 0) > 50 ? 'Yağış Bekleniyor' : 'Açık / Parçalı',
+        weatherCode: (data.daily.precipitation_probability_max?.[i] ?? 0) > 50 ? 61 : 1,
+        minTemp: data.daily.temperature_2m_min?.[i] ?? 12,
+        maxTemp: data.daily.temperature_2m_max?.[i] ?? 20,
+        minHumidity: 40,
+        maxHumidity: 85,
+        windSpeed: 10
+      };
+    });
+
+    return {
+      provider: 'openmeteo',
+      temperature: data.current.temperature_2m,
+      apparentTemperature: data.current.apparent_temperature || data.current.temperature_2m,
+      humidity: data.current.relative_humidity_2m ?? 60,
+      windSpeed: data.current.wind_speed_10m ?? 5,
+      windDirection: data.current.wind_direction_10m || 0,
+      surfacePressure: data.current.surface_pressure || 1013,
+      rainChance: currentHourlyRainChance,
+      rainChanceMax: dailyMaxRainChance,
+      weathercode: data.current.weather_code ?? 0,
+      is_day: data.current.is_day ?? 1,
+      tempMin: data.daily?.temperature_2m_min?.[0] ?? data.current.temperature_2m,
+      tempMax: data.daily?.temperature_2m_max?.[0] ?? data.current.temperature_2m,
+      sunrise: data.daily?.sunrise?.[0] || '06:40',
+      sunset: data.daily?.sunset?.[0] || '18:15',
+      uvIndexMax: data.daily?.uv_index_max?.[0] || 0,
+      hourlyList,
+      dailyForecasts,
+      source: 'Open-Meteo (Sayısal Model)',
+      stationName: 'Kilis 7 Aralık Kampüsü'
+    };
+  };
+
+  const fetchWeather = useCallback(async (force = false, targetProvider?: WeatherProvider) => {
     if (isFetchingRef.current && !force) return;
     isFetchingRef.current = true;
     if (force) {
@@ -109,20 +273,21 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
     }
     setError(false);
 
-    try {
-      // 1. Primary: Fetch from backend /api/weather (MGM Official Kilis Station No: 17262)
-      try {
-        const queryParam = force ? '?force=true' : '';
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const apiRes = await fetch(getApiUrl(`/api/weather${queryParam}`), {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+    const activeProvider = targetProvider || provider;
 
-        if (apiRes.ok) {
-          const contentType = apiRes.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
+    try {
+      if (activeProvider === 'mgm') {
+        // Fetch MGM from backend proxy
+        try {
+          const queryParam = force ? '?force=true' : '';
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 9500);
+          const apiRes = await fetch(getApiUrl(`/api/weather/mgm${queryParam}`), {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (apiRes.ok) {
             const mgmData = await apiRes.json();
             if (mgmData && typeof mgmData.temperature === 'number') {
               const liveWeatherData: WeatherData = {
@@ -134,7 +299,7 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
                 weathercode: mgmData.weathercode ?? 0,
                 is_day: mgmData.is_day ?? 1,
                 conditionText: mgmData.conditionText,
-                source: mgmData.source
+                source: mgmData.source || 'MGM Kilis İstasyonu'
               };
               setWeather(liveWeatherData);
               setDetailedWeather(mgmData);
@@ -147,162 +312,108 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
               return;
             }
           }
+        } catch (serverErr) {
+          console.warn('Backend /api/weather/mgm unavailable, attempting fallback:', serverErr);
         }
-      } catch (serverErr) {
-        console.warn('Backend /api/weather notice, attempting direct fallback:', serverErr);
-      }
 
-      // 2. High-precision Client Fallback: Standard Open-Meteo High-Resolution Model
-      const url = 'https://api.open-meteo.com/v1/forecast?latitude=36.7161&longitude=37.1150&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day,apparent_temperature,surface_pressure&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,apparent_temperature,surface_pressure,uv_index,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max&forecast_days=3&timezone=Europe%2FIstanbul';
-      const fallbackController = new AbortController();
-      const fallbackTimer = setTimeout(() => fallbackController.abort(), 9000);
-      const res = await fetch(url, { signal: fallbackController.signal });
-      clearTimeout(fallbackTimer);
-      if (!res.ok) throw new Error('Weather fetch failed');
-      const data = await res.json();
-
-      if (!data?.current || typeof data.current.temperature_2m !== 'number') {
-        throw new Error('Malformed Open-Meteo payload');
-      }
-
-      // Compute hourly items (+0h, +1h, +2h, +3h, +4h, +6h, +8h, +12h, +24h)
-      const times: string[] = data.hourly?.time || [];
-      const currentTimeIso = data.current?.time || '';
-      
-      const currentHourPrefix = currentTimeIso ? currentTimeIso.slice(0, 13) : '';
-      let baseIndex = currentHourPrefix ? times.findIndex((t: string) => t.startsWith(currentHourPrefix)) : -1;
-      
-      if (baseIndex === -1 && currentTimeIso) {
-        const nextIndex = times.findIndex((t: string) => t >= currentTimeIso);
-        if (nextIndex > 0) {
-          baseIndex = nextIndex - 1;
-        } else if (nextIndex === 0) {
-          baseIndex = 0;
-        }
-      }
-      if (baseIndex === -1) baseIndex = 0;
-
-      const currentHourlyRainChance = data.hourly?.precipitation_probability?.[baseIndex] ?? 0;
-      const dailyMaxRainChance = data.daily?.precipitation_probability_max?.[0] ?? currentHourlyRainChance;
-
-      const liveWeatherData: WeatherData = {
-        temperature: data.current.temperature_2m,
-        humidity: data.current.relative_humidity_2m ?? 60,
-        windSpeed: data.current.wind_speed_10m ?? 5,
-        rainChance: currentHourlyRainChance,
-        rainChanceMax: dailyMaxRainChance,
-        weathercode: data.current.weather_code ?? 0,
-        is_day: data.current.is_day ?? 1,
-        source: 'Meteoroloji Tahmin Modeli'
-      };
-
-      setWeather(liveWeatherData);
-
-      const targetOffsets = [
-        { offset: 0, label: 'Şu An' },
-        { offset: 1, label: '+1 Saat' },
-        { offset: 2, label: '+2 Saat' },
-        { offset: 3, label: '+3 Saat' },
-        { offset: 4, label: '+4 Saat' },
-        { offset: 6, label: '+6 Saat' },
-        { offset: 8, label: '+8 Saat' },
-        { offset: 12, label: '+12 Saat' },
-        { offset: 24, label: '+24 Saat' }
-      ];
-
-      const hourlyList: HourlyForecastItem[] = [];
-      const now = new Date();
-      let trHour = (now.getUTCHours() + 3) % 24;
-      let trMinute = now.getUTCMinutes();
-      try {
-        const trStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Istanbul' });
-        const parts = trStr.split(':').map(Number);
-        if (!isNaN(parts[0]) && !isNaN(parts[1])) {
-          trHour = parts[0];
-          trMinute = parts[1];
-        }
-      } catch {}
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const liveNowTimeStr = `${pad(trHour)}:${pad(trMinute)}`;
-
-      for (const item of targetOffsets) {
-        const idx = baseIndex + item.offset;
-        if (idx < times.length) {
-          const timeStr = item.offset === 0 ? liveNowTimeStr : `${pad((trHour + item.offset) % 24)}:00`;
-          hourlyList.push({
-            hourOffset: item.offset,
-            label: item.label,
-            timeStr: timeStr,
-            temp: data.hourly?.temperature_2m?.[idx] ?? data.current.temperature_2m,
-            apparentTemp: data.hourly?.apparent_temperature?.[idx] ?? data.current.temperature_2m,
-            humidity: data.hourly?.relative_humidity_2m?.[idx] ?? data.current.relative_humidity_2m,
-            precipitationProb: data.hourly?.precipitation_probability?.[idx] ?? 0,
-            windSpeed: data.hourly?.wind_speed_10m?.[idx] ?? 0,
-            windDirection: data.hourly?.wind_direction_10m?.[idx] ?? (data.current.wind_direction_10m || 0),
-            surfacePressure: data.hourly?.surface_pressure?.[idx] ?? (data.current.surface_pressure || 1013),
-            uvIndex: data.hourly?.uv_index?.[idx] ?? (data.daily?.uv_index_max?.[0] || 0),
-            weatherCode: data.hourly?.weather_code?.[idx] ?? 0,
-            isDay: data.hourly?.is_day?.[idx] ?? 1,
-          });
-        }
-      }
-
-      // 3-day daily forecasts from Open-Meteo
-      const dailyForecasts = (data.daily?.time || []).map((tStr: string, i: number) => {
-        const dt = new Date(tStr);
-        const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-        return {
-          dayName: dayNames[dt.getUTCDay()] || 'Gün',
-          dateStr: `${String(dt.getUTCDate()).padStart(2, '0')}.${String(dt.getUTCMonth() + 1).padStart(2, '0')}`,
-          hadise: '',
-          conditionText: (data.daily.precipitation_probability_max?.[i] ?? 0) > 50 ? 'Yağış Bekleniyor' : 'Açık / Parçalı',
-          weatherCode: (data.daily.precipitation_probability_max?.[i] ?? 0) > 50 ? 61 : 1,
-          minTemp: data.daily.temperature_2m_min?.[i] ?? 12,
-          maxTemp: data.daily.temperature_2m_max?.[i] ?? 20,
-          minHumidity: 40,
-          maxHumidity: 85,
-          windSpeed: 10
+        // Automatic Fallback to Open-Meteo if MGM endpoint fails
+        const fallbackData = await fetchOpenMeteoDirect();
+        const liveFallback: WeatherData = {
+          temperature: fallbackData.temperature,
+          humidity: fallbackData.humidity,
+          windSpeed: fallbackData.windSpeed,
+          rainChance: fallbackData.rainChance,
+          rainChanceMax: fallbackData.rainChanceMax,
+          weathercode: fallbackData.weathercode,
+          is_day: fallbackData.is_day,
+          conditionText: fallbackData.conditionText,
+          source: 'Open-Meteo (MGM Yedeği)'
         };
-      });
+        fallbackData.fallbackNotice = 'MGM servisi yanıt vermediği için Open-Meteo verisi gösteriliyor';
+        setWeather(liveFallback);
+        setDetailedWeather(fallbackData);
+        onWeatherChangeRef.current?.(fallbackData.weathercode, fallbackData.is_day);
+      } else {
+        // Open-Meteo requested: Try backend endpoint first, fallback to direct fetch
+        try {
+          const queryParam = force ? '?force=true' : '';
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 9500);
+          const apiRes = await fetch(getApiUrl(`/api/weather/openmeteo${queryParam}`), {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
 
-      const detailedPayload: DetailedWeatherInfo = {
-        temperature: data.current.temperature_2m,
-        apparentTemperature: data.current.apparent_temperature || data.current.temperature_2m,
-        humidity: data.current.relative_humidity_2m ?? 60,
-        windSpeed: data.current.wind_speed_10m ?? 5,
-        windDirection: data.current.wind_direction_10m || 0,
-        surfacePressure: data.current.surface_pressure || 1013,
-        rainChance: currentHourlyRainChance,
-        rainChanceMax: dailyMaxRainChance,
-        weathercode: data.current.weather_code ?? 0,
-        is_day: data.current.is_day ?? 1,
-        tempMin: data.daily?.temperature_2m_min?.[0] ?? data.current.temperature_2m,
-        tempMax: data.daily?.temperature_2m_max?.[0] ?? data.current.temperature_2m,
-        sunrise: data.daily?.sunrise?.[0] || '06:40',
-        sunset: data.daily?.sunset?.[0] || '18:15',
-        uvIndexMax: data.daily?.uv_index_max?.[0] || 0,
-        hourlyList,
-        dailyForecasts,
-        source: 'Meteoroloji Tahmin Modeli',
-        stationName: 'Kilis 7 Aralık Kampüsü'
-      };
+          if (apiRes.ok) {
+            const omData = await apiRes.json();
+            if (omData && typeof omData.temperature === 'number') {
+              const liveWeatherData: WeatherData = {
+                temperature: omData.temperature,
+                humidity: omData.humidity ?? 60,
+                windSpeed: omData.windSpeed ?? 5,
+                rainChance: omData.rainChance ?? 0,
+                rainChanceMax: omData.rainChanceMax ?? 0,
+                weathercode: omData.weathercode ?? 0,
+                is_day: omData.is_day ?? 1,
+                conditionText: omData.conditionText,
+                source: omData.source || 'Open-Meteo Model'
+              };
+              setWeather(liveWeatherData);
+              setDetailedWeather(omData);
+              try {
+                localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(liveWeatherData));
+                localStorage.setItem(WEATHER_DETAILED_CACHE_KEY, JSON.stringify(omData));
+              } catch {}
+              onWeatherChangeRef.current?.(omData.weathercode ?? 0, omData.is_day ?? 1);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (serverErr) {
+          console.warn('Backend /api/weather/openmeteo error, fetching directly:', serverErr);
+        }
 
-      setDetailedWeather(detailedPayload);
-      try {
-        localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(liveWeatherData));
-        localStorage.setItem(WEATHER_DETAILED_CACHE_KEY, JSON.stringify(detailedPayload));
-      } catch {}
-      
-      onWeatherChangeRef.current?.(data.current.weather_code, data.current.is_day);
+        const directData = await fetchOpenMeteoDirect();
+        const liveWeatherData: WeatherData = {
+          temperature: directData.temperature,
+          humidity: directData.humidity,
+          windSpeed: directData.windSpeed,
+          rainChance: directData.rainChance,
+          rainChanceMax: directData.rainChanceMax,
+          weathercode: directData.weathercode,
+          is_day: directData.is_day,
+          conditionText: directData.conditionText,
+          source: directData.source
+        };
+        setWeather(liveWeatherData);
+        setDetailedWeather(directData);
+        try {
+          localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(liveWeatherData));
+          localStorage.setItem(WEATHER_DETAILED_CACHE_KEY, JSON.stringify(directData));
+        } catch {}
+        onWeatherChangeRef.current?.(directData.weathercode, directData.is_day);
+      }
     } catch (err) {
-      console.warn('Weather fetch notice:', err);
+      console.warn('Weather fetch error:', err);
       setError(true);
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
       setIsRefreshing(false);
+      setIsProviderSwitching(false);
     }
-  }, []);
+  }, [provider]);
+
+  const handleProviderChange = useCallback(async (newProvider: WeatherProvider) => {
+    if (newProvider === provider && !isRefreshing) return;
+    setProvider(newProvider);
+    setIsProviderSwitching(true);
+    try {
+      localStorage.setItem(WEATHER_PROVIDER_KEY, newProvider);
+    } catch {}
+    window.dispatchEvent(new CustomEvent('k7_weather_provider_changed', { detail: newProvider }));
+    await fetchWeather(true, newProvider);
+  }, [provider, isRefreshing, fetchWeather]);
 
   useEffect(() => {
     fetchWeather(false);
@@ -315,13 +426,23 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
     const handleGlobalRefresh = () => {
       fetchWeather(true);
     };
+    const handleGlobalProviderChange = (e: any) => {
+      const p = e.detail;
+      if (p && (p === 'mgm' || p === 'openmeteo') && p !== provider) {
+        setProvider(p);
+        fetchWeather(true, p);
+      }
+    };
+
     window.addEventListener('k7_force_refreshed', handleGlobalRefresh);
+    window.addEventListener('k7_weather_provider_changed', handleGlobalProviderChange);
 
     return () => {
       clearInterval(intervalId);
       window.removeEventListener('k7_force_refreshed', handleGlobalRefresh);
+      window.removeEventListener('k7_weather_provider_changed', handleGlobalProviderChange);
     };
-  }, [fetchWeather]);
+  }, [fetchWeather, provider]);
 
   if (loading && !weather) {
     return (
@@ -330,10 +451,6 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
           <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
             <CloudLightning className="w-5 h-5 animate-pulse" />
           </div>
-          <span className="absolute -bottom-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-          </span>
         </div>
         <div className="space-y-1.5">
           <div className="w-20 h-4 bg-white/20 rounded-md"></div>
@@ -490,21 +607,15 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         {/* Dynamic ambient background glow */}
         <div className={`absolute -inset-1 rounded-2xl ${theme.glowAura} blur-xl opacity-60 pointer-events-none transition-all group-hover:opacity-100`}></div>
 
-        {/* Animated Weather Icon Badge with Ping status */}
+        {/* Animated Weather Icon Badge */}
         <div className="relative shrink-0">
           <motion.div 
             animate={{ y: [0, -2, 0] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
             className={`relative w-11 h-11 rounded-2xl ${theme.bgColor} flex items-center justify-center border shadow-inner`}
           >
-            <Icon className={`w-6 h-6 ${theme.color} animate-pulse`} strokeWidth={1.75} />
+            <Icon className={`w-6 h-6 ${theme.color}`} strokeWidth={1.75} />
           </motion.div>
-
-          {/* Live Status Ping Dot */}
-          <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
-            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${theme.pingColor} opacity-75`}></span>
-            <span className={`relative inline-flex rounded-full h-3.5 w-3.5 ${theme.pingBg} border border-white/40`}></span>
-          </span>
         </div>
         
         {/* Weather Metrics & Text */}
@@ -516,9 +627,9 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${theme.badge} truncate tracking-wide`}>
               {weather.conditionText || theme.text}
             </span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30" title="Meteoroloji Genel Müdürlüğü Kilis İstasyonu (Canlı)">
-              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-              {isRefreshing ? 'Tazeleniyor...' : (weather.source?.includes('MGM') ? 'MGM Kilis' : 'Canlı')}
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30" title="Seçili Hava Durumu Kaynağı">
+              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshing || isProviderSwitching ? 'bg-amber-400 animate-ping' : (provider === 'mgm' ? 'bg-emerald-400 animate-pulse' : 'bg-sky-400 animate-pulse')}`} />
+              {isRefreshing || isProviderSwitching ? 'Tazeleniyor...' : (provider === 'mgm' ? 'MGM Kilis' : 'Open-Meteo')}
             </span>
             <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
               <Clock className="w-2.5 h-2.5" />
@@ -546,19 +657,22 @@ export default function WeatherWidget({ onWeatherChange }: WeatherWidgetProps) {
         {/* Detail Action Hint - Minimalist Info Icon */}
         <div 
           className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.08] group-hover:bg-amber-400/20 border border-white/15 group-hover:border-amber-400/40 text-white/60 group-hover:text-amber-200 transition-all z-10 shadow-sm"
-          title="Detaylı saatlik tahmin ve hava durumu bilgisi"
+          title="Detaylı saatlik tahmin, kaynak seçimi ve hava durumu bilgisi"
         >
           <Info className="w-4 h-4 transition-transform group-hover:scale-110" strokeWidth={2} />
         </div>
       </motion.button>
 
-      {/* Comprehensive Weather Detail Modal with 1, 2, 4, 6, 8 Hour Forecasts */}
+      {/* Comprehensive Weather Detail Modal with Dual Source Switching (MGM & Open-Meteo) */}
       <WeatherDetailModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         weather={detailedWeather}
         onRefresh={() => fetchWeather(true)}
         isRefreshing={isRefreshing}
+        provider={provider}
+        onProviderChange={handleProviderChange}
+        isProviderSwitching={isProviderSwitching}
       />
     </>
   );

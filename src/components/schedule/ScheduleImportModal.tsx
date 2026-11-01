@@ -79,11 +79,13 @@ export default function ScheduleImportModal({ isOpen, onClose, onSuccess }: Sche
           setPreviewExams(pkg.exams);
           setSelectedCourseIds(new Set(pkg.courses.map((c) => c.id)));
           setSelectedExamIds(new Set(pkg.exams.map((e) => e.id)));
+          const detectedGrades = buildGradeSummary(pkg.courses, pkg.exams);
           setParsedResult({
+            fileName: pkg.metadata.title || 'Şablon Paketi',
+            detectedType: 'mixed',
             courses: pkg.courses,
             exams: pkg.exams,
-            rawTextLength: trimmed.length,
-            detectedGrades: pkg.metadata.grade ? [pkg.metadata.grade] : [1]
+            detectedGrades
           });
           setIsParsing(false);
           toast.success(`Şablon algılandı: ${pkg.summary.courseCount} ders, ${pkg.summary.examCount} sınav`);
@@ -394,7 +396,7 @@ export default function ScheduleImportModal({ isOpen, onClose, onSuccess }: Sche
                           : 'bg-stone-100 dark:bg-white/5 text-stone-600 dark:text-stone-400 hover:text-stone-900'
                       }`}
                     >
-                      {g.label} ({g.coursesCount + g.examsCount})
+                      {g.label} ({(g.courseCount ?? 0) + (g.examCount ?? 0)})
                     </button>
                   ))}
                 </div>

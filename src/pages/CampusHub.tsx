@@ -89,9 +89,8 @@ import { PhonebookEntry, AcademicStaffMember, StaffUnitCategory, CampusEvent, Ca
 import LoadingState from '../components/LoadingState';
 import DetailModal, { DetailModalItem } from '../components/DetailModal';
 import HorizontalScrollWrapper from '../components/HorizontalScrollWrapper';
-import ScheduleManagerModal from '../components/ScheduleManagerModal';
 import toast from 'react-hot-toast';
-import { cn, cleanDuplicateTitle } from '../lib/utils';
+import { cn, cleanDuplicateTitle, parseDateToTimestamp } from '../lib/utils';
 import { openExternalUrl } from '../lib/openExternal';
 import CustomSelectPicker, { SelectOption } from '../components/CustomSelectPicker';
 import PhoneDirectoryView from '../components/PhoneDirectoryView';
@@ -102,7 +101,6 @@ export default function CampusHub() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   const getTabFromLocation = (): TabKey => {
     const path = location.pathname.replace(/^\//, '');
@@ -963,9 +961,9 @@ export default function CampusHub() {
                 </p>
               </div>
 
-              {/* 9. Ders & Sınav Programı */}
+              {/* 9. Derslerim: Ders Programı, Notlar & Sınavlar */}
               <div
-                onClick={() => setIsScheduleModalOpen(true)}
+                onClick={() => navigate('/schedule')}
                 className="cursor-pointer group bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg transition-all"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -973,12 +971,12 @@ export default function CampusHub() {
                     <GraduationCap className="w-5 h-5" />
                   </div>
                   <span className="text-xs text-stone-400 dark:text-white/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 flex items-center gap-1">
-                    Ajandam <ChevronRight className="w-4 h-4" />
+                    Aç <ChevronRight className="w-4 h-4" />
                   </span>
                 </div>
                 <h3 className="font-display font-bold text-lg text-stone-900 dark:text-white">Derslerim</h3>
                 <p className="text-xs text-stone-500 dark:text-white/60 mt-1 line-clamp-2">
-                  Kişisel haftalık ders çizelgeniz, derslik, amfi, ders hocaları ve yaklaşan sınav takviminiz.
+                  Haftalık ders programınız, ders notları arşivi, PDF aktarma ve yaklaşan sınav takviminiz.
                 </p>
               </div>
             </div>
@@ -1578,16 +1576,19 @@ export default function CampusHub() {
               {(() => {
                 const seenKeys = new Set<string>();
                 const seenImages = new Set<string>();
-                const uniqueEvents = events.filter((ev) => {
-                  const cleanedTitle = cleanDuplicateTitle(ev.title);
-                  const key = (ev.url || cleanedTitle || '').trim().toLowerCase();
-                  const imgKey = ev.img ? ev.img.trim().toLowerCase() : '';
-                  if (seenKeys.has(key)) return false;
-                  if (imgKey && seenImages.has(imgKey)) return false;
-                  seenKeys.add(key);
-                  if (imgKey) seenImages.add(imgKey);
-                  return true;
-                }).map(ev => ({ ...ev, title: cleanDuplicateTitle(ev.title) }));
+                const uniqueEvents = events
+                  .filter((ev) => {
+                    const cleanedTitle = cleanDuplicateTitle(ev.title);
+                    const key = (ev.url || cleanedTitle || '').trim().toLowerCase();
+                    const imgKey = ev.img ? ev.img.trim().toLowerCase() : '';
+                    if (seenKeys.has(key)) return false;
+                    if (imgKey && seenImages.has(imgKey)) return false;
+                    seenKeys.add(key);
+                    if (imgKey) seenImages.add(imgKey);
+                    return true;
+                  })
+                  .map(ev => ({ ...ev, title: cleanDuplicateTitle(ev.title) }))
+                  .sort((a, b) => parseDateToTimestamp(b.date) - parseDateToTimestamp(a.date));
 
                 return uniqueEvents.map((ev) => (
                   <div
@@ -1630,10 +1631,10 @@ export default function CampusHub() {
                               const raw = (ev.date || '').replace(/^Duyuru\s*Tarihi\s*:\s*/i, '').trim();
                               const dateMatch = raw.match(/(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})/i) || raw.match(/(\d{1,2}[./-]\d{1,2}[./-]\d{4})/);
                               if (dateMatch) return dateMatch[1];
-                              if (raw && !raw.toLowerCase().includes('yaklaşan') && !raw.toLowerCase().includes('tarih') && !raw.toLowerCase().includes('devam')) {
+                              if (raw && !raw.toLowerCase().includes('tarih')) {
                                 return raw;
                               }
-                              return '02 Ekim 2026';
+                              return 'Yaklaşan';
                             })()}
                           </span>
                         </div>
@@ -3397,11 +3398,6 @@ export default function CampusHub() {
         document.body
       )}
 
-      {/* Personal Schedule & Exam Manager Modal */}
-      <ScheduleManagerModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-      />
     </motion.div>
   );
 }
