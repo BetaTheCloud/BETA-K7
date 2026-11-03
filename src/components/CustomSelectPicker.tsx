@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, Check, Search, X, Building2, SlidersHorizontal } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export interface SelectOption {
   value: string;
@@ -50,6 +51,9 @@ export default function CustomSelectPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Smooth, jitter-free body scroll lock while picker is active
+  useModalScrollLock(isOpen);
 
   // Find currently selected option object
   const selectedOption = useMemo(() => {
@@ -150,19 +154,20 @@ export default function CustomSelectPicker({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
                 onClick={() => setIsOpen(false)}
-                className="fixed inset-0 bg-stone-950/75 backdrop-blur-xs transition-opacity"
+                className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] transition-opacity"
               />
 
-              {/* Theme-Aligned Symmetrical Picker Dialog (Equal margins, rounded all sides, floating cleanly above bottom bar) */}
+              {/* Theme-Aligned Symmetrical Picker Dialog */}
               <motion.div
                 key="picker-card"
-                initial={{ opacity: 0, scale: 0.95, y: 14 }}
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 14 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-lg max-h-[82dvh] sm:max-h-[80vh] bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto"
+                className="relative w-full max-w-lg max-h-[82dvh] sm:max-h-[80vh] bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto modal-gpu-layer"
               >
                 {/* Header */}
                 <div className="px-5 py-4 bg-gradient-to-br from-[#363d50] to-[#8a2a43] text-white border-b border-white/10 shrink-0 flex items-center justify-between gap-3">

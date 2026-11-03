@@ -26,6 +26,7 @@ import {
 import K7Logo from './K7Logo';
 
 import { ABOUT_STORAGE_KEY } from './AboutModal';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export const WELCOME_STORAGE_KEY = 'k7_welcome_guide_seen_v1';
 
@@ -38,16 +39,8 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'academic' | 'campus' | 'tools'>('all');
 
-  // Lock body scroll while modal is visible
-  useEffect(() => {
-    if (isOpen) {
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prevOverflow;
-      };
-    }
-  }, [isOpen]);
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
 
   useEffect(() => {
     // If explicitly forced open via props
@@ -206,20 +199,21 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={handleDismiss}
-            className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] transition-opacity"
             aria-hidden="true"
           />
 
-          {/* Symmetrical Modal Card (Clean balanced side margins on both mobile and desktop) */}
+          {/* Symmetrical Modal Card */}
           <motion.div
             key="welcome-modal-card"
-            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 16 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-2xl max-h-[86dvh] sm:max-h-[84vh] bg-[#fcfbf9] dark:bg-[#1f3844] border border-[#e6e2d6] dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto"
+            className="relative w-full max-w-2xl max-h-[86dvh] sm:max-h-[84vh] bg-[#fcfbf9] dark:bg-[#1f3844] border border-[#e6e2d6] dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto modal-gpu-layer"
           >
             {/* Header: Symmetrical, Harmonious & Centered */}
             <div className="relative px-5 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 bg-gradient-to-br from-[#363d50] to-[#8a2a43] text-white border-b border-white/10 shrink-0 text-center">

@@ -93,7 +93,7 @@ export default function WeeklyTimetable({
     if (isNowEnabled) {
       toast.success(`"${courseName}" için 10 ve 5 dk kala bildirimler açıldı.`);
     } else {
-      toast(`"${courseName}" için bildirimler kapatıldı.`, { icon: '🔕' });
+      toast(`"${courseName}" için bildirimler kapatıldı.`);
     }
   };
   

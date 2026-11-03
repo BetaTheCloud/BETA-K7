@@ -23,6 +23,7 @@ import { getApiUrl, safeFetch } from '../config';
 import { openExternalUrl } from '../lib/openExternal';
 import { downloadImageToDevice } from '../lib/downloadImage';
 import toast from 'react-hot-toast';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export interface AttachmentItem {
   name: string;
@@ -614,10 +615,12 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
     }
   }, [isOpen, activeUrl, initialImageUrl, initialContent, item, activeTitle]);
 
-  // Lock body scroll when modal is open and bind Escape key / back event
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
+
+  // Bind Escape key and back event
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           if (zoomImage) {
@@ -638,12 +641,9 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
       window.addEventListener('keydown', handleKeyDown);
       window.addEventListener('k7_header_back', handleHeaderBack);
       return () => {
-        document.body.style.overflow = 'unset';
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('k7_header_back', handleHeaderBack);
       };
-    } else {
-      document.body.style.overflow = 'unset';
     }
   }, [isOpen, zoomImage, onClose]);
 
@@ -676,7 +676,6 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
           setDownloadedImage(imgUrl);
           toast.success(res.message || 'Görsel başarıyla kaydedildi', {
             id: 'img-download-toast',
-            icon: res.method === 'gallery' ? '🖼️' : '📥',
             duration: 3500
           });
           setTimeout(() => {
@@ -696,23 +695,24 @@ export default function DetailModal({ isOpen, onClose, item, url, title }: Detai
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center overflow-hidden">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center overflow-hidden overscroll-contain">
+          {/* Backdrop with hardware-optimized presentation */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-0"
+            className="fixed inset-0 bg-black/80 backdrop-blur-[2px] z-0"
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.98 }}
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.98 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-            className="relative z-10 w-full h-full md:h-auto md:max-h-[90vh] md:max-w-3xl bg-[#fcfbf9] dark:bg-[#1d3540] flex flex-col md:rounded-2xl shadow-2xl overflow-hidden md:border border-[#e6e2d6] dark:border-white/10"
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full h-full md:h-auto md:max-h-[90vh] md:max-w-3xl bg-[#fcfbf9] dark:bg-[#1d3540] flex flex-col md:rounded-2xl shadow-2xl overflow-hidden md:border border-[#e6e2d6] dark:border-white/10 modal-gpu-layer"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#fcfbf9] dark:bg-[#264653] shrink-0 gap-3 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] shadow-sm">

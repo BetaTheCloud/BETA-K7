@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, BookOpen, Calendar, Clock, MapPin, User, Save, FileText, CheckCircle2 } from 'lucide-react';
 import { CourseItem, CourseNoteItem } from '../../types/schedule';
 import { saveCourseNote } from '../../lib/scheduleNotesStorage';
+import { useModalScrollLock } from '../../lib/scrollLock';
 import toast from 'react-hot-toast';
 
 interface CourseNoteFormModalProps {
@@ -30,6 +32,13 @@ export default function CourseNoteFormModal({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [mounted, setMounted] = useState(false);
+
+  useModalScrollLock(isOpen);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Synchronize initial values when modal opens
   useEffect(() => {
@@ -135,18 +144,21 @@ export default function CourseNoteFormModal({
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!mounted || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-lg bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden my-8"
-        >
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-[2px] overflow-y-auto">
+          {/* Backdrop click to close */}
+          <div className="fixed inset-0 -z-10" onClick={onClose} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="modal-gpu-layer relative w-full max-w-lg bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden my-8"
+          >
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653]/60">
             <div className="flex items-center gap-2.5">
@@ -328,6 +340,8 @@ export default function CourseNoteFormModal({
           </form>
         </motion.div>
       </div>
-    </AnimatePresence>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }

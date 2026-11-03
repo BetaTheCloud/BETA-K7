@@ -29,6 +29,7 @@ import {
   Calendar,
   ShieldCheck
 } from 'lucide-react';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export interface HourlyForecastItem {
   hourOffset: number;
@@ -148,12 +149,12 @@ export default function WeatherDetailModal({
     }
   }, [isOpen]);
 
-  // Prevent background scroll and support Escape key
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
+
+  // Keyboard Escape and custom back event handlers
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -169,7 +170,6 @@ export default function WeatherDetailModal({
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('k7_header_back', handleHeaderBack);
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('k7_header_back', handleHeaderBack);
     };
@@ -336,7 +336,7 @@ export default function WeatherDetailModal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-xl max-h-[96vh] flex flex-col shadow-2xl relative z-10 overflow-hidden"
+            className="bg-[#182730] text-white border border-white/20 rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-xl max-h-[96vh] flex flex-col shadow-2xl relative z-10 overflow-hidden modal-gpu-layer"
             style={{ contain: 'layout' }}
             onTouchStart={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}

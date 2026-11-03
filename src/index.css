@@ -23,6 +23,10 @@
   padding-bottom: max(0.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.15rem));
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -32,8 +36,18 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* Modal hardware acceleration & freeze prevention */
+.modal-gpu-layer {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
 h1, h2, h3, h4, h5, h6, .font-display, .display-title {
   font-family: var(--font-display);
+  font-weight: 700;
   letter-spacing: -0.022em;
 }
 

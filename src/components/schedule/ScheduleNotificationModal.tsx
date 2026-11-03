@@ -41,6 +41,7 @@ import { getStoredCourses, getStoredExams } from '../../lib/scheduleStorage';
 import { CourseItem, ExamItem } from '../../types/schedule';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
+import { useModalScrollLock } from '../../lib/scrollLock';
 
 interface ScheduleNotificationModalProps {
   isOpen: boolean;
@@ -59,6 +60,9 @@ export default function ScheduleNotificationModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [isTesting, setIsTesting] = useState(false);
 
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
+
   // Sync state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -66,18 +70,14 @@ export default function ScheduleNotificationModal({
       setCourses(getStoredCourses());
       setExams(getStoredExams());
       getNotificationPermissionStatus().then(setPermissionStatus);
-      document.body.style.overflow = 'hidden';
 
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') onClose();
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => {
-        document.body.style.overflow = 'unset';
         window.removeEventListener('keydown', handleKeyDown);
       };
-    } else {
-      document.body.style.overflow = 'unset';
     }
   }, [isOpen, onClose]);
 
@@ -155,7 +155,7 @@ export default function ScheduleNotificationModal({
     if (isNowEnabled) {
       toast.success(`"${name}" için bildirimler açıldı.`);
     } else {
-      toast(`${name} için bildirimler kapatıldı.`, { icon: '🔕' });
+      toast(`${name} için bildirimler kapatıldı.`);
     }
   };
 
@@ -168,7 +168,7 @@ export default function ScheduleNotificationModal({
   const handleDisableAll = () => {
     disableAllItemNotifications();
     setConfig(getNotificationConfig());
-    toast('Tüm ders ve sınav bildirimleri kapatıldı.', { icon: '🔕' });
+    toast('Tüm ders ve sınav bildirimleri kapatıldı.');
   };
 
   // Filtered lists
@@ -207,17 +207,18 @@ export default function ScheduleNotificationModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           onClick={onClose}
-          className="fixed inset-0 bg-stone-950/75 backdrop-blur-sm z-0"
+          className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] z-0"
         />
 
         {/* Modal Dialog */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', damping: 26, stiffness: 280 }}
-          className="relative z-10 w-full max-w-xl max-h-[90vh] bg-[#fcfbf9] dark:bg-[#1d3540] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 flex flex-col overflow-hidden text-stone-900 dark:text-white"
+          exit={{ opacity: 0, scale: 0.96, y: 12 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-xl max-h-[90vh] bg-[#fcfbf9] dark:bg-[#1d3540] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 flex flex-col overflow-hidden text-stone-900 dark:text-white modal-gpu-layer"
         >
           {/* Header */}
           <div className="px-5 py-4 border-b border-stone-200/80 dark:border-white/10 flex items-center justify-between bg-stone-50/70 dark:bg-white/5 shrink-0">

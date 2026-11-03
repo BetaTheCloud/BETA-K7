@@ -49,6 +49,7 @@ import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
 import ScheduleTemplateModal from './schedule/ScheduleTemplateModal';
 import { isItemNotificationEnabled, toggleItemNotification } from '../lib/scheduleNotificationService';
 import toast from 'react-hot-toast';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 interface ScheduleManagerModalProps {
   isOpen: boolean;
@@ -127,6 +128,9 @@ export default function ScheduleManagerModal({
     setExams(getSortedExams());
   };
 
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
+
   useEffect(() => {
     if (isOpen) {
       loadData();
@@ -134,7 +138,6 @@ export default function ScheduleManagerModal({
       setConfirmDeleteCourseId(null);
       setConfirmDeleteExamId(null);
       setIsConfirmingClearAll(false);
-      document.body.style.overflow = 'hidden';
 
       const handleHeaderBack = (e: Event) => {
         e.preventDefault();
@@ -147,13 +150,10 @@ export default function ScheduleManagerModal({
       window.addEventListener(SCHEDULE_UPDATED_EVENT, handleScheduleUpdate);
 
       return () => {
-        document.body.style.overflow = 'unset';
         window.removeEventListener('k7_header_back', handleHeaderBack);
         window.removeEventListener(SCHEDULE_CHANGED_EVENT, handleScheduleUpdate);
         window.removeEventListener(SCHEDULE_UPDATED_EVENT, handleScheduleUpdate);
       };
-    } else {
-      document.body.style.overflow = 'unset';
     }
   }, [isOpen, initialTab, onClose]);
 
@@ -394,23 +394,24 @@ export default function ScheduleManagerModal({
   };
 
   const modalMarkup = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:pb-3 px-3 sm:px-4 overflow-y-auto">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:pb-3 px-3 sm:px-4 overflow-y-auto overscroll-contain">
+      {/* Backdrop with lightweight blur */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/65 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/75 backdrop-blur-[2px]"
       />
 
       {/* Modal Container */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1f3741] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[96vh] h-[92vh] sm:h-[88vh]"
+        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1f3741] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[96vh] h-[92vh] sm:h-[88vh] modal-gpu-layer"
       >
         {/* Header */}
         <div className="flex items-center justify-between py-3.5 sm:py-4 px-4 sm:px-6 border-b border-stone-200 dark:border-white/10 bg-stone-100/70 dark:bg-black/20 shrink-0 gap-2">
@@ -655,7 +656,7 @@ export default function ScheduleManagerModal({
                           const isNow = toggleItemNotification(course.id);
                           setNotificationTick((t) => t + 1);
                           if (isNow) toast.success(`"${course.courseName}" için 10 ve 5 dk kala bildirimler açıldı.`);
-                          else toast(`"${course.courseName}" için bildirimler kapatıldı.`, { icon: '🔕' });
+                          else toast(`"${course.courseName}" için bildirimler kapatıldı.`);
                         }}
                         className={`p-2 rounded-xl transition-colors cursor-pointer ${
                           isItemNotificationEnabled(course.id)
@@ -849,7 +850,7 @@ export default function ScheduleManagerModal({
                             const isNow = toggleItemNotification(exam.id);
                             setNotificationTick((t) => t + 1);
                             if (isNow) toast.success(`"${exam.courseName}" sınavı için 10 ve 5 dk kala bildirimler açıldı.`);
-                            else toast(`"${exam.courseName}" sınavı için bildirimler kapatıldı.`, { icon: '🔕' });
+                            else toast(`"${exam.courseName}" sınavı için bildirimler kapatıldı.`);
                           }}
                           className={`p-2 rounded-xl transition-colors cursor-pointer ${
                             isItemNotificationEnabled(exam.id)

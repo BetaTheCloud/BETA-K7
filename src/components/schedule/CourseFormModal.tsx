@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { X, Check, BookOpen } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
 import { upsertCourse, getStoredCourses, hasTimeOverlap } from '../../lib/scheduleStorage';
+import { useModalScrollLock } from '../../lib/scrollLock';
 import toast from 'react-hot-toast';
 
 interface CourseFormModalProps {
@@ -40,6 +41,8 @@ export default function CourseFormModal({
   const [instructor, setInstructor] = useState<string>(initialCourse?.instructor ?? '');
   const [color, setColor] = useState<string>(initialCourse?.color ?? '#0284c7');
   const [mounted, setMounted] = useState(false);
+
+  useModalScrollLock(isOpen);
 
   React.useEffect(() => {
     setMounted(true);
@@ -105,7 +108,7 @@ export default function CourseFormModal({
     upsertCourse(course);
 
     if (existing.length > 0) {
-      toast.success(`Ders eklendi. (⚠️ ${day} günü saat ${startTime}-${endTime} arasında ${existing[0].courseName} dersiniz de var)`);
+      toast.success(`Ders eklendi. (Çakışma Uyarısı: ${day} saat ${startTime}-${endTime} aralığında ${existing[0].courseName} dersiniz de bulunuyor)`);
     } else {
       toast.success(initialCourse ? 'Ders güncellendi' : 'Yeni ders eklendi');
     }
@@ -115,12 +118,13 @@ export default function CourseFormModal({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/80 backdrop-blur-[2px]">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="w-full max-w-md bg-white dark:bg-[#1d3540] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden"
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        className="modal-gpu-layer w-full max-w-md bg-white dark:bg-[#1d3540] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-stone-200 dark:border-white/10 flex items-center justify-between bg-stone-50/80 dark:bg-white/[0.03]">
           <div className="flex items-center gap-2.5">

@@ -17,6 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export const ABOUT_STORAGE_KEY = 'k7_about_seen_v1';
 
@@ -65,21 +66,21 @@ export function AboutContent({ isModal = false }: AboutContentProps) {
           <strong className="text-stone-900 dark:text-white font-bold block mb-1">
             Geliştirici Hakkında
           </strong>
-          Merhaba, ben <span className="font-bold text-stone-900 dark:text-white">BETA</span>. Yazılım ve mühendislik alanlarında 13 yılı aşkın profesyonel deneyime sahip, günümüzün birçok modern programlama diline hâkim bağımsız bir geliştiriciyim.
+          Merhaba, ben <span className="font-bold text-stone-900 dark:text-white">Davut ŞAHİN</span> (<span className="font-bold text-amber-600 dark:text-amber-400">BETA</span>). Yazılım ve mühendislik alanında uzun yıllara dayanan profesyonel tecrübeye sahip, modern yazılım mimarileri ve programlama dilleri üzerine uzmanlaşmış bir geliştiriciyim.
         </p>
 
         <p className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5">
           <strong className="text-stone-900 dark:text-white font-bold block mb-1">
             Telif Hakları & Teknolojik Altyapı
           </strong>
-          Kaynak kodları tamamen özgün olup, tüm hakları tarafıma (<span className="font-semibold text-stone-900 dark:text-white">Davut ŞAHİN</span>) aittir. Geliştirme sürecinde TypeScript, JavaScript (ESNext & CommonJS), HTML5, CSS3 & Tailwind CSS, JSON ve daha birçok modern teknoloji ile altyapı kullanılmıştır.
+          Geliştirdiğim uygulamanın kaynak kodları tamamen özgün olup tüm hakları <span className="font-bold text-stone-900 dark:text-white">ŞAHİN MÜHENDİSLİK</span>’e aittir. Geliştirme sürecinde TypeScript, JavaScript (ESNext & CommonJS), HTML5, CSS3, Tailwind CSS başta olmak üzere güncel teknolojiler ve modern yazılım mimarileri kullanılmıştır. Sistem, Türkiye’deki tüm üniversitelerin altyapılarına sorunsuz entegre olabilecek yapıda tasarlanmıştır.
         </p>
 
         <p className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5">
           <strong className="text-stone-900 dark:text-white font-bold block mb-1">
             Gizlilik ve Veri Güvenliği
           </strong>
-          Bu uygulamayı hiçbir ticari amaç gütmeden geliştirdim. Uygulama, kullanıcı verisi toplamamakta olup kullanılan tüm bilgiler kamuya açık kaynaklardan derlenmiştir. Sunucularda hiçbir veri depolanmamakta, veriler yalnızca kullanıcının kendi cihazında muhafaza edilmektedir.
+          Bu uygulamayı hiçbir ticari amaç gütmeden, akademisyenler ve öğrenciler için geliştirdim. Uygulama kullanıcı verisi toplamamakta olup bünyesindeki tüm bilgiler kamuya açık resmi kaynaklardan derlenmiştir. Sunucularda hiçbir veri depolanmamakta; ders programları gibi kişiselleştirilmiş veriler yalnızca kullanıcının kendi cihazında yerel olarak saklanmaktadır.
         </p>
 
         <div className="p-3.5 rounded-2xl bg-stone-100/80 dark:bg-white/5 border border-stone-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -113,16 +114,8 @@ interface AboutModalProps {
 export default function AboutModal({ forceOpen = false, onClose, onProceed }: AboutModalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Lock body scroll while modal is open
-  useEffect(() => {
-    if (isOpen) {
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prevOverflow;
-      };
-    }
-  }, [isOpen]);
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
 
   // First time check
   useEffect(() => {
@@ -137,7 +130,7 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
         // Show About first on initial launch
         const timer = setTimeout(() => {
           setIsOpen(true);
-        }, 350);
+        }, 200);
         return () => clearTimeout(timer);
       }
     } catch {
@@ -165,10 +158,10 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
     if (onProceed) {
       onProceed();
     } else {
-      // Trigger the welcome guide modal to open next!
+      // Trigger the welcome guide modal to open next
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'));
-      }, 200);
+      }, 120);
     }
   };
 
@@ -185,23 +178,24 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden overscroll-contain">
+          {/* Backdrop with hardware-optimized presentation */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={handleDismiss}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-0"
+            className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] z-0"
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 280 }}
-            className="relative z-10 w-full max-w-lg max-h-[92vh] flex flex-col bg-[#fcfbf9] dark:bg-[#1d3540] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden"
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full max-w-lg max-h-[92vh] flex flex-col bg-[#fcfbf9] dark:bg-[#1d3540] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden modal-gpu-layer"
           >
             {/* Header */}
             <div className="px-5 py-4 border-b border-stone-200/80 dark:border-white/10 flex items-center justify-between bg-[#fcfbf9] dark:bg-[#264653] shrink-0">

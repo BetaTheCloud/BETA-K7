@@ -27,6 +27,7 @@ import {
 import { batchImportItems } from '../../lib/scheduleStorage';
 import { parseAndValidateSchedulePackage } from '../../lib/scheduleTemplate';
 import { CourseItem, ExamItem, ParsedDocumentResult } from '../../types/schedule';
+import { useModalScrollLock } from '../../lib/scrollLock';
 
 interface ScheduleImportModalProps {
   isOpen: boolean;
@@ -55,6 +56,9 @@ export default function ScheduleImportModal({ isOpen, onClose, onSuccess }: Sche
   const [pastedText, setPastedText] = useState('');
   const [pasteDefaultGrade, setPasteDefaultGrade] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
+
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
 
   useEffect(() => {
     setMounted(true);
@@ -227,14 +231,15 @@ export default function ScheduleImportModal({ isOpen, onClose, onSuccess }: Sche
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const modalMarkup = (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:pb-3 px-3 sm:px-4 bg-stone-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:pb-3 px-3 sm:px-4 bg-stone-950/80 backdrop-blur-[2px]">
       {/* Backdrop click to close */}
       <div className="fixed inset-0 -z-10" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-2xl max-h-[96vh] h-[92vh] sm:h-[88vh] flex flex-col bg-white dark:bg-[#1d3540] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden"
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        className="modal-gpu-layer relative w-full max-w-2xl max-h-[96vh] h-[92vh] sm:h-[88vh] flex flex-col bg-white dark:bg-[#1d3540] rounded-2xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-stone-200 dark:border-white/10 flex items-center justify-between bg-stone-50/80 dark:bg-white/[0.03]">

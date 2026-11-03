@@ -74,9 +74,11 @@ export const FONT_CHANGED_EVENT = 'k7_font_changed';
 
 export function getStoredFontTheme(): FontThemeId {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && FONT_THEMES.some((f) => f.id === saved)) {
-      return saved as FontThemeId;
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && FONT_THEMES.some((f) => f.id === saved)) {
+        return saved as FontThemeId;
+      }
     }
   } catch (err) {
     console.warn('Font storage read error:', err);
@@ -87,15 +89,21 @@ export function getStoredFontTheme(): FontThemeId {
 export function applyFontTheme(fontId: FontThemeId): void {
   const theme = FONT_THEMES.find((f) => f.id === fontId) || FONT_THEMES[0];
   try {
-    localStorage.setItem(STORAGE_KEY, fontId);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, fontId);
+    }
     
-    // Set CSS root custom variables
-    document.documentElement.style.setProperty('--font-sans', theme.fontSans);
-    document.documentElement.style.setProperty('--font-display', theme.fontDisplay);
-    document.body.style.fontFamily = theme.fontSans;
+    if (typeof document !== 'undefined') {
+      // Set CSS root custom variables
+      document.documentElement.style.setProperty('--font-sans', theme.fontSans);
+      document.documentElement.style.setProperty('--font-display', theme.fontDisplay);
+      document.body.style.fontFamily = theme.fontSans;
+    }
 
-    // Dispatch global event so components can update if needed
-    window.dispatchEvent(new CustomEvent(FONT_CHANGED_EVENT, { detail: { fontId } }));
+    if (typeof window !== 'undefined') {
+      // Dispatch global event so components can update if needed
+      window.dispatchEvent(new CustomEvent(FONT_CHANGED_EVENT, { detail: { fontId } }));
+    }
   } catch (err) {
     console.warn('Font apply error:', err);
   }

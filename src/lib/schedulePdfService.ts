@@ -8,7 +8,8 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { CourseItem, CourseNoteItem } from '../types/schedule';
-import { registerTurkishFonts } from './pdfFonts';
+import { registerTurkishFonts, setPdfTypography } from './pdfFonts';
+import { FontThemeId } from './fontStorage';
 
 export interface MergedCourseGroup {
   key: string;
@@ -101,7 +102,7 @@ export function drawPillBadge(
   alignRight: boolean = false
 ): { width: number; height: number } {
   const cleanText = formatPdfText(text);
-  doc.setFont('LiberationSans', 'bold');
+  setPdfTypography(doc, 'body', 'bold');
   doc.setFontSize(7.5);
   const textWidth = doc.getTextWidth(cleanText);
   const badgeWidth = textWidth + 6.5;
@@ -131,7 +132,7 @@ export function drawPillBadge(
     // Neutral gray badge
     doc.setFillColor(243, 244, 246);
     doc.setDrawColor(209, 213, 219);
-    doc.setTextColor(75, 85, 99);
+    doc.setTextColor(51, 65, 85);
   }
 
   doc.setLineWidth(0.25);
@@ -280,8 +281,9 @@ export function buildCourseNotesPdfDoc(options: {
   courseGroup?: MergedCourseGroup;
   titleOverride?: string;
   subtitleOverride?: string;
+  fontThemeId?: FontThemeId;
 }): { doc: jsPDF; filename: string } | null {
-  const { notes, courseGroup, titleOverride, subtitleOverride } = options;
+  const { notes, courseGroup, titleOverride, subtitleOverride, fontThemeId } = options;
   if (!notes || notes.length === 0) {
     return null;
   }
@@ -292,7 +294,7 @@ export function buildCourseNotesPdfDoc(options: {
     format: 'a4'
   });
 
-  registerTurkishFonts(doc);
+  registerTurkishFonts(doc, fontThemeId);
 
   const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
   const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
@@ -323,7 +325,7 @@ export function buildCourseNotesPdfDoc(options: {
       doc.rect(marginX, currentY, contentWidth, 3, 'F');
       currentY += 7;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(138, 42, 67);
       doc.text('K7AÜ KAMPÜS DİJİTAL', marginX, currentY);
@@ -333,7 +335,7 @@ export function buildCourseNotesPdfDoc(options: {
 
       currentY += 6;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(9.5);
       doc.setTextColor(38, 70, 83);
       const subtitle =
@@ -354,13 +356,13 @@ export function buildCourseNotesPdfDoc(options: {
       doc.rect(marginX, currentY, contentWidth, 2, 'F');
       currentY += 5.5;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(138, 42, 67);
       const runningTitle = `${courseCode} - ${courseName} • Ders Notları`;
       doc.text(truncateTextToWidth(doc, runningTitle, contentWidth - 55), marginX, currentY);
 
-      doc.setFont('LiberationSans', 'normal');
+      setPdfTypography(doc, 'body', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
       doc.text('K7AÜ Kampüs Dijital', pageWidth - marginX, currentY, { align: 'right' });
@@ -379,11 +381,11 @@ export function buildCourseNotesPdfDoc(options: {
     doc.setLineWidth(0.3);
     doc.line(marginX, footerY - 2.5, pageWidth - marginX, footerY - 2.5);
 
-    doc.setFont('LiberationSans', 'normal');
+    setPdfTypography(doc, 'body', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      'K7AÜ Kampüs Dijital • Öğrenci Ders ve Çalışma Notları Arşivi',
+      'K7AÜ Kampüs Dijital • Akademik Notlar Arşivi',
       marginX,
       footerY
     );
@@ -413,7 +415,7 @@ export function buildCourseNotesPdfDoc(options: {
   const col2X = metaCardX + 94;
   const colWidth = 83;
 
-  doc.setFont('LiberationSans', 'bold');
+  setPdfTypography(doc, 'heading', 'bold');
   doc.setFontSize(11);
   const fullCourseTitle = formatPdfText(`${courseCode ? courseCode + ' - ' : ''}${courseName}`);
   const wrappedTitleLines = doc.splitTextToSize(fullCourseTitle, metaCardWidth - 10);
@@ -430,7 +432,7 @@ export function buildCourseNotesPdfDoc(options: {
   doc.setLineWidth(0.35);
   doc.roundedRect(metaCardX, currentY, metaCardWidth, metaBoxHeight, 2, 2, 'FD');
 
-  doc.setFont('LiberationSans', 'bold');
+  setPdfTypography(doc, 'heading', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(30, 41, 59);
   let titleCursorY = currentY + 6.5;
@@ -439,7 +441,7 @@ export function buildCourseNotesPdfDoc(options: {
     titleCursorY += 5.2;
   });
 
-  doc.setFont('LiberationSans', 'normal');
+  setPdfTypography(doc, 'body', 'normal');
   doc.setFontSize(8.2);
   doc.setTextColor(71, 85, 105);
 
@@ -472,7 +474,7 @@ export function buildCourseNotesPdfDoc(options: {
     const tocTotalHeight = 18 + notes.length * tocEntryHeight;
     ensureSpace(Math.min(tocTotalHeight, 50));
 
-    doc.setFont('LiberationSans', 'bold');
+    setPdfTypography(doc, 'heading', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(138, 42, 67);
     doc.text('DERS NOTLARI İÇİNDEKİLER VE İŞLENEN KONULAR', marginX, currentY);
@@ -486,12 +488,12 @@ export function buildCourseNotesPdfDoc(options: {
     notes.forEach((item, idx) => {
       ensureSpace(tocEntryHeight + 1);
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'body', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
       doc.text(`${idx + 1}.`, marginX + 2, currentY + 3.8);
 
-      doc.setFont('LiberationSans', 'normal');
+      setPdfTypography(doc, 'body', 'normal');
       doc.setFontSize(8.2);
       doc.setTextColor(30, 41, 59);
       const rawTitle = formatPdfText(item.title || 'Ders Notu');
@@ -524,7 +526,7 @@ export function buildCourseNotesPdfDoc(options: {
     doc.setLineWidth(0.35);
     doc.roundedRect(marginX, currentY, contentWidth, headerBoxHeight, 1.5, 1.5, 'FD');
 
-    doc.setFont('LiberationSans', 'bold');
+    setPdfTypography(doc, 'heading', 'bold');
     doc.setFontSize(9.2);
     doc.setTextColor(138, 42, 67);
     const maxTitleW = contentWidth - 64;
@@ -537,8 +539,8 @@ export function buildCourseNotesPdfDoc(options: {
 
     currentY += headerBoxHeight + 3.5;
 
-    // Sub-info Bar
-    let badgeCursorX = marginX + 2;
+    // Sub-info Bar - Left-aligned with header title (marginX + 3.5)
+    let badgeCursorX = marginX + 3.5;
     let hasDrawnPills = false;
 
     if (note.day || note.startTime) {
@@ -566,10 +568,11 @@ export function buildCourseNotesPdfDoc(options: {
       }
     }
 
+    // Generous breathing space between course info badges and note content text
     if (hasDrawnPills) {
-      currentY += 8.2;
+      currentY += 12.5;
     } else {
-      currentY += 1.5;
+      currentY += 4.5;
     }
 
     // Body content line by line using currentY
@@ -577,7 +580,7 @@ export function buildCourseNotesPdfDoc(options: {
     const lineHeight = 5.3;
     const paragraphGap = 2.8;
 
-    doc.setFont('LiberationSans', 'normal');
+    setPdfTypography(doc, 'body', 'normal');
     doc.setFontSize(fontSize);
     doc.setTextColor(30, 41, 59);
 
@@ -594,20 +597,21 @@ export function buildCourseNotesPdfDoc(options: {
 
       const isBullet = /^(\s*[-*•]|\s*\d+[\.\)])\s+/.test(p);
       const lineIndent = isBullet ? 2.5 : 0;
-      const effectiveWidth = contentWidth - 5 - lineIndent;
+      const effectiveWidth = contentWidth - 7 - lineIndent;
 
-      doc.setFont('LiberationSans', 'normal');
+      setPdfTypography(doc, 'body', 'normal');
       doc.setFontSize(fontSize);
       const wrappedLines = doc.splitTextToSize(p, effectiveWidth);
 
       for (let lIdx = 0; lIdx < wrappedLines.length; lIdx++) {
         ensureSpace(lineHeight + 1.5);
 
-        doc.setFont('LiberationSans', 'normal');
+        setPdfTypography(doc, 'body', 'normal');
         doc.setFontSize(fontSize);
         doc.setTextColor(30, 41, 59);
 
-        const lineX = marginX + 2.5 + (lIdx === 0 ? 0 : lineIndent);
+        // Aligned with header box title and badges at marginX + 3.5
+        const lineX = marginX + 3.5 + (lIdx === 0 ? 0 : lineIndent);
         doc.text(wrappedLines[lIdx], lineX, currentY);
         currentY += lineHeight;
       }
@@ -646,6 +650,7 @@ export async function generateCourseNotesPdf(options: {
   courseGroup?: MergedCourseGroup;
   titleOverride?: string;
   subtitleOverride?: string;
+  fontThemeId?: FontThemeId;
 }): Promise<{ success: boolean; message: string }> {
   const built = buildCourseNotesPdfDoc(options);
   if (!built) {
@@ -663,7 +668,8 @@ export async function generateCourseNotesPdf(options: {
  */
 export function buildMasterBookletPdfDoc(
   allNotes: CourseNoteItem[],
-  courses: CourseItem[] = []
+  courses: CourseItem[] = [],
+  fontThemeId?: FontThemeId
 ): { doc: jsPDF; filename: string } | null {
   if (allNotes.length === 0) {
     return null;
@@ -677,7 +683,7 @@ export function buildMasterBookletPdfDoc(
     format: 'a4'
   });
 
-  registerTurkishFonts(doc);
+  registerTurkishFonts(doc, fontThemeId);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -698,7 +704,7 @@ export function buildMasterBookletPdfDoc(
       doc.rect(marginX, currentY, contentWidth, 3, 'F');
       currentY += 7;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(138, 42, 67);
       doc.text('K7AÜ KAMPÜS DİJİTAL', marginX, currentY);
@@ -708,7 +714,7 @@ export function buildMasterBookletPdfDoc(
 
       currentY += 6;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(9.5);
       doc.setTextColor(38, 70, 83);
       doc.text('TÜM DERSLER ÇALIŞMA VE DERS NOTLARI KİTAPÇIĞI', marginX, currentY);
@@ -723,12 +729,12 @@ export function buildMasterBookletPdfDoc(
       doc.rect(marginX, currentY, contentWidth, 2, 'F');
       currentY += 5.5;
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(138, 42, 67);
       doc.text('K7AÜ KAMPÜS DİJİTAL • TÜM DERSLER NOT KİTAPÇIĞI', marginX, currentY);
 
-      doc.setFont('LiberationSans', 'normal');
+      setPdfTypography(doc, 'body', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
       doc.text(`Rapor: ${dateStr}`, pageWidth - marginX, currentY, { align: 'right' });
@@ -747,7 +753,7 @@ export function buildMasterBookletPdfDoc(
     doc.setLineWidth(0.3);
     doc.line(marginX, footerY - 2.5, pageWidth - marginX, footerY - 2.5);
 
-    doc.setFont('LiberationSans', 'normal');
+    setPdfTypography(doc, 'body', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text(
@@ -781,12 +787,12 @@ export function buildMasterBookletPdfDoc(
   doc.setLineWidth(0.35);
   doc.roundedRect(marginX, currentY, contentWidth, 20, 2, 2, 'FD');
 
-  doc.setFont('LiberationSans', 'bold');
+  setPdfTypography(doc, 'heading', 'bold');
   doc.setFontSize(10.5);
   doc.setTextColor(38, 70, 83);
   doc.text('GENEL AKADEMİK NOT RAPORU', marginX + 5, currentY + 6.5);
 
-  doc.setFont('LiberationSans', 'normal');
+  setPdfTypography(doc, 'body', 'normal');
   doc.setFontSize(8.2);
   doc.setTextColor(71, 85, 105);
   doc.text(
@@ -816,7 +822,7 @@ export function buildMasterBookletPdfDoc(
     doc.setFillColor(138, 42, 67);
     doc.roundedRect(marginX, currentY, contentWidth, groupBannerHeight, 1.2, 1.2, 'F');
 
-    doc.setFont('LiberationSans', 'bold');
+    setPdfTypography(doc, 'heading', 'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(255, 255, 255);
     const groupHeaderTitle = `[${group.gradeLabel}] ${group.courseCode} - ${group.courseName}`;
@@ -834,29 +840,34 @@ export function buildMasterBookletPdfDoc(
       { align: 'right' }
     );
 
-    currentY += groupBannerHeight + 4;
+    currentY += groupBannerHeight + 3.2;
 
-    doc.setFont('LiberationSans', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      formatPdfText(`Öğretim Elemanı: ${group.instructor || 'Belirtilmedi'}  |  Derslik: ${group.classroom || 'Belirtilmedi'}`),
-      marginX + 2,
-      currentY
-    );
-    currentY += 5.5;
+    // High-visibility, prominent Badge Strip for Instructor and Classroom
+    let groupBadgeCursorX = marginX + 3.5;
+    const instructorLabel = `Öğretim Elemanı: ${group.instructor || 'Belirtilmedi'}`;
+    const classroomLabel = `Derslik: ${group.classroom || 'Belirtilmedi'}`;
+
+    const instBadge = drawPillBadge(doc, instructorLabel, groupBadgeCursorX, currentY, 'burgundy', false);
+    groupBadgeCursorX += instBadge.width + 2.5;
+
+    if (groupBadgeCursorX + 45 < pageWidth - marginX) {
+      const classBadge = drawPillBadge(doc, classroomLabel, groupBadgeCursorX, currentY, 'teal', false);
+      groupBadgeCursorX += classBadge.width + 2.5;
+    }
+
+    currentY += 8.5;
 
     for (let nIdx = 0; nIdx < group.notes.length; nIdx++) {
       const note = group.notes[nIdx];
       ensureSpace(24);
 
-      doc.setFont('LiberationSans', 'bold');
+      setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(8.8);
       doc.setTextColor(38, 70, 83);
       const noteTitleStr = `${gIdx + 1}.${nIdx + 1} ${note.title || 'Ders Notu'}`;
       doc.text(
         truncateTextToWidth(doc, formatPdfText(noteTitleStr), contentWidth - 62),
-        marginX + 3,
+        marginX + 3.5,
         currentY + 3.8
       );
 
@@ -865,13 +876,13 @@ export function buildMasterBookletPdfDoc(
         drawPillBadge(doc, `Ders: ${noteDateFormatted}`, pageWidth - marginX - 3, currentY, 'amber', true);
       }
 
-      currentY += 7.5;
+      currentY += 10.5;
 
       const fontSize = 8.4;
       const lineHeight = 5.0;
       const paragraphGap = 2.5;
 
-      doc.setFont('LiberationSans', 'normal');
+      setPdfTypography(doc, 'body', 'normal');
       doc.setFontSize(fontSize);
       doc.setTextColor(51, 65, 85);
 
@@ -888,20 +899,20 @@ export function buildMasterBookletPdfDoc(
 
         const isBullet = /^(\s*[-*•]|\s*\d+[\.\)])\s+/.test(p);
         const lineIndent = isBullet ? 2.5 : 0;
-        const effectiveWidth = contentWidth - 8 - lineIndent;
+        const effectiveWidth = contentWidth - 7 - lineIndent;
 
-        doc.setFont('LiberationSans', 'normal');
+        setPdfTypography(doc, 'body', 'normal');
         doc.setFontSize(fontSize);
         const wrappedLines = doc.splitTextToSize(p, effectiveWidth);
 
         for (let lIdx = 0; lIdx < wrappedLines.length; lIdx++) {
           ensureSpace(lineHeight + 1.5);
 
-          doc.setFont('LiberationSans', 'normal');
+          setPdfTypography(doc, 'body', 'normal');
           doc.setFontSize(fontSize);
           doc.setTextColor(51, 65, 85);
 
-          const lineX = marginX + 4 + (lIdx === 0 ? 0 : lineIndent);
+          const lineX = marginX + 3.5 + (lIdx === 0 ? 0 : lineIndent);
           doc.text(wrappedLines[lIdx], lineX, currentY);
           currentY += lineHeight;
         }
@@ -936,9 +947,10 @@ export function buildMasterBookletPdfDoc(
  */
 export async function generateMasterBookletPdf(
   allNotes: CourseNoteItem[],
-  courses: CourseItem[] = []
+  courses: CourseItem[] = [],
+  fontThemeId?: FontThemeId
 ): Promise<{ success: boolean; message: string }> {
-  const built = buildMasterBookletPdfDoc(allNotes, courses);
+  const built = buildMasterBookletPdfDoc(allNotes, courses, fontThemeId);
   if (!built) {
     return { success: false, message: 'Dışa aktarılacak ders notu bulunamadı.' };
   }

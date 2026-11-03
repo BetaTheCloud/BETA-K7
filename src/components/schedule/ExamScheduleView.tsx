@@ -70,7 +70,7 @@ export default function ExamScheduleView({
     if (isNowEnabled) {
       toast.success(`"${examName}" sınavı için 10 ve 5 dk kala bildirimler açıldı.`);
     } else {
-      toast(`"${examName}" sınavı için bildirimler kapatıldı.`, { icon: '🔕' });
+      toast(`"${examName}" sınavı için bildirimler kapatıldı.`);
     }
   };
 
@@ -116,7 +116,7 @@ export default function ExamScheduleView({
     }
     const icsContent = generateIcsFile(filteredExams);
     downloadFile(icsContent, 'Kilis7_Aralik_Sinav_Takvimi.ics', 'text/calendar;charset=utf-8');
-    toast.success('Sınav takvimi (.ics) indirildi! Telefon takviminize aktarabilirsiniz.', { icon: '📅' });
+    toast.success('Sınav takvimi (.ics) indirildi! Telefon takviminize aktarabilirsiniz.');
   };
 
   // Helper for exam countdown badge

@@ -25,6 +25,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModalScrollLock } from '../../lib/scrollLock';
 import { CourseItem, ExamItem } from '../../types/schedule';
 import {
   ScheduleExportPackage,
@@ -57,6 +58,9 @@ export default function ScheduleTemplateModal({
   const [activeTab, setActiveTab] = useState<'export' | 'import'>(initialMode);
   const [mounted, setMounted] = useState(false);
 
+  // Smooth, jitter-free scroll lock
+  useModalScrollLock(isOpen);
+
   React.useEffect(() => {
     setMounted(true);
   }, []);
@@ -87,7 +91,7 @@ export default function ScheduleTemplateModal({
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen || !mounted || typeof document === 'undefined') return null;
+  if (!mounted || typeof document === 'undefined') return null;
 
   // Handle Export File Download
   const handleDownloadFile = () => {
@@ -106,7 +110,7 @@ export default function ScheduleTemplateModal({
     });
 
     downloadSchedulePackage(pkg);
-    toast.success('Şablon dosyası (.k7plan) indirildi!', { icon: '📥' });
+    toast.success('Şablon dosyası (.k7plan) indirildi!');
   };
 
   // Handle Copy to Clipboard
@@ -200,24 +204,26 @@ export default function ScheduleTemplateModal({
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-stone-900/70 dark:bg-black/80 backdrop-blur-md"
-        />
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px]"
+          />
 
-        {/* Modal Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 15 }}
-          transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-          className="relative w-full max-w-xl bg-[#faf8f5] dark:bg-[#14232c] rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[90vh]"
-        >
+          {/* Modal Card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="modal-gpu-layer relative w-full max-w-xl bg-[#faf8f5] dark:bg-[#14232c] rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[90vh]"
+          >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200/80 dark:border-white/10 bg-white/70 dark:bg-black/20 shrink-0">
             <div className="flex items-center gap-3">
@@ -572,6 +578,7 @@ export default function ScheduleTemplateModal({
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>,
     document.body
   );

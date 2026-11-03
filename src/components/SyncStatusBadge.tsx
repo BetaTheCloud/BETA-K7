@@ -217,7 +217,7 @@ export default function SyncStatusBadge() {
       } else {
         setSyncState('cached');
         localStorage.setItem('k7_sync_mode', 'cached');
-        toast('Üniversite sunucusuna erişilemedi, önbellek verileri aktif.', { id: toastId, icon: '📦' });
+        toast('Üniversite sunucusuna erişilemedi, önbellek verileri aktif.', { id: toastId });
       }
 
       // Dispatch global refresh event so active pages re-read data

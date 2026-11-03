@@ -90,6 +90,7 @@ import K7Logo from './K7Logo';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { AboutContent } from './AboutModal';
+import { useModalScrollLock } from '../lib/scrollLock';
 
 export interface AppSettingsModalProps {
   isOpen: boolean;
@@ -169,6 +170,9 @@ export default function AppSettingsModal({
     setMounted(true);
   }, []);
 
+  // Smooth, jitter-free body scroll lock
+  useModalScrollLock(isOpen);
+
   useEffect(() => {
     if (isOpen) {
       setWidgetConfigs(getHomeWidgetConfigs());
@@ -179,13 +183,7 @@ export default function AppSettingsModal({
       if (initialTab) {
         setActiveTab(initialTab);
       }
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, [isOpen, initialTab]);
 
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
@@ -272,7 +270,6 @@ export default function AppSettingsModal({
     applyFontTheme(fontId);
     const targetTheme = FONT_THEMES.find((f) => f.id === fontId);
     toast.success(`"${targetTheme?.name || fontId}" yazı tipi uygulandı!`, {
-      icon: '🔤',
       duration: 2000
     });
   };
@@ -286,7 +283,6 @@ export default function AppSettingsModal({
     setPalette(pId);
     const selected = palettes.find((p) => p.id === pId);
     toast.success(`"${selected?.name || pId}" teması uygulandı!`, {
-      icon: '🎨',
       duration: 2000
     });
   };
@@ -308,7 +304,7 @@ export default function AppSettingsModal({
     setIsServerUnlocked(false);
     setPasswordInput('');
     setPasswordError('');
-    toast('Gelişmiş ayarlar kilitlendi', { icon: '🔒' });
+    toast('Gelişmiş ayarlar kilitlendi');
   };
 
   const handleSaveServerUrl = () => {
@@ -362,7 +358,7 @@ export default function AppSettingsModal({
           success: true,
           message: 'Sunucuya başarıyla bağlanıldı! Canlı servis aktif.'
         });
-        toast.success('Sunucu yanıt verdi: Bağlantı Kusursuz!', { icon: '🟢' });
+        toast.success('Sunucu yanıt verdi: Bağlantı Kusursuz!');
       } else {
         setTestResult({
           success: false,
@@ -451,14 +447,15 @@ export default function AppSettingsModal({
 
   // Full Screen Modal Markup
   const modalMarkup = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain">
       {/* Soft Dimming Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         onClick={onClose}
-        className="fixed inset-0 bg-stone-900/60 dark:bg-black/75 backdrop-blur-md"
+        className="fixed inset-0 bg-stone-900/70 dark:bg-black/80 backdrop-blur-[2px]"
       />
 
       {/* Main Calm Settings Card */}
@@ -466,8 +463,8 @@ export default function AppSettingsModal({
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="relative w-full max-w-xl bg-[#faf8f5] dark:bg-[#0d172c] rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[88vh]"
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-xl bg-[#faf8f5] dark:bg-[#0d172c] rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[88vh] modal-gpu-layer"
       >
         {/* Header: Clean & Calming */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200/80 dark:border-white/10 bg-white/70 dark:bg-black/20 shrink-0">
@@ -1047,8 +1044,11 @@ export default function AppSettingsModal({
         {/* ================= TAB 4: YAZI TİPİ ================= */}
         {activeTab === 'font' && (
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-5 py-2.5 border-b border-stone-200/70 dark:border-white/5 bg-white/40 dark:bg-white/2 text-xs text-stone-500 dark:text-white/60 shrink-0">
-              Uygulamanın genel başlık ve gövde yazı tiplerini zevkinize göre seçin. Seçim anında canlı uygulanır.
+            <div className="px-5 py-2.5 border-b border-stone-200/70 dark:border-white/5 bg-white/40 dark:bg-white/2 text-xs text-stone-500 dark:text-white/60 shrink-0 flex flex-wrap items-center justify-between gap-2">
+              <span>Uygulamanın genel başlık ve gövde yazı tiplerini zevkinize göre seçin. Seçim anında canlı uygulanır.</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                📄 PDF Rapor ve Kitapçıklara Otomatik Uygulanır
+              </span>
             </div>
 
             {/* Font Options List */}

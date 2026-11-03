@@ -1,21 +1,40 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * Kilis 7 Aralık Üniversitesi - Temaya Uygun Bildirim ve Toast Yöneticisi
+ * Profesyonel, vektörel SVG ikonlar ve kurumsal akademik renk paleti ile donatılmıştır.
+ */
+
 import React, { useMemo } from 'react';
 import { useToaster, resolveValue, toast, Toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Download,
+  FileDown,
   Image as ImageIcon,
   Sparkles,
   X,
   Copy,
+  CheckCheck,
   Calendar,
+  CalendarDays,
   Bell,
+  BellOff,
+  BellRing,
   RefreshCw,
-  Check,
   Palette,
-  FileText
+  Type,
+  Lock,
+  Unlock,
+  Radio,
+  Wifi,
+  Database,
+  BookOpen,
+  GraduationCap
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -41,23 +60,82 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       text.includes('fotoğraf') ||
       text.includes('resim');
 
-    const isCalendar = text.includes('takvim') || text.includes('.ics') || iconStr === '📅';
-    const isFileDownload = text.includes('indirildi') || text.includes('.k7plan') || iconStr === '📥';
-    const isCopy = text.includes('kopyalandı') || text.includes('panoya');
-    const isSchedule = text.includes('ders') || text.includes('sınav') || text.includes('şablon');
-    const isSync = text.includes('canlı') || text.includes('senkronizasyon') || text.includes('güncellendi');
-    const isNotification = text.includes('bildirim') || iconStr === '🔕';
-    const isTheme = text.includes('tema') || text.includes('yazı tipi') || iconStr === '🎨' || iconStr === '🔤';
+    const isFont =
+      text.includes('yazı tipi') ||
+      text.includes('font') ||
+      iconStr === '🔤';
+
+    const isTheme =
+      (!isFont && text.includes('tema')) ||
+      text.includes('renk paleti') ||
+      iconStr === '🎨';
+
+    const isSecurity =
+      text.includes('parola') ||
+      text.includes('kilitlendi') ||
+      text.includes('kilidi') ||
+      iconStr === '🔒' ||
+      iconStr === '🔓';
+
+    const isServer =
+      text.includes('sunucu') ||
+      text.includes('bağlantı') ||
+      iconStr === '🟢';
+
+    const isNotificationOff =
+      text.includes('bildirimler kapatıldı') ||
+      text.includes('bildirim kapatıldı') ||
+      iconStr === '🔕';
+
+    const isNotificationOn =
+      !isNotificationOff &&
+      (text.includes('bildirim') ||
+        text.includes('hatırlatıcı') ||
+        iconStr === '🔔');
+
+    const isCalendar =
+      text.includes('takvim') ||
+      text.includes('.ics') ||
+      iconStr === '📅';
+
+    const isFileDownload =
+      text.includes('indirildi') ||
+      text.includes('.k7plan') ||
+      text.includes('.pdf') ||
+      iconStr === '📥';
+
+    const isCopy =
+      text.includes('kopyalandı') ||
+      text.includes('panoya');
+
+    const isSchedule =
+      text.includes('ders') ||
+      text.includes('sınav') ||
+      text.includes('şablon');
+
+    const isSync =
+      text.includes('canlı') ||
+      text.includes('senkronizasyon') ||
+      text.includes('güncellendi');
+
+    const isCache =
+      text.includes('önbellek') ||
+      iconStr === '📦';
 
     let category:
+      | 'font'
+      | 'theme'
+      | 'security'
+      | 'server'
+      | 'notification-off'
+      | 'notification-on'
       | 'image'
       | 'calendar'
       | 'download'
       | 'copy'
       | 'schedule'
       | 'sync'
-      | 'notification'
-      | 'theme'
+      | 'cache'
       | 'error'
       | 'loading'
       | 'success' = 'success';
@@ -66,6 +144,18 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       category = 'error';
     } else if (t.type === 'loading') {
       category = 'loading';
+    } else if (isSecurity) {
+      category = 'security';
+    } else if (isFont) {
+      category = 'font';
+    } else if (isTheme) {
+      category = 'theme';
+    } else if (isNotificationOff) {
+      category = 'notification-off';
+    } else if (isNotificationOn) {
+      category = 'notification-on';
+    } else if (isServer) {
+      category = 'server';
     } else if (isImage) {
       category = 'image';
     } else if (isCalendar) {
@@ -74,10 +164,8 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       category = 'download';
     } else if (isCopy) {
       category = 'copy';
-    } else if (isTheme) {
-      category = 'theme';
-    } else if (isNotification) {
-      category = 'notification';
+    } else if (isCache) {
+      category = 'cache';
     } else if (isSchedule) {
       category = 'schedule';
     } else if (isSync) {
@@ -86,87 +174,151 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       category = 'success';
     }
 
-    // Category Badge text, theme gradients, and icons
-    let badgeText = 'K7AÜ Kampüs';
+    // Category styling & SVG vector icon mapping
+    let badgeText = 'K7AÜ KAMPÜS';
     let avatarGradient = 'from-[#264653] via-[#2a9d8f] to-emerald-600';
     let progressGradient = 'from-[#264653] via-[#2a9d8f] to-amber-500';
     let subtitleText: string | null = null;
-    let badgeColorClass = 'text-amber-700 dark:text-amber-400';
+    let badgeColorClass = 'text-emerald-700 dark:text-emerald-400';
+    let iconElement: React.ReactNode = <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={2.2} />;
 
     switch (category) {
+      case 'font':
+        badgeText = 'YAZI TİPİ & TİPOGRAFİ';
+        avatarGradient = 'from-[#8a2a43] via-[#a33250] to-[#b83a5c]';
+        progressGradient = 'from-[#8a2a43] via-[#b83a5c] to-amber-400';
+        badgeColorClass = 'text-[#8a2a43] dark:text-[#f4a261]';
+        iconElement = <Type className="w-5 h-5 text-white" strokeWidth={2.3} />;
+        subtitleText = 'Uygulama genelindeki metin ailesi güncellendi.';
+        break;
+
+      case 'theme':
+        badgeText = 'GÖRÜNÜM & TEMA';
+        avatarGradient = 'from-[#264653] via-[#355b6c] to-[#2a9d8f]';
+        progressGradient = 'from-[#264653] via-[#2a9d8f] to-teal-400';
+        badgeColorClass = 'text-teal-700 dark:text-teal-300';
+        iconElement = <Palette className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        subtitleText = 'Renk paleti ve arayüz tonları uygulandı.';
+        break;
+
+      case 'security':
+        badgeText = 'GÜVENLİK AYARLARI';
+        avatarGradient = 'from-[#9a3412] via-[#c2410c] to-[#ea580c]';
+        progressGradient = 'from-[#9a3412] via-[#c2410c] to-amber-400';
+        badgeColorClass = 'text-amber-700 dark:text-amber-400';
+        iconElement = text.includes('açıldı') ? (
+          <Unlock className="w-5 h-5 text-white" strokeWidth={2.2} />
+        ) : (
+          <Lock className="w-5 h-5 text-white" strokeWidth={2.2} />
+        );
+        break;
+
+      case 'server':
+        badgeText = 'SUNUCU BAĞLANTISI';
+        avatarGradient = 'from-[#065f46] via-[#047857] to-[#059669]';
+        progressGradient = 'from-[#047857] via-[#059669] to-teal-400';
+        badgeColorClass = 'text-emerald-700 dark:text-emerald-400';
+        iconElement = <Radio className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        break;
+
+      case 'notification-off':
+        badgeText = 'BİLDİRİM KAPATILDI';
+        avatarGradient = 'from-[#475569] via-[#64748b] to-[#78889b]';
+        progressGradient = 'from-slate-600 via-slate-500 to-slate-400';
+        badgeColorClass = 'text-slate-600 dark:text-slate-300';
+        iconElement = <BellOff className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        break;
+
+      case 'notification-on':
+        badgeText = 'BİLDİRİM & HATIRLATICI';
+        avatarGradient = 'from-[#8a2a43] via-[#b83a5c] to-[#e76f51]';
+        progressGradient = 'from-[#8a2a43] via-[#e76f51] to-amber-400';
+        badgeColorClass = 'text-[#8a2a43] dark:text-[#f4a261]';
+        iconElement = <BellRing className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        break;
+
       case 'image':
-        badgeText = 'Galeri & İndirme';
+        badgeText = 'GALERİ & MEDYA';
         avatarGradient = 'from-[#8a2a43] via-[#a33250] to-[#e76f51]';
         progressGradient = 'from-[#8a2a43] via-[#e76f51] to-amber-500';
         badgeColorClass = 'text-[#8a2a43] dark:text-[#f4a261]';
+        iconElement = <ImageIcon className="w-5 h-5 text-white" strokeWidth={2.2} />;
         subtitleText = 'Cihazınızın fotoğraf galerisinde görüntülenebilir.';
         break;
 
       case 'download':
-      case 'calendar':
-        badgeText = category === 'calendar' ? 'Akademik Takvim' : 'Dosya İndirildi';
-        avatarGradient = 'from-[#e76f51] via-[#f4a261] to-amber-500';
-        progressGradient = 'from-[#e76f51] via-[#f4a261] to-amber-400';
-        badgeColorClass = 'text-amber-700 dark:text-amber-400';
+        badgeText = 'DOSYA İNDİRİLDİ';
+        avatarGradient = 'from-[#0d5c63] via-[#197278] to-[#2a9d8f]';
+        progressGradient = 'from-[#0d5c63] via-[#2a9d8f] to-emerald-400';
+        badgeColorClass = 'text-teal-700 dark:text-teal-300';
+        iconElement = <FileDown className="w-5 h-5 text-white" strokeWidth={2.2} />;
         subtitleText = 'Dosya cihazınıza başarıyla aktarıldı.';
         break;
 
+      case 'calendar':
+        badgeText = 'AKADEMİK TAKVİM';
+        avatarGradient = 'from-[#264653] via-[#2a9d8f] to-amber-500';
+        progressGradient = 'from-[#264653] via-[#2a9d8f] to-amber-400';
+        badgeColorClass = 'text-amber-700 dark:text-amber-400';
+        iconElement = <Calendar className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        break;
+
       case 'copy':
-        badgeText = 'Panoya Kopyalandı';
-        avatarGradient = 'from-[#264653] via-[#3a6073] to-[#2a9d8f]';
-        progressGradient = 'from-[#264653] via-[#2a9d8f] to-teal-400';
+        badgeText = 'PANOYA KOPYALANDI';
+        avatarGradient = 'from-[#1e3a47] via-[#264653] to-[#2a9d8f]';
+        progressGradient = 'from-[#1e3a47] via-[#2a9d8f] to-teal-400';
         badgeColorClass = 'text-teal-700 dark:text-teal-300';
+        iconElement = <CheckCheck className="w-5 h-5 text-white" strokeWidth={2.2} />;
         break;
 
       case 'schedule':
-        badgeText = 'Ders & Sınav Takvimi';
-        avatarGradient = 'from-[#8a2a43] via-[#b53a5b] to-[#f4a261]';
+        badgeText = 'DERS & SINAV TAKVİMİ';
+        avatarGradient = 'from-[#8a2a43] via-[#9e324f] to-[#e76f51]';
         progressGradient = 'from-[#8a2a43] via-[#e76f51] to-amber-400';
         badgeColorClass = 'text-[#8a2a43] dark:text-[#f4a261]';
-        break;
-
-      case 'notification':
-        badgeText = 'Hatırlatıcı & Bildirim';
-        avatarGradient = 'from-[#3a0ca3] via-[#4361ee] to-[#7209b7]';
-        progressGradient = 'from-[#3a0ca3] via-[#4361ee] to-amber-400';
-        badgeColorClass = 'text-indigo-600 dark:text-indigo-400';
+        iconElement = <CalendarDays className="w-5 h-5 text-white" strokeWidth={2.2} />;
         break;
 
       case 'sync':
-        badgeText = 'Canlı Senkronizasyon';
-        avatarGradient = 'from-[#264653] via-[#2a9d8f] to-emerald-500';
-        progressGradient = 'from-[#264653] via-[#2a9d8f] to-emerald-400';
+        badgeText = 'CANLI SENKRONİZASYON';
+        avatarGradient = 'from-[#047857] via-[#059669] to-[#10b981]';
+        progressGradient = 'from-[#047857] via-[#059669] to-teal-400';
         badgeColorClass = 'text-emerald-700 dark:text-emerald-400';
+        iconElement = <RefreshCw className="w-5 h-5 text-white" strokeWidth={2.2} />;
         break;
 
-      case 'theme':
-        badgeText = 'Görünüm & Tema';
-        avatarGradient = 'from-[#7209b7] via-[#8a2a43] to-[#e76f51]';
-        progressGradient = 'from-[#7209b7] via-[#8a2a43] to-amber-500';
-        badgeColorClass = 'text-purple-600 dark:text-purple-400';
+      case 'cache':
+        badgeText = 'ÖNBELLEK MODU';
+        avatarGradient = 'from-[#334155] via-[#475569] to-[#64748b]';
+        progressGradient = 'from-slate-600 to-slate-400';
+        badgeColorClass = 'text-slate-600 dark:text-slate-300';
+        iconElement = <Database className="w-5 h-5 text-white" strokeWidth={2.2} />;
         break;
 
       case 'error':
-        badgeText = 'İşlem Başarısız';
-        avatarGradient = 'from-[#8a2a43] via-[#c1121f] to-rose-600';
+        badgeText = 'BİLGİ / HATA';
+        avatarGradient = 'from-[#8a2a43] via-[#b91c1c] to-[#dc2626]';
         progressGradient = 'from-rose-600 via-rose-500 to-red-400';
         badgeColorClass = 'text-rose-600 dark:text-rose-400';
-        subtitleText = 'Lütfen tekrar deneyin veya ayarları kontrol edin.';
+        iconElement = <AlertCircle className="w-5 h-5 text-white" strokeWidth={2.2} />;
+        subtitleText = subtitleText || 'Lütfen tekrar deneyin veya ayarları kontrol edin.';
         break;
 
       case 'loading':
-        badgeText = 'İşlem Sürüyor';
-        avatarGradient = 'from-[#8a2a43] via-[#e76f51] to-amber-500';
-        progressGradient = 'from-[#8a2a43] via-[#e76f51] to-amber-400';
+        badgeText = 'İŞLEM SÜRÜYOR';
+        avatarGradient = 'from-[#8a2a43] via-[#d97706] to-[#f59e0b]';
+        progressGradient = 'from-[#8a2a43] via-[#d97706] to-amber-400';
         badgeColorClass = 'text-amber-700 dark:text-amber-400';
+        iconElement = <Loader2 className="w-5 h-5 text-white animate-spin" strokeWidth={2.2} />;
         break;
 
       case 'success':
       default:
-        badgeText = 'İşlem Başarılı';
-        avatarGradient = 'from-[#264653] via-[#2a9d8f] to-emerald-600';
-        progressGradient = 'from-[#264653] via-[#2a9d8f] to-amber-500';
+        badgeText = 'İŞLEM BAŞARILI';
+        avatarGradient = 'from-[#264653] via-[#2a9d8f] to-[#059669]';
+        progressGradient = 'from-[#264653] via-[#2a9d8f] to-emerald-500';
         badgeColorClass = 'text-emerald-700 dark:text-emerald-400';
+        iconElement = <CheckCircle2 className="w-5 h-5 text-white" strokeWidth={2.2} />;
         break;
     }
 
@@ -185,7 +337,8 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       avatarGradient,
       progressGradient,
       displayTitle,
-      subtitleText
+      subtitleText,
+      iconElement
     };
   }, [messageStr, t.icon, t.id, t.type]);
 
@@ -194,20 +347,17 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -24, scale: 0.92, filter: 'blur(3px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      initial={{ opacity: 0, y: -20, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{
         opacity: 0,
-        y: -16,
+        y: -14,
         scale: 0.95,
-        filter: 'blur(2px)',
-        transition: { duration: 0.18, ease: [0.32, 0.72, 0, 1] }
+        transition: { duration: 0.16, ease: [0.16, 1, 0.3, 1] }
       }}
       transition={{
-        type: 'spring',
-        damping: 26,
-        stiffness: 360,
-        mass: 0.75
+        duration: 0.22,
+        ease: [0.16, 1, 0.3, 1]
       }}
       whileTap={{ scale: 0.98 }}
       onClick={() => toast.dismiss(t.id)}
@@ -225,77 +375,44 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 dark:via-amber-400/30 to-transparent pointer-events-none" />
 
       {/* Main Content Area */}
-      <div className="p-3.5 sm:p-4 flex items-start gap-3.5">
-        {/* Animated Themed Icon Avatar */}
+      <div className="p-3.5 sm:p-4 flex items-center gap-3.5">
+        {/* Animated Themed Icon Avatar - Pure Vector Lucide, Zero Emojis */}
         <div className="shrink-0 relative">
           <motion.div
-            initial={{ scale: 0.6, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', damping: 14, stiffness: 280 }}
+            initial={{ scale: 0.72, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{
+              type: 'spring',
+              damping: 18,
+              stiffness: 300,
+              mass: 0.7
+            }}
             className={cn(
-              'relative w-11 h-11 rounded-xl bg-gradient-to-tr flex items-center justify-center text-white shadow-md overflow-hidden',
+              'relative w-11 h-11 rounded-2xl bg-gradient-to-tr flex items-center justify-center text-white shadow-md shadow-stone-900/10 ring-1 ring-white/25 overflow-hidden',
               context.avatarGradient
             )}
           >
-            {/* Subtle background pulse animation aura */}
+            {/* Subtle inner radial sheen */}
+            <div className="absolute inset-0 bg-radial from-white/20 via-transparent to-black/10 pointer-events-none" />
+
+            {/* Subtle ambient breathing aura */}
             <motion.div
               animate={{
-                opacity: [0.15, 0.45, 0.15],
-                scale: [1, 1.25, 1]
+                opacity: [0.1, 0.35, 0.1],
+                scale: [0.95, 1.15, 0.95]
               }}
               transition={{
                 repeat: Infinity,
-                duration: 2.2,
+                duration: 2.4,
                 ease: 'easeInOut'
               }}
-              className="absolute inset-0 bg-white/20 rounded-xl pointer-events-none"
+              className="absolute inset-0 bg-white/20 rounded-2xl pointer-events-none"
             />
 
-            {/* Core Icon */}
-            {context.category === 'image' ? (
-              <ImageIcon className="w-5 h-5 text-white/95" />
-            ) : context.category === 'download' ? (
-              <Download className="w-5 h-5 text-white/95" />
-            ) : context.category === 'calendar' ? (
-              <Calendar className="w-5 h-5 text-white/95" />
-            ) : context.category === 'copy' ? (
-              <Copy className="w-5 h-5 text-white/95" />
-            ) : context.category === 'schedule' ? (
-              <Calendar className="w-5 h-5 text-white/95" />
-            ) : context.category === 'notification' ? (
-              <Bell className="w-5 h-5 text-white/95" />
-            ) : context.category === 'sync' ? (
-              <RefreshCw className="w-5 h-5 text-white/95" />
-            ) : context.category === 'theme' ? (
-              <Palette className="w-5 h-5 text-white/95" />
-            ) : context.category === 'loading' ? (
-              <Loader2 className="w-5 h-5 text-white/95 animate-spin" />
-            ) : context.category === 'error' ? (
-              <AlertCircle className="w-5 h-5 text-white/95" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 text-white/95" />
-            )}
-
-            {/* Little floating animated status badge on top/right corner */}
-            {context.category !== 'loading' && (
-              <motion.div
-                initial={{ scale: 0, y: 4 }}
-                animate={{ scale: 1, y: 0 }}
-                transition={{ delay: 0.15, type: 'spring', damping: 12 }}
-                className={cn(
-                  'absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow-sm border border-white dark:border-[#1d3540]',
-                  context.category === 'error'
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-amber-400 text-stone-950'
-                )}
-              >
-                {context.category === 'error' ? (
-                  <span className="text-[11px] font-black leading-none">!</span>
-                ) : (
-                  <Check className="w-3 h-3 stroke-[3]" />
-                )}
-              </motion.div>
-            )}
+            {/* Vector SVG Icon: Perfectly centered, unclipped, and razor-sharp */}
+            <div className="relative z-10 flex items-center justify-center w-full h-full drop-shadow-xs">
+              {context.iconElement}
+            </div>
           </motion.div>
         </div>
 
@@ -304,7 +421,7 @@ export function ThemedToastItem({ toast: t }: ThemedToastProps) {
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
-                'text-[10px] font-bold tracking-wider uppercase',
+                'text-[10px] font-bold tracking-wider uppercase font-display',
                 context.badgeColorClass
               )}
             >

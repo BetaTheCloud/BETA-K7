@@ -4,7 +4,9 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { useModalScrollLock } from '../../lib/scrollLock';
 import {
   FileText,
   Plus,
@@ -67,6 +69,8 @@ export default function CourseNotesView({
   const [activeReadingNote, setActiveReadingNote] = useState<CourseNoteItem | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<string | null>(null); // groupKey or 'all' or noteId
+
+  useModalScrollLock(!!activeReadingNote);
 
   // Distinct courses for filter dropdown
   const filterCourseOptions = useMemo(() => {
@@ -876,15 +880,19 @@ export default function CourseNotesView({
       )}
 
       {/* Note Reader Modal (Detail Full-Screen View) */}
-      <AnimatePresence>
-        {activeReadingNote && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden my-8"
-            >
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {activeReadingNote && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-[2px] overflow-y-auto">
+                <div className="fixed inset-0 -z-10" onClick={() => setActiveReadingNote(null)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  className="modal-gpu-layer relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1d3540] border border-[#e6e2d6] dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden my-8"
+                >
               {/* Modal Top Bar */}
               <div className="p-4 sm:p-5 border-b border-[#e6e2d6] dark:border-white/10 bg-[#f4f1ea] dark:bg-[#264653]/60 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -1002,7 +1010,9 @@ export default function CourseNotesView({
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+        )}
     </div>
   );
 }
