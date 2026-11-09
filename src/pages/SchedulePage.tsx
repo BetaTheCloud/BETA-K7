@@ -20,7 +20,10 @@ import {
   Share2,
   FileText,
   GraduationCap,
-  SlidersHorizontal
+  SlidersHorizontal,
+  UserCheck,
+  Calculator,
+  ImageDown
 } from 'lucide-react';
 import WeeklyTimetable from '../components/schedule/WeeklyTimetable';
 import ExamScheduleView from '../components/schedule/ExamScheduleView';
@@ -30,6 +33,9 @@ import ExamFormModal from '../components/schedule/ExamFormModal';
 import CourseNoteFormModal from '../components/schedule/CourseNoteFormModal';
 import ScheduleNotificationModal from '../components/schedule/ScheduleNotificationModal';
 import ScheduleTemplateModal from '../components/schedule/ScheduleTemplateModal';
+import ScheduleExportImageModal from '../components/schedule/ScheduleExportImageModal';
+import AttendanceTrackerModal from '../components/schedule/AttendanceTrackerModal';
+import GpaCalculatorModal from '../components/schedule/GpaCalculatorModal';
 import {
   getStoredCourses,
   getStoredExams,
@@ -73,6 +79,18 @@ export default function SchedulePage() {
     if (tabParam === 'notes' || tabParam === 'exams' || tabParam === 'courses') {
       setActiveTab(tabParam);
     }
+    const actionParam = searchParams.get('action') || (location.state as any)?.action;
+    if (actionParam === 'attendance') {
+      setIsAttendanceModalOpen(true);
+    } else if (actionParam === 'gpa') {
+      setIsGpaModalOpen(true);
+    } else if (actionParam === 'export_image') {
+      setIsExportImageModalOpen(true);
+    } else if (actionParam === 'notifications') {
+      setIsNotificationModalOpen(true);
+    } else if (actionParam === 'template') {
+      setIsTemplateModalOpen(true);
+    }
   }, [searchParams, location.state]);
   const [courses, setCourses] = useState<CourseItem[]>(getStoredCourses);
   const [exams, setExams] = useState<ExamItem[]>(getStoredExams);
@@ -90,6 +108,9 @@ export default function SchedulePage() {
   const [isExamFormOpen, setIsExamFormOpen] = useState(false);
   const [isNoteFormOpen, setIsNoteFormOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isExportImageModalOpen, setIsExportImageModalOpen] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isGpaModalOpen, setIsGpaModalOpen] = useState(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<CourseItem | null>(null);
   const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
@@ -171,9 +192,14 @@ export default function SchedulePage() {
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight leading-tight">
-                Derslerim
-              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-stone-900 dark:text-white tracking-tight leading-tight">
+                  Derslerim
+                </h1>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-white/10">
+                  {courses.length} Ders • {notes.length} Not • {exams.length} Sınav
+                </span>
+              </div>
               <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 font-medium mt-0.5">
                 Haftalık Ders Programı, Notlar ve Sınav Takvimi
               </p>
@@ -255,6 +281,53 @@ export default function SchedulePage() {
                         type="button"
                         onClick={() => {
                           setIsToolsMenuOpen(false);
+                          setIsExportImageModalOpen(true);
+                        }}
+                        className="w-full px-3 py-2 text-left rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-xs font-medium text-stone-700 dark:text-stone-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <ImageDown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-semibold">K7AÜ Ajanda</div>
+                          <div className="text-[10px] text-stone-600 dark:text-stone-300">Program Şeması</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsToolsMenuOpen(false);
+                          setIsAttendanceModalOpen(true);
+                        }}
+                        className="w-full px-3 py-2 text-left rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-xs font-medium text-stone-700 dark:text-stone-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <UserCheck className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-semibold">Devamsızlık Takipçisi</div>
+                          <div className="text-[10px] text-stone-600 dark:text-stone-300">K7AÜ 14 haftalık devamsızlık hakkı & sayaç</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsToolsMenuOpen(false);
+                          setIsGpaModalOpen(true);
+                        }}
+                        className="w-full px-3 py-2 text-left rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-xs font-medium text-stone-700 dark:text-stone-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <Calculator className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-semibold">Not & GNO Hesaplayıcı</div>
+                          <div className="text-[10px] text-stone-600 dark:text-stone-300">Final hedefi ve AGNO / GNO simülatörü</div>
+                        </div>
+                      </button>
+
+                      <div className="border-t border-stone-100 dark:border-white/5 my-1" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsToolsMenuOpen(false);
                           setIsNotificationModalOpen(true);
                         }}
                         className="w-full px-3 py-2 text-left rounded-xl hover:bg-stone-100 dark:hover:bg-white/10 text-xs font-medium text-stone-700 dark:text-stone-200 flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -328,45 +401,113 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* Bottom Section: Clean Metrics & Quick Utility Shortcuts */}
-        <div className="relative mt-4 pt-3.5 border-t border-stone-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-3">
-          {/* Micro Stats Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs font-semibold">
-              <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>{courses.length} Ders</span>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#8a2a43]/10 text-[#8a2a43] dark:text-[#f4a261] text-xs font-semibold">
-              <FileText className="w-3.5 h-3.5 text-[#8a2a43] dark:text-[#f4a261]" />
-              <span>{notes.length} Ders Notu</span>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-800 dark:text-rose-200 text-xs font-semibold">
-              <Calendar className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              <span>{exams.length} Sınav</span>
-            </div>
+        {/* Symmetrical 5-Tool Quick Bar (5 Integrated Student Tools) */}
+        <div className="mt-4 pt-3.5 border-t border-stone-100 dark:border-white/10">
+          <div className="flex items-center justify-between mb-2 px-0.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+              Program Araçları & Paylaşım
+            </span>
           </div>
-
-          {/* Quick Action Chips (Convenient 1-tap shortcuts) */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+            {/* 1. Şablon Paylaş & Dışa/İçe Aktar */}
             <button
-              onClick={() => setIsNotificationModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-white/5 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 text-xs font-medium transition-colors cursor-pointer border border-stone-200/80 dark:border-white/5 active:scale-95"
-            >
-              <BellRing className="w-3 h-3 text-[#8a2a43] dark:text-rose-300" />
-              <span>Bildirimler</span>
-            </button>
-
-            <button
+              type="button"
               onClick={() => {
                 setTemplateModalInitialMode('export');
                 setIsTemplateModalOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-white/5 dark:hover:bg-white/10 text-stone-700 dark:text-stone-300 text-xs font-medium transition-colors cursor-pointer border border-stone-200/80 dark:border-white/5 active:scale-95"
+              className="col-span-2 sm:col-span-1 flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-emerald-500/25 dark:border-emerald-500/30 transition-all cursor-pointer text-left active:scale-[0.98] group shadow-2xs"
             >
-              <Share2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>Şablon</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                <Share2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-emerald-950 dark:text-emerald-200 truncate flex items-center gap-1">
+                  <span>Şablon Paylaş</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-600/20 text-emerald-800 dark:text-emerald-300 font-bold">
+                    Aktar
+                  </span>
+                </div>
+                <div className="text-[10px] text-emerald-800/80 dark:text-emerald-300/80 truncate">
+                  Dışa/İçe Aktar & Kod
+                </div>
+              </div>
+            </button>
+
+            {/* 2. Program Görseli / Görsel İndir */}
+            <button
+              type="button"
+              onClick={() => setIsExportImageModalOpen(true)}
+              className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl bg-stone-50/80 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-stone-200/70 dark:border-white/5 transition-all cursor-pointer text-left active:scale-[0.98] group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <ImageDown className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                  K7AÜ Ajanda
+                </div>
+                <div className="text-[10px] text-stone-600 dark:text-stone-300 truncate">
+                  Program Şeması
+                </div>
+              </div>
+            </button>
+
+            {/* 3. Devamsızlık Takibi */}
+            <button
+              type="button"
+              onClick={() => setIsAttendanceModalOpen(true)}
+              className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl bg-stone-50/80 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-stone-200/70 dark:border-white/5 transition-all cursor-pointer text-left active:scale-[0.98] group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                  Devamsızlık
+                </div>
+                <div className="text-[10px] text-stone-600 dark:text-stone-300 truncate">
+                  14 Hafta Sayacı
+                </div>
+              </div>
+            </button>
+
+            {/* 4. GNO Hesapla */}
+            <button
+              type="button"
+              onClick={() => setIsGpaModalOpen(true)}
+              className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl bg-stone-50/80 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-stone-200/70 dark:border-white/5 transition-all cursor-pointer text-left active:scale-[0.98] group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Calculator className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                  GNO Hesapla
+                </div>
+                <div className="text-[10px] text-stone-600 dark:text-stone-300 truncate">
+                  Vize / Final Hedefi
+                </div>
+              </div>
+            </button>
+
+            {/* 5. Ders Bildirimleri */}
+            <button
+              type="button"
+              onClick={() => setIsNotificationModalOpen(true)}
+              className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl bg-stone-50/80 hover:bg-stone-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-stone-200/70 dark:border-white/5 transition-all cursor-pointer text-left active:scale-[0.98] group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#8a2a43]/15 text-[#8a2a43] dark:text-[#f4a261] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <BellRing className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                  Bildirimler
+                </div>
+                <div className="text-[10px] text-stone-600 dark:text-stone-300 truncate">
+                  10 ve 5 dk Uyarısı
+                </div>
+              </div>
             </button>
           </div>
         </div>
@@ -555,6 +696,25 @@ export default function SchedulePage() {
         currentCourses={courses}
         currentExams={exams}
         initialMode={templateModalInitialMode}
+      />
+
+      <ScheduleExportImageModal
+        isOpen={isExportImageModalOpen}
+        onClose={() => setIsExportImageModalOpen(false)}
+        courses={courses}
+        activeGrade={selectedGrade}
+      />
+
+      <AttendanceTrackerModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        courses={courses}
+      />
+
+      <GpaCalculatorModal
+        isOpen={isGpaModalOpen}
+        onClose={() => setIsGpaModalOpen(false)}
+        courses={courses}
       />
     </div>
   );

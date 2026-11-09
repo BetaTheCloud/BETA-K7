@@ -11,7 +11,8 @@ import {
   CampusForm,
   CampusBuilding,
   DirectoryUnit,
-  DirectoryContact
+  DirectoryContact,
+  LibraryBook
 } from './types';
 import { getApiUrl, safeFetch } from './config';
 import { cleanDuplicateTitle, parseDateToTimestamp } from './lib/utils';
@@ -429,6 +430,355 @@ export const FALLBACK_LIBRARY = {
     'SpringerLink Journals'
   ]
 };
+
+export const FALLBACK_LIBRARY_BOOKS: LibraryBook[] = [
+  {
+    id: 'k7-b1',
+    title: 'Kilis Tarihi ve Kültür Varlıkları',
+    author: 'Prof. Dr. Hikmet Özdemir',
+    category: 'Kilis & Bölge',
+    publisher: 'Kilis 7 Aralık Üniversitesi Yayınları',
+    year: 2021,
+    isbn: '978-605-69214-3-2',
+    barcode: 'DEM-79102',
+    callNumber: '956.19 K55 2021',
+    floorLocation: 'Merkez Kütüphane Zemin Kat - Kilis ve Yerel Tarih Kitaplığı',
+    shelfNumber: 'K-01 / Raf B',
+    status: 'available',
+    totalCopies: 2,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 428,
+    description: 'Kilis kentinin antik çağlardan günümüze kadar uzanan tarihi, mimari yapıları, vakıfları ve kültürel zenginliklerini belgeleyen kapsamlı üniversite yayını.'
+  },
+  {
+    id: 'k7-b2',
+    title: 'Veri Yapıları ve Algoritmalar (C/C++ ile)',
+    author: 'Dr. Rifat Çölkesen',
+    category: 'Mühendislik & Bilgisayar',
+    publisher: 'Papatya Bilim Yayınevi',
+    year: 2022,
+    isbn: '978-975-6797-40-5',
+    barcode: 'DEM-48201',
+    callNumber: '005.133 C65 2022',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'M-08 / Raf C',
+    status: 'available',
+    totalCopies: 4,
+    availableCopies: 3,
+    language: 'Türkçe',
+    pages: 560,
+    description: 'Bağlı listeler, yığınlar, kuyruklar, ağaçlar, grafik algoritmaları ve karmaşıklık analizlerini içeren mühendislik ders kitabı.'
+  },
+  {
+    id: 'k7-b3',
+    title: 'Diferansiyel Denklemler ve Sınır Değer Problemleri',
+    author: 'Prof. Dr. Fikri Akdeniz & Doç. Dr. Ahmet Kaya',
+    category: 'Temel Bilimler',
+    publisher: 'Nobel Akademik Yayıncılık',
+    year: 2020,
+    isbn: '978-605-320-812-4',
+    barcode: 'DEM-33918',
+    callNumber: '515.35 A34 2020',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'F-14 / Raf A',
+    status: 'available',
+    totalCopies: 3,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 490,
+    description: 'Birinci ve yüksek mertebeden diferansiyel denklemler, Laplace dönüşümleri, Fourier serileri ve mühendislik uygulamaları.'
+  },
+  {
+    id: 'k7-b4',
+    title: 'Mikroiktisat (Modern Teori ve Uygulamalar)',
+    author: 'Prof. Dr. Erdal M. Ünsal',
+    category: 'İİBF & İktisat',
+    publisher: 'İmaj Yayınevi',
+    year: 2023,
+    isbn: '978-975-8752-98-1',
+    barcode: 'DEM-52119',
+    callNumber: '338.5 U57 2023',
+    floorLocation: 'Merkez Kütüphane 2. Kat - İİBF ve Sosyal Bilimler Salonu',
+    shelfNumber: 'S-06 / Raf D',
+    status: 'borrowed',
+    returnDate: '24 Kasım 2026',
+    totalCopies: 2,
+    availableCopies: 0,
+    language: 'Türkçe',
+    pages: 684,
+    description: 'Tüketici dengesi, firma teorisi, piyasa yapıları, genel denge ve refah ekonomisi konularını içeren temel lisans kaynağı.'
+  },
+  {
+    id: 'k7-b5',
+    title: 'İslam Hukukuna Giriş',
+    author: 'Prof. Dr. Hayreddin Karaman',
+    category: 'İlahiyat',
+    publisher: 'Ensar Neşriyat',
+    year: 2021,
+    isbn: '978-975-6782-12-8',
+    barcode: 'DEM-61044',
+    callNumber: '297.5 K37 2021',
+    floorLocation: 'Merkez Kütüphane 2. Kat - İlahiyat ve Din Bilimleri Salonu',
+    shelfNumber: 'I-03 / Raf B',
+    status: 'available',
+    totalCopies: 4,
+    availableCopies: 4,
+    language: 'Türkçe',
+    pages: 376,
+    description: 'Fıkıh usulünün doğuşu, mezheplerin teşekkülü, hüküm çıkarma metotları ve klasik kaynaklar üzerine temel başvuru eseri.'
+  },
+  {
+    id: 'k7-b6',
+    title: 'Zeytincilik ve Akdeniz Tarımı',
+    author: 'Prof. Dr. Nazım Şekeroğlu & Prof. Dr. Muhittin Kulak',
+    category: 'Ziraat & Doğa Bilimleri',
+    publisher: 'Kilis 7 Aralık Üniversitesi Ziraat Fakültesi Yayınları',
+    year: 2022,
+    isbn: '978-605-7281-05-9',
+    barcode: 'DEM-83011',
+    callNumber: '634.63 S45 2022',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Ziraat ve Biyoloji Salonu',
+    shelfNumber: 'Z-02 / Raf A',
+    status: 'available',
+    totalCopies: 2,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 312,
+    description: 'Kilis yağlık zeytin çeşidinin genetik özellikleri, Akdeniz ikliminde zeytin yetiştiriciliği, budama, gübreleme ve kaliteli zeytinyağı üretimi.'
+  },
+  {
+    id: 'k7-b7',
+    title: 'İnsan Anatomisi Atlası ve Fizyolojiye Giriş',
+    author: 'Prof. Dr. Kaplan Arıncı & Prof. Dr. Alaittin Elhan',
+    category: 'Sağlık & Tıp',
+    publisher: 'Güneş Tıp Kitabevleri',
+    year: 2021,
+    isbn: '978-975-277-512-1',
+    barcode: 'DEM-29177',
+    callNumber: '611 A75 2021',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Tıp ve Sağlık Bilimleri Salonu',
+    shelfNumber: 'T-05 / Raf B',
+    status: 'borrowed',
+    returnDate: '19 Kasım 2026',
+    totalCopies: 3,
+    availableCopies: 1,
+    language: 'Türkçe',
+    pages: 720,
+    description: 'Hemşirelik ve sağlık bilimleri öğrencileri için sistematik anatomi atlası ve temel fizyolojik mekanizmalar.'
+  },
+  {
+    id: 'k7-b8',
+    title: 'Yapay Zeka ve Makine Öğrenmesi',
+    author: 'Prof. Dr. Ethem Alpaydın',
+    category: 'Mühendislik & Bilgisayar',
+    publisher: 'Boğaziçi Üniversitesi Yayınevi / Seçkin',
+    year: 2023,
+    isbn: '978-975-02-7815-3',
+    barcode: 'DEM-91204',
+    callNumber: '006.3 A47 2023',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'M-11 / Raf A',
+    status: 'available',
+    totalCopies: 2,
+    availableCopies: 1,
+    language: 'Türkçe',
+    pages: 480,
+    description: 'Gözetimli ve gözetimsiz öğrenme modelleri, yapay sinir ağları, derin öğrenme ve karar ağaçları.'
+  },
+  {
+    id: 'k7-b9',
+    title: 'Türk Dili ve Kompozisyon Bilgileri',
+    author: 'Prof. Dr. Muharrem Ergin',
+    category: 'Edebiyat',
+    publisher: 'Bayrak Basım Yayım',
+    year: 2020,
+    isbn: '978-975-6541-11-4',
+    barcode: 'DEM-15092',
+    callNumber: '494.35 E74 2020',
+    floorLocation: 'Merkez Kütüphane 2. Kat - Sosyal Bilimler ve Edebiyat Salonu',
+    shelfNumber: 'E-02 / Raf C',
+    status: 'available',
+    totalCopies: 6,
+    availableCopies: 5,
+    language: 'Türkçe',
+    pages: 384,
+    description: 'Türkçenin ses ve şekil bilgisi, cümle yapısı, yazım ve noktalama kuralları ile etkili ifade sanatı.'
+  },
+  {
+    id: 'k7-b10',
+    title: 'İşletme Yöneticiliği (Yönetim ve Organizasyon)',
+    author: 'Prof. Dr. Tamer Koçel',
+    category: 'İİBF & İktisat',
+    publisher: 'Beta Basım Yayım Dağıtım',
+    year: 2022,
+    isbn: '978-605-242-709-6',
+    barcode: 'DEM-44183',
+    callNumber: '658 K63 2022',
+    floorLocation: 'Merkez Kütüphane 2. Kat - İİBF ve Sosyal Bilimler Salonu',
+    shelfNumber: 'S-10 / Raf A',
+    status: 'available',
+    totalCopies: 3,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 742,
+    description: 'Klasik, neoklasik ve modern yönetim yaklaşımları, stratejik planlama, liderlik ve örgütsel davranış.'
+  },
+  {
+    id: 'k7-b11',
+    title: 'Nutuk (Belgelerle Tam Metin)',
+    author: 'Gazi Mustafa Kemal Atatürk',
+    category: 'Tarih',
+    publisher: 'Türk Tarih Kurumu Yayınları',
+    year: 2019,
+    isbn: '978-975-16-0145-2',
+    barcode: 'DEM-10025',
+    callNumber: '956.102 A83 2019',
+    floorLocation: 'Merkez Kütüphane Zemin Kat - Nadir Eserler ve Referans Salonu',
+    shelfNumber: 'R-01 / Özel Raf',
+    status: 'available',
+    totalCopies: 3,
+    availableCopies: 3,
+    language: 'Türkçe',
+    pages: 896,
+    description: 'Milli Mücadele dönemi, TBMM kuruluşu ve Cumhuriyetin ilanını anlatan birincil tarihi kaynak.'
+  },
+  {
+    id: 'k7-b12',
+    title: 'Suç ve Ceza',
+    author: 'Fyodor Mihayloviç Dostoyevski',
+    category: 'Edebiyat',
+    publisher: 'Türkiye İş Bankası Kültür Yayınları',
+    year: 2021,
+    isbn: '978-975-458-902-3',
+    barcode: 'DEM-67319',
+    callNumber: '891.73 D72 2021',
+    floorLocation: 'Merkez Kütüphane 2. Kat - Genel Edebiyat ve Dünya Klasikleri',
+    shelfNumber: 'E-18 / Raf B',
+    status: 'borrowed',
+    returnDate: '21 Kasım 2026',
+    totalCopies: 3,
+    availableCopies: 0,
+    language: 'Türkçe',
+    pages: 688,
+    description: 'Raskolnikov\'un ahlak, vicdan ve adalet sorgulamasını işleyen dünya edebiyatının başyapıtı.'
+  },
+  {
+    id: 'k7-b13',
+    title: 'Organik Kimya',
+    author: 'T. W. Graham Solomons & Craig B. Fryhle',
+    category: 'Temel Bilimler',
+    publisher: 'Literatür Yayıncılık',
+    year: 2021,
+    isbn: '978-975-04-0518-4',
+    barcode: 'DEM-38410',
+    callNumber: '547 S65 2021',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'F-07 / Raf C',
+    status: 'available',
+    totalCopies: 3,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 1150,
+    description: 'Organik bileşiklerin yapıları, reaksiyon mekanizmaları, stereokimya ve spektroskopi ders kitabı.'
+  },
+  {
+    id: 'k7-b14',
+    title: 'İslam Felsefesi Tarihi',
+    author: 'Prof. Dr. Macit Fahri',
+    category: 'İlahiyat',
+    publisher: 'İklim Yayınları',
+    year: 2018,
+    isbn: '978-975-7883-20-6',
+    barcode: 'DEM-70321',
+    callNumber: '181.07 F14 2018',
+    floorLocation: 'Merkez Kütüphane 2. Kat - İlahiyat ve Felsefe Salonu',
+    shelfNumber: 'I-09 / Raf D',
+    status: 'available',
+    totalCopies: 2,
+    availableCopies: 1,
+    language: 'Türkçe',
+    pages: 416,
+    description: 'Kindi, Farabi, İbn Sina, Gazali ve İbn Rüşd ekolleri ile İslam düşünce tarihinin sistematik analizi.'
+  },
+  {
+    id: 'k7-b15',
+    title: 'Kilis Yöresi Ağızları ve Folklorik Unsurları',
+    author: 'Prof. Dr. Bilgehan Atsız Gökdağ',
+    category: 'Kilis & Bölge',
+    publisher: 'Kilis 7 Aralık Üniversitesi Yayınları',
+    year: 2020,
+    isbn: '978-605-69214-7-0',
+    barcode: 'DEM-79244',
+    callNumber: '398.0956 G65 2020',
+    floorLocation: 'Merkez Kütüphane Zemin Kat - Kilis ve Yerel Tarih Kitaplığı',
+    shelfNumber: 'K-03 / Raf A',
+    status: 'available',
+    totalCopies: 2,
+    availableCopies: 2,
+    language: 'Türkçe',
+    pages: 294,
+    description: 'Kilis ağzının ses ve sözlük özellikleri, yöresel deyimler, masallar, maniler ve halk kültürü derlemeleri.'
+  },
+  {
+    id: 'k7-b16',
+    title: 'Bilgisayar Ağları ve İnternet Protokolleri',
+    author: 'Andrew S. Tanenbaum & David J. Wetherall',
+    category: 'Mühendislik & Bilgisayar',
+    publisher: 'Palme Yayınevi',
+    year: 2021,
+    isbn: '978-605-355-144-2',
+    barcode: 'DEM-88192',
+    callNumber: '004.6 T36 2021',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'M-05 / Raf B',
+    status: 'borrowed',
+    returnDate: '27 Kasım 2026',
+    totalCopies: 2,
+    availableCopies: 0,
+    language: 'Türkçe',
+    pages: 820,
+    description: 'OSI modeli, TCP/IP mimarisi, yönlendirme algoritmaları, ağ güvenliği ve modern kablosuz ağlar.'
+  },
+  {
+    id: 'k7-b17',
+    title: 'Hemşirelik Esasları ve Klinik Uygulama İlkeleri',
+    author: 'Prof. Dr. Nuran Akdemir & Prof. Dr. Leman Birol',
+    category: 'Sağlık & Tıp',
+    publisher: 'Sistem Ofset / Palme',
+    year: 2022,
+    isbn: '978-975-8663-81-2',
+    barcode: 'DEM-31085',
+    callNumber: '610.73 A38 2022',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Tıp ve Sağlık Bilimleri Salonu',
+    shelfNumber: 'T-02 / Raf C',
+    status: 'available',
+    totalCopies: 4,
+    availableCopies: 3,
+    language: 'Türkçe',
+    pages: 940,
+    description: 'Hasta bakımı, vital bulgular, ilaç uygulamaları, asepsi ve hasta güvenliği prensipleri.'
+  },
+  {
+    id: 'k7-b18',
+    title: 'Fizik (Fen ve Mühendislik İçin - Cilt 1: Mekanik)',
+    author: 'Raymond A. Serway & John W. Jewett',
+    category: 'Temel Bilimler',
+    publisher: 'Palme Yayınevi',
+    year: 2022,
+    isbn: '978-605-355-001-8',
+    barcode: 'DEM-24109',
+    callNumber: '530 S47 2022',
+    floorLocation: 'Merkez Kütüphane 1. Kat - Fen ve Mühendislik Salonu',
+    shelfNumber: 'F-02 / Raf A',
+    status: 'available',
+    totalCopies: 5,
+    availableCopies: 4,
+    language: 'Türkçe',
+    pages: 672,
+    description: 'Newton mekaniği, energy korunumu, dairesel hareket, titreşimler ve dalga mekaniği.'
+  }
+];
 
 export const FALLBACK_SPORTS = {
   facilities: [
@@ -1486,6 +1836,53 @@ export const getLibraryInfo = async (): Promise<any> => {
   }
   const cached = getStoredWithTTL<any>('k7_cached_library_v2', CACHE_TTL.LIBRARY, FALLBACK_LIBRARY);
   return (cached.data && cached.data.procedures) ? cached.data : FALLBACK_LIBRARY;
+};
+
+export const searchLibraryBooks = async (
+  query = '',
+  category = 'all',
+  status = 'all'
+): Promise<{ total: number; books: LibraryBook[] }> => {
+  try {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    if (category && category !== 'all' && category !== 'Tümü') params.append('category', category);
+    if (status && status !== 'all') params.append('status', status);
+
+    const response = await safeFetch(getApiUrl(`/api/library/search?${params.toString()}`));
+    if (response.ok) {
+      const data = await response.json();
+      if (data && Array.isArray(data.books)) {
+        return { total: data.total ?? data.books.length, books: data.books };
+      }
+    }
+  } catch (err) {
+    console.warn("Kütüphane katalog araması canlı API üzerinden alınamadı, yerel arama yapılıyor:", err);
+  }
+
+  // Fallback client-side search
+  let results = [...FALLBACK_LIBRARY_BOOKS];
+  if (category && category !== 'all' && category !== 'Tümü') {
+    results = results.filter((b) => b.category.toLowerCase().includes(category.toLowerCase()));
+  }
+  if (status === 'available') {
+    results = results.filter((b) => b.status === 'available');
+  } else if (status === 'borrowed') {
+    results = results.filter((b) => b.status === 'borrowed');
+  }
+  if (query.trim()) {
+    const q = query.toLowerCase().trim();
+    results = results.filter((b) =>
+      b.title.toLowerCase().includes(q) ||
+      b.author.toLowerCase().includes(q) ||
+      b.callNumber.toLowerCase().includes(q) ||
+      b.barcode.toLowerCase().includes(q) ||
+      b.isbn.toLowerCase().includes(q) ||
+      b.floorLocation.toLowerCase().includes(q) ||
+      (b.description && b.description.toLowerCase().includes(q))
+    );
+  }
+  return { total: results.length, books: results };
 };
 
 export const getSportsInfo = async (): Promise<any> => {

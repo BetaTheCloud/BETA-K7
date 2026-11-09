@@ -8,24 +8,19 @@ import { useEffect } from 'react';
 
 let lockCount = 0;
 let originalOverflow = '';
-let originalPaddingRight = '';
 
 /**
  * Locks document body scrolling without causing horizontal layout shift (jitter).
  * Uses a reference counter so nested or chained modals do not prematurely unlock the body.
+ * Note: scrollbar-gutter: stable is set on html in index.css, so manual paddingRight is redundant
+ * and caused content jumping/jittering.
  */
 export function lockBodyScroll(): void {
   if (typeof document === 'undefined') return;
 
   if (lockCount === 0) {
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     originalOverflow = document.body.style.overflow;
-    originalPaddingRight = document.body.style.paddingRight;
-
     document.body.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
   }
   lockCount++;
 }
@@ -39,7 +34,6 @@ export function unlockBodyScroll(): void {
   lockCount = Math.max(0, lockCount - 1);
   if (lockCount === 0) {
     document.body.style.overflow = originalOverflow || '';
-    document.body.style.paddingRight = originalPaddingRight || '';
   }
 }
 

@@ -19,7 +19,6 @@ import {
   CalendarCheck,
   AlertCircle,
   BellRing,
-  Share2,
   FileText
 } from 'lucide-react';
 import {
@@ -36,7 +35,6 @@ import {
 } from '../lib/scheduleStorage';
 import { isCourseCompletedToday } from '../lib/scheduleNotesStorage';
 import ScheduleNotificationModal from './schedule/ScheduleNotificationModal';
-import ScheduleTemplateModal from './schedule/ScheduleTemplateModal';
 import SectionHeader from './SectionHeader';
 
 interface TodayScheduleWidgetProps {
@@ -48,7 +46,6 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
   const [courses, setCourses] = useState<CourseScheduleItem[]>(() => getCourses());
   const [exams, setExams] = useState<ExamScheduleItem[]>(() => getSortedExams());
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   // Active view: 'today' | 'tomorrow' | 'exams' | DayOfWeek
   const currentTodayDay = getCurrentDayOfWeek();
@@ -289,18 +286,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
           <span>Ders Notları</span>
         </motion.button>
 
-        {/* Şablon Paylaş / Yükle Quick Button */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={() => setIsTemplateModalOpen(true)}
-          className="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 text-xs bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25 shadow-2xs"
-          title="Ders ve Sınav Programı Şablonu Paylaş / İçe Aktar (İnternetsiz / Cihaz İçi)"
-        >
-          <Share2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span className="hidden sm:inline">Şablon Paylaş / Yükle</span>
-          <span className="sm:hidden">Şablon</span>
-        </motion.button>
+
       </div>
 
       {/* 1.-2.-3.-4. Sınıf Segmented Filter */}
@@ -672,17 +658,7 @@ export default function TodayScheduleWidget({ onOpenManager }: TodayScheduleWidg
         onClose={() => setIsNotificationModalOpen(false)}
       />
 
-      {/* Schedule Template Modal (100% Offline / Client-Side) */}
-      <ScheduleTemplateModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => {
-          setIsTemplateModalOpen(false);
-          loadData();
-        }}
-        onApplied={loadData}
-        currentCourses={courses}
-        currentExams={exams}
-      />
+
     </section>
   );
 }

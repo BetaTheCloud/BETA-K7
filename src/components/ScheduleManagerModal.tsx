@@ -395,22 +395,22 @@ export default function ScheduleManagerModal({
 
   const modalMarkup = (
     <div className="fixed inset-0 z-50 flex items-center justify-center pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:pb-3 px-3 sm:px-4 overflow-y-auto overscroll-contain">
-      {/* Backdrop with lightweight blur */}
+      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/75 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/75"
       />
 
       {/* Modal Container */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         className="relative w-full max-w-2xl bg-[#fcfbf9] dark:bg-[#1f3741] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[96vh] h-[92vh] sm:h-[88vh] modal-gpu-layer"
       >
         {/* Header */}

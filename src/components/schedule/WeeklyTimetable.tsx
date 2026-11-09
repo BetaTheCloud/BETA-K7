@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   Bell,
   BellOff,
-  FileText
+  FileText,
+  UserCheck
 } from 'lucide-react';
 import { CourseItem, DayOfWeek } from '../../types/schedule';
 import { getOverlappingCourses } from '../../lib/scheduleStorage';
@@ -30,6 +31,11 @@ import {
   NOTIFICATIONS_CONFIG_CHANGED_EVENT
 } from '../../lib/scheduleNotificationService';
 import { isCourseCompletedToday } from '../../lib/scheduleNotesStorage';
+import {
+  getCourseAttendance,
+  getAttendanceHealthStatus,
+  ATTENDANCE_CHANGED_EVENT
+} from '../../lib/attendanceStorage';
 import toast from 'react-hot-toast';
 
 interface WeeklyTimetableProps {
@@ -84,7 +90,11 @@ export default function WeeklyTimetable({
   useEffect(() => {
     const handleConfigChange = () => setNotificationTick((t) => t + 1);
     window.addEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
-    return () => window.removeEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+    window.addEventListener(ATTENDANCE_CHANGED_EVENT, handleConfigChange);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CONFIG_CHANGED_EVENT, handleConfigChange);
+      window.removeEventListener(ATTENDANCE_CHANGED_EVENT, handleConfigChange);
+    };
   }, []);
 
   const handleToggleCourseNotification = (courseId: string, courseName: string) => {
@@ -100,13 +110,11 @@ export default function WeeklyTimetable({
   // Current day in Turkish
   const todayIndex = new Date().getDay();
   const currentDayName = TURKISH_DAYS_MAP[todayIndex] || 'Pazartesi';
-  const [activeDayTab, setActiveDayTab] = useState<DayOfWeek>(() => {
-    return activeDays.includes(currentDayName) ? currentDayName : 'Pazartesi';
-  });
+  const [activeDayTab, setActiveDayTab] = useState<DayOfWeek | 'all'>('all');
 
   useEffect(() => {
-    if (!activeDays.includes(activeDayTab)) {
-      setActiveDayTab(activeDays[0] || 'Pazartesi');
+    if (activeDayTab !== 'all' && !activeDays.includes(activeDayTab)) {
+      setActiveDayTab('all');
     }
   }, [activeDays, activeDayTab]);
 
@@ -379,6 +387,24 @@ export default function WeeklyTimetable({
                             </div>
                           )}
 
+                          {/* Attendance Status Badge (if absence recorded) */}
+                          {(() => {
+                            const attRecord = getCourseAttendance(course.id, course.courseName, course);
+                            if (course.isEnrolled && attRecord.absenceCount > 0) {
+                              const attHealth = getAttendanceHealthStatus(attRecord);
+                              return (
+                                <div className={`mt-1 flex items-center justify-between text-[9px] font-bold px-1.5 py-0.5 rounded border ${attHealth.badgeClass}`}>
+                                  <span className="flex items-center gap-1">
+                                    <UserCheck className="w-2.5 h-2.5" />
+                                    Devamsızlık: {attRecord.absenceCount}/{attRecord.maxAllowedAbsenceWeeks} hf
+                                  </span>
+                                  <span>{attHealth.remainingWeeks === 0 ? 'Aşıldı!' : `${attHealth.remainingWeeks} hak`}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
                           {/* Grade badge */}
                           <div className="mt-1.5 flex items-center justify-between pt-1 border-t border-stone-200/50 dark:border-white/5">
                             <span className="text-[9px] font-medium text-stone-400">
@@ -412,150 +438,293 @@ export default function WeeklyTimetable({
           })}
         </div>
       ) : (
-        /* Daily / List View */
-        <div className="space-y-3">
-          {/* Day switcher tabs */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        /* Daily & Weekly List View */
+        <div className="space-y-4">
+          {/* Day switcher tabs bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {/* Tüm Hafta Tab */}
+            <button
+              type="button"
+              onClick={() => setActiveDayTab('all')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap border shrink-0 transition-all cursor-pointer ${
+                activeDayTab === 'all'
+                  ? 'bg-[#8a2a43] text-white border-[#8a2a43] shadow-xs font-bold'
+                  : 'bg-white dark:bg-[#1d3540] border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-white/5'
+              }`}
+            >
+              <div className="font-bold flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Tüm Hafta</span>
+              </div>
+              <div className="text-[10px] opacity-80 mt-0.5">
+                {filteredCourses.length} Ders Toplam
+              </div>
+            </button>
+
+            {/* Individual Day Tabs */}
             {activeDays.map((day) => {
               const count = coursesByDay[day]?.length || 0;
               const isToday = day === currentDayName;
               return (
                 <button
                   key={day}
+                  type="button"
                   onClick={() => setActiveDayTab(day)}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium border text-center transition-all ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium border shrink-0 transition-all cursor-pointer text-left min-w-[105px] ${
                     activeDayTab === day
-                      ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                      : 'bg-white dark:bg-[#1d3540] border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-300'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs font-bold'
+                      : isToday
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20'
+                      : 'bg-white dark:bg-[#1d3540] border-stone-200 dark:border-white/10 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-white/5'
                   }`}
                 >
-                  <span className="block font-semibold">{day}</span>
-                  <span className="text-[10px] opacity-80">
-                    {count} Ders {isToday && '• Bugün'}
-                  </span>
+                  <div className="font-bold flex items-center justify-between gap-1.5">
+                    <span>{day}</span>
+                    {isToday && (
+                      <span
+                        className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                          activeDayTab === day
+                            ? 'bg-white/20 text-white'
+                            : 'bg-amber-500/20 text-amber-800 dark:text-amber-300'
+                        }`}
+                      >
+                        Bugün
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] opacity-80 mt-0.5">
+                    {count} Ders
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* List items for active day */}
-          <div className="space-y-2">
-            {(coursesByDay[activeDayTab] || []).length === 0 ? (
-              <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 text-xs text-stone-400">
-                {activeDayTab} günü için ders bulunmuyor.
-              </div>
-            ) : (
-              (coursesByDay[activeDayTab] || []).map((course) => {
-                const dayList = coursesByDay[activeDayTab] || [];
-                const overlapping = getOverlappingCourses(course, dayList);
-                return (
-                  <div
-                    key={course.id}
-                    className="p-3.5 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 shadow-sm flex items-center justify-between gap-3"
-                    style={{ borderLeftWidth: '4px', borderLeftColor: course.color || '#0284c7' }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-stone-300">
-                          {course.gradeLabel}
-                        </span>
-                        {course.courseCode && (
-                          <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400">
-                            {course.courseCode}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-sm font-semibold text-stone-900 dark:text-white truncate">
-                        {course.courseName}
-                      </h3>
+          {/* List items rendering */}
+          {(() => {
+            const daysToDisplay = activeDayTab === 'all'
+              ? activeDays
+              : [activeDayTab];
 
-                      {overlapping.length > 0 && (
-                        <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span className="truncate">
-                            Aynı saatte çakışan ders: {overlapping.map((o) => o.courseCode || o.courseName).join(', ')}
-                          </span>
-                        </div>
-                      )}
+            const totalCourses = daysToDisplay.reduce(
+              (sum, d) => sum + (coursesByDay[d]?.length || 0),
+              0
+            );
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 dark:text-stone-400 mt-1">
-                        <span className="flex items-center gap-1 font-medium text-stone-700 dark:text-stone-300">
-                          <Clock className="w-3.5 h-3.5" />
-                          {course.startTime} - {course.endTime}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {course.classroom}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="w-3.5 h-3.5" />
-                          {course.instructor}
-                        </span>
-                      </div>
-                    </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleCourseNotification(course.id, course.courseName)}
-                      className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                        isItemNotificationEnabled(course.id)
-                          ? 'border-[#8a2a43]/40 bg-[#8a2a43]/10 text-[#8a2a43] dark:text-rose-300'
-                          : 'border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-400'
-                      }`}
-                      title={
-                        isItemNotificationEnabled(course.id)
-                          ? 'Bildirim Açık (10 ve 5 dk kala)'
-                          : 'Bildirimi Aç (10 ve 5 dk kala)'
-                      }
-                    >
-                      <Bell
-                        className={`w-4 h-4 ${
-                          isItemNotificationEnabled(course.id)
-                            ? 'fill-[#8a2a43] dark:fill-rose-400'
-                            : ''
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => onToggleEnroll(course.id)}
-                      className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                      title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          course.isEnrolled ? 'fill-amber-500 text-amber-500' : 'text-stone-400'
-                        }`}
-                      />
-                    </button>
-                    {onAddNote && (
-                      <button
-                        type="button"
-                        onClick={() => onAddNote(course)}
-                        className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-400 hover:text-[#8a2a43] dark:hover:text-[#f4a261] transition-colors cursor-pointer"
-                        title="Ders Notu Ekle"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => onEditCourse(course)}
-                      className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => onDeleteCourse(course.id)}
-                      className="p-2 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-stone-500 hover:text-rose-600"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+            if (totalCourses === 0) {
+              return (
+                <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200 dark:border-white/10 text-xs text-stone-500 dark:text-stone-400">
+                  <BookOpen className="w-8 h-8 text-stone-300 dark:text-white/20 mx-auto mb-2" />
+                  <p className="font-semibold text-stone-800 dark:text-white text-sm">
+                    {activeDayTab === 'all'
+                      ? 'Haftalık programda ders bulunmuyor.'
+                      : `${activeDayTab} günü için ders bulunmuyor.`}
+                  </p>
+                  <p className="mt-1 text-stone-400 text-xs">
+                    Yukarıdaki "+ Ders Ekle" butonu ile ders ekleyebilir veya filtreyi değiştirebilirsiniz.
+                  </p>
                 </div>
               );
-            })
-          )}
-          </div>
+            }
+
+            return (
+              <div className="space-y-5">
+                {daysToDisplay.map((day) => {
+                  const dayCourses = coursesByDay[day] || [];
+                  if (activeDayTab === 'all' && dayCourses.length === 0) {
+                    return null;
+                  }
+
+                  const isToday = day === currentDayName;
+
+                  return (
+                    <div key={day} className="space-y-2.5">
+                      {/* Day Header */}
+                      <div className="flex items-center justify-between px-1 pt-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                            <span>{day}</span>
+                            {isToday && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                                Bugün
+                              </span>
+                            )}
+                          </h4>
+                        </div>
+                        <span className="text-xs text-stone-500 dark:text-stone-400 font-medium">
+                          {dayCourses.length} Ders
+                        </span>
+                      </div>
+
+                      {/* Course cards for this day */}
+                      <div className="space-y-3">
+                        {dayCourses.map((course) => {
+                          const overlapping = getOverlappingCourses(course, dayCourses);
+                          const isNotifOn = isItemNotificationEnabled(course.id);
+                          const attRecord = getCourseAttendance(course.id, course.courseName, course);
+                          const hasAttendanceWarning = course.isEnrolled && attRecord.absenceCount > 0;
+                          const attHealth = hasAttendanceWarning ? getAttendanceHealthStatus(attRecord) : null;
+
+                          return (
+                            <motion.div
+                              key={course.id}
+                              initial={{ opacity: 0, y: 3 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#1d3540] border border-stone-200/90 dark:border-white/10 shadow-xs hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5 relative overflow-hidden"
+                              style={{
+                                borderLeftWidth: '5px',
+                                borderLeftColor: course.color || '#0284c7'
+                              }}
+                            >
+                              {/* Left & Main Content Area */}
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Top Badges Row */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* Time Badge */}
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-white/10 text-stone-800 dark:text-stone-200 text-xs font-bold shrink-0">
+                                    <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <span>{course.startTime} - {course.endTime}</span>
+                                  </div>
+
+                                  {/* Grade Badge */}
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-white/10 text-stone-600 dark:text-stone-300">
+                                    {course.gradeLabel}
+                                  </span>
+
+                                  {/* Course Code */}
+                                  {course.courseCode && (
+                                    <span className="px-2 py-0.5 rounded text-xs font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                                      {course.courseCode}
+                                    </span>
+                                  )}
+
+                                  {/* Enrolled Badge */}
+                                  {course.isEnrolled && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                      <span>Derslerimde</span>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Course Title */}
+                                <h3 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white leading-snug break-words">
+                                  {course.courseName}
+                                </h3>
+
+                                {/* Classroom & Instructor */}
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-stone-600 dark:text-stone-300">
+                                  <span className="inline-flex items-center gap-1.5 font-medium">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <span className="text-stone-800 dark:text-stone-200">
+                                      {course.classroom || 'Derslik Belirtilmemiş'}
+                                    </span>
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                                    <span>
+                                      {course.instructor || 'Öğretim Görevlisi Belirtilmemiş'}
+                                    </span>
+                                  </span>
+                                </div>
+
+                                {/* Overlap Warning Banner */}
+                                {overlapping.length > 0 && (
+                                  <div className="mt-1 flex items-start gap-2 text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-300/80 dark:border-amber-700/50">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                    <span className="leading-snug">
+                                      Aynı saatte çakışan ders: <strong className="font-bold">{overlapping.map((o) => o.courseCode || o.courseName).join(', ')}</strong>
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Attendance Status Badge */}
+                                {hasAttendanceWarning && attHealth && (
+                                  <div className={`mt-1 inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border ${attHealth.badgeClass}`}>
+                                    <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                                    <span>
+                                      Devamsızlık: <strong>{attRecord.absenceCount} / {attRecord.maxAllowedAbsenceWeeks} hafta</strong> ({attHealth.label})
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Actions Toolbar - Responsive Bottom on Mobile, Right on Desktop */}
+                              <div className="flex items-center justify-end flex-wrap gap-1.5 pt-2.5 md:pt-0 border-t md:border-t-0 border-stone-100 dark:border-white/5 shrink-0">
+                                {/* Notification Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleCourseNotification(course.id, course.courseName)}
+                                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                    isNotifOn
+                                      ? 'border-[#8a2a43]/40 bg-[#8a2a43]/10 text-[#8a2a43] dark:text-rose-300 font-bold'
+                                      : 'border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500 dark:text-stone-400'
+                                  }`}
+                                  title={isNotifOn ? 'Bildirim Açık (10 ve 5 dk kala)' : 'Bildirimi Aç (10 ve 5 dk kala)'}
+                                >
+                                  <Bell className={`w-3.5 h-3.5 ${isNotifOn ? 'fill-[#8a2a43] dark:fill-rose-400' : ''}`} />
+                                  <span className="text-[11px]">{isNotifOn ? 'Bildirim Açık' : 'Bildirim'}</span>
+                                </button>
+
+                                {/* Enroll (Star) Toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => onToggleEnroll(course.id)}
+                                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                    course.isEnrolled
+                                      ? 'border-amber-400 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold'
+                                      : 'border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500 dark:text-stone-400'
+                                  }`}
+                                  title={course.isEnrolled ? 'Derslerimden Çıkar' : 'Derslerime Ekle'}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${course.isEnrolled ? 'fill-amber-500 text-amber-500' : ''}`} />
+                                  <span className="text-[11px]">{course.isEnrolled ? 'Seçildi' : 'Seç'}</span>
+                                </button>
+
+                                {/* Note Button */}
+                                {onAddNote && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onAddNote(course)}
+                                    className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500 dark:text-stone-400 hover:text-[#8a2a43] dark:hover:text-[#f4a261] transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                                    title="Ders Notu Ekle"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-[11px]">Not</span>
+                                  </button>
+                                )}
+
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => onEditCourse(course)}
+                                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-stone-50 dark:hover:bg-white/5 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                                  title="Dersi Düzenle"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline text-[11px]">Düzenle</span>
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteCourse(course.id)}
+                                  className="p-1.5 sm:px-2 sm:py-1.5 rounded-xl border border-stone-200 dark:border-white/10 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-stone-400 hover:text-rose-600 transition-colors cursor-pointer flex items-center text-xs"
+                                  title="Dersi Sil"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

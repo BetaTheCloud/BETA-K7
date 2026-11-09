@@ -99,3 +99,46 @@ export interface CourseNoteItem {
   updatedAt: number;
 }
 
+export type WeekAttendanceStatus = 'absent' | 'present' | 'unmarked';
+
+export interface AttendanceRecord {
+  courseId: string;
+  courseName: string;
+  courseCode?: string;
+  instructor?: string;
+  day?: DayOfWeek;
+  startTime?: string;
+  classroom?: string;
+  totalWeeks: number; // Varsayılan 14 hafta
+  maxAllowedAbsenceWeeks: number; // Varsayılan 4 hafta (%30 teorik)
+  absenceCount: number;
+  absentDates: string[]; // YYYY-MM-DD formatında devamsızlık günleri
+  presentCount: number;
+  weekStatuses?: Record<number, WeekAttendanceStatus>;
+  isExempt?: boolean; // Devamsızlıktan muaf / zorunluluk yok
+  lastUpdated: number;
+}
+
+export interface GpaCourseItem {
+  id: string;
+  courseId?: string;
+  courseCode: string;
+  courseName: string;
+  credits: number; // AKTS / Kredi
+  vize: number | null;
+  vizeWeight: number; // Varsayılan %40
+  final: number | null;
+  finalWeight: number; // Varsayılan %60
+  letterGrade?: string;
+  points?: number;
+  isCustom?: boolean;
+}
+
+export interface LetterGradeScale {
+  grade: string;
+  points: number;
+  minScore: number;
+  maxScore: number;
+  description: string;
+}
+

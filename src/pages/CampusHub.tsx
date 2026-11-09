@@ -287,6 +287,7 @@ export default function CampusHub() {
   // Detail Modal for events
   const [selectedDetail, setSelectedDetail] = useState<DetailModalItem | null>(null);
 
+
   useEffect(() => {
     setActiveTab(getTabFromLocation());
   }, [location.pathname, searchParams]);

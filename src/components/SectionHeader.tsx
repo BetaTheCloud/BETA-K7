@@ -7,7 +7,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
-export type SectionHeaderTheme = 'amber' | 'emerald' | 'rose' | 'purple' | 'blue' | 'sky';
+export type SectionHeaderTheme = 'amber' | 'emerald' | 'rose' | 'purple' | 'blue' | 'sky' | 'brand';
 
 export interface SectionHeaderAction {
   label: string;
@@ -63,6 +63,11 @@ export default function SectionHeader({
         return {
           iconBg: 'bg-sky-500/15 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/25',
           actionHover: 'hover:text-sky-600 dark:hover:text-sky-400'
+        };
+      case 'brand':
+        return {
+          iconBg: 'bg-[var(--brand-primary)]/15 text-[var(--brand-primary)] border border-[var(--brand-primary)]/25',
+          actionHover: 'hover:text-[var(--brand-primary)]'
         };
       case 'amber':
       default:

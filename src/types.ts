@@ -223,3 +223,24 @@ export interface DirectoryUnit {
   subDepartments: DirectorySubDepartment[];
   sections: DirectorySection[];
 }
+
+export interface LibraryBook {
+  id: string;
+  title: string;
+  author: string;
+  category: string;
+  publisher: string;
+  year: number;
+  isbn: string;
+  barcode: string;
+  callNumber: string;
+  floorLocation: string;
+  shelfNumber: string;
+  status: 'available' | 'borrowed';
+  returnDate?: string;
+  totalCopies: number;
+  availableCopies: number;
+  description?: string;
+  language: string;
+  pages?: number;
+}

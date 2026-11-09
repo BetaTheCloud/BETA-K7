@@ -4,7 +4,7 @@
  * Kilis 7 Aralık Üniversitesi - Kusursuz, Huzurlu & Modern Uygulama Ayarları
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
@@ -52,9 +52,16 @@ import {
   MoonStar,
   SunMoon,
   Laptop,
-  HelpCircle
+  HelpCircle,
+  Database,
+  HardDrive
 } from 'lucide-react';
 import HorizontalScrollWrapper from './HorizontalScrollWrapper';
+import {
+  getStorageQuotaInfo,
+  forceSyncAllToIndexedDb,
+  StorageQuotaInfo
+} from '../lib/indexedDbStorage';
 import {
   WidgetConfig,
   WidgetId,
@@ -166,6 +173,34 @@ export default function AppSettingsModal({
   const [testSeconds, setTestSeconds] = useState(0);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; isColdStart?: boolean } | null>(null);
 
+  // IndexedDB Storage Quota state
+  const [quotaInfo, setQuotaInfo] = useState<StorageQuotaInfo | null>(null);
+  const [isSyncingStorage, setIsSyncingStorage] = useState(false);
+
+  const loadQuota = useCallback(async () => {
+    try {
+      const info = await getStorageQuotaInfo();
+      setQuotaInfo(info);
+    } catch (e) {
+      console.warn('Quota load error:', e);
+    }
+  }, []);
+
+  const handleForceSync = async () => {
+    setIsSyncingStorage(true);
+    try {
+      const res = await forceSyncAllToIndexedDb();
+      await loadQuota();
+      toast.success(
+        `IndexedDB eşitlendi: ${res.courses} ders, ${res.exams} sınav, ${res.notes} not, ${res.attendance} devamsızlık.`
+      );
+    } catch {
+      toast.error('Depolama senkronizasyonu sırasında hata oluştu.');
+    } finally {
+      setIsSyncingStorage(false);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -180,11 +215,12 @@ export default function AppSettingsModal({
       setUrlInput(getEffectiveApiBase() || DEFAULT_REMOTE_API_BASE);
       setTestResult(null);
       setPasswordError('');
+      loadQuota();
       if (initialTab) {
         setActiveTab(initialTab);
       }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, loadQuota]);
 
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
@@ -453,17 +489,17 @@ export default function AppSettingsModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
         onClick={onClose}
-        className="fixed inset-0 bg-stone-900/70 dark:bg-black/80 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-stone-900/70 dark:bg-black/80"
       />
 
       {/* Main Calm Settings Card */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
         className="relative w-full max-w-xl bg-[#faf8f5] dark:bg-[#0d172c] rounded-3xl shadow-2xl border border-stone-200/90 dark:border-white/10 overflow-hidden z-10 my-auto flex flex-col max-h-[88vh] modal-gpu-layer"
       >
         {/* Header: Clean & Calming */}
@@ -586,9 +622,9 @@ export default function AppSettingsModal({
                 {isServerUnlocked ? (
                   <Unlock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 ) : (
-                  <Server className="w-3.5 h-3.5 shrink-0" />
+                  <Database className="w-3.5 h-3.5 shrink-0" />
                 )}
-                <span>Sunucu</span>
+                <span>Depolama & Sunucu</span>
               </button>
 
               {/* 6. Rehber */}
@@ -1153,17 +1189,114 @@ export default function AppSettingsModal({
 
         {/* ================= TAB 5: SUNUCU & SİSTEM ================= */}
         {activeTab === 'server' && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-4 sm:p-5 space-y-5">
+            {/* 1. IndexedDB Yerel Depolama Katmanı (Tüm kullanıcılara açık & şeffaf) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#111d35] border border-stone-200/90 dark:border-white/10 shadow-xs space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-display font-bold text-sm sm:text-base text-stone-900 dark:text-white">
+                        Yerel Depolama (IndexedDB Katmanı)
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                        k7_campus_db (v1)
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-500 dark:text-white/60 mt-0.5">
+                      Ders programı, notlar ve devamsızlık kayıtlarınız cihazınızda yüksek kotalı IndexedDB içinde yerel tutulur.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSyncingStorage}
+                  onClick={handleForceSync}
+                  className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-white/10 dark:hover:bg-white/15 text-stone-700 dark:text-stone-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-95"
+                  title="Tüm verileri IndexedDB ile senkronize et"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', isSyncingStorage && 'animate-spin')} />
+                  <span>{isSyncingStorage ? 'Eşitleniyor...' : 'Eşitle'}</span>
+                </button>
+              </div>
+
+              {/* Storage Quota Progress Bar */}
+              <div className="space-y-1.5 p-3 rounded-xl bg-stone-50 dark:bg-white/3 border border-stone-200/60 dark:border-white/5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-stone-600 dark:text-stone-400 font-medium flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-stone-400" />
+                    Depolama Kotası Kullanımı:
+                  </span>
+                  <span className="font-mono font-bold text-stone-800 dark:text-white">
+                    {quotaInfo ? `${quotaInfo.usageFormatted} / ${quotaInfo.quotaFormatted}` : 'Hesaplanıyor...'}
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-stone-200 dark:bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(1, quotaInfo?.usagePercentage || 1))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Storage Item Breakdown Counters */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/50 dark:border-white/5 text-center">
+                  <div className="text-base font-extrabold text-stone-900 dark:text-white font-mono">
+                    {quotaInfo?.courseCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400 font-medium mt-0.5">
+                    Kayıtlı Ders
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/50 dark:border-white/5 text-center">
+                  <div className="text-base font-extrabold text-stone-900 dark:text-white font-mono">
+                    {quotaInfo?.examCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400 font-medium mt-0.5">
+                    Sınav Takvimi
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/50 dark:border-white/5 text-center">
+                  <div className="text-base font-extrabold text-stone-900 dark:text-white font-mono">
+                    {quotaInfo?.noteCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400 font-medium mt-0.5">
+                    Ders Notu
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-white/5 border border-stone-200/50 dark:border-white/5 text-center">
+                  <div className="text-base font-extrabold text-stone-900 dark:text-white font-mono">
+                    {quotaInfo?.attendanceCount ?? 0}
+                  </div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400 font-medium mt-0.5">
+                    Devamsızlık Kaydı
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-stone-200 dark:border-white/10" />
+
+            {/* 2. Gelişmiş API Sunucu Yapılandırması */}
             {!isServerUnlocked ? (
               /* Security Gate: Password Required */
-              <div className="p-6 sm:p-8 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="p-6 flex-1 flex flex-col items-center justify-center text-center space-y-4 rounded-2xl bg-stone-50 dark:bg-white/3 border border-stone-200/80 dark:border-white/5">
                 <div className="w-14 h-14 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-md">
                   <Lock className="w-7 h-7" />
                 </div>
 
                 <div className="space-y-1.5 max-w-sm">
                   <h4 className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white">
-                    Gelişmiş Sistem Yapılandırması
+                    Gelişmiş API Sunucu Yapılandırması
                   </h4>
                   <p className="text-xs text-stone-500 dark:text-white/60 leading-relaxed">
                     API sunucu adresi ve ağ köprüsü kritik sistem ayarlarıdır. Yetkili erişim için parolayı giriniz.

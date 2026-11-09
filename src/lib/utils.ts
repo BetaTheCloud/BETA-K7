@@ -385,14 +385,11 @@ export function getTodayMenuInfo<T extends GenericMenuItem>(menuList: T[]): Toda
   const dotDate2 = `${dayNum}.${monthIdx + 1}.${year}`;
   const dotShort = `${padDay}.${padMonth}`;
 
-  // 1. Direct exact date match in date string (today)
-  let exactMatch = menuList.find(item => {
-    const d = (item.date || '').toLowerCase();
-    return d.includes(fullTr) || d.includes(dotDate1) || d.includes(dotDate2) || d.includes(dotShort) || (monthNameKey && d.includes(dayMonthTr));
-  });
+  // 1. If today is weekend (Cumartesi / Pazar), there is no serving today
+  let exactMatch: T | undefined = undefined;
 
-  // 2. Match by Day number + Month name / number
-  if (!exactMatch) {
+  if (!isWeekend) {
+    // Match by exact tokenized Day number + Month name/number
     exactMatch = menuList.find(item => {
       const parts = (item.date || '').toLowerCase().split(/[\s./-]+/);
       if (parts.length >= 2) {
@@ -406,15 +403,15 @@ export function getTodayMenuInfo<T extends GenericMenuItem>(menuList: T[]): Toda
       }
       return false;
     });
-  }
 
-  if (exactMatch) {
-    return {
-      menu: exactMatch,
-      isToday: true,
-      isWeekend: false,
-      badgeLabel: 'Günün Menüsü'
-    };
+    if (exactMatch) {
+      return {
+        menu: exactMatch,
+        isToday: true,
+        isWeekend: false,
+        badgeLabel: 'Günün Menüsü'
+      };
+    }
   }
 
   // 3. If no exact match (e.g. weekend or holiday), find the closest upcoming serving day

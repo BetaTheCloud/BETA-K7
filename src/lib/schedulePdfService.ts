@@ -321,9 +321,12 @@ export function buildCourseNotesPdfDoc(options: {
 
   const drawPageHeader = (isFirstPage: boolean) => {
     if (isFirstPage) {
+      const bannerHeight = 2.8;
       doc.setFillColor(138, 42, 67);
-      doc.rect(marginX, currentY, contentWidth, 3, 'F');
-      currentY += 7;
+      doc.rect(marginX, currentY, contentWidth, bannerHeight, 'F');
+      
+      // Symmetrical breathing room between top banner and header title
+      currentY += bannerHeight + 6.0;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(13);
@@ -333,7 +336,7 @@ export function buildCourseNotesPdfDoc(options: {
       const reportDateText = `Rapor Tarihi: ${dateStr}`;
       drawPillBadge(doc, reportDateText, pageWidth - marginX, currentY - 4.2, 'gray', true);
 
-      currentY += 6;
+      currentY += 5.5;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(9.5);
@@ -352,9 +355,10 @@ export function buildCourseNotesPdfDoc(options: {
       doc.line(marginX, currentY, pageWidth - marginX, currentY);
       currentY += 6;
     } else {
+      const bannerHeight = 1.8;
       doc.setFillColor(138, 42, 67);
-      doc.rect(marginX, currentY, contentWidth, 2, 'F');
-      currentY += 5.5;
+      doc.rect(marginX, currentY, contentWidth, bannerHeight, 'F');
+      currentY += bannerHeight + 4.2;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(8.5);
@@ -700,9 +704,12 @@ export function buildMasterBookletPdfDoc(
 
   const drawPageHeader = (isFirstPage: boolean) => {
     if (isFirstPage) {
+      const bannerHeight = 2.8;
       doc.setFillColor(138, 42, 67);
-      doc.rect(marginX, currentY, contentWidth, 3, 'F');
-      currentY += 7;
+      doc.rect(marginX, currentY, contentWidth, bannerHeight, 'F');
+      
+      // Symmetrical breathing room between top banner and header title
+      currentY += bannerHeight + 6.0;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(13);
@@ -712,7 +719,7 @@ export function buildMasterBookletPdfDoc(
       const reportDateText = `Rapor Tarihi: ${dateStr}`;
       drawPillBadge(doc, reportDateText, pageWidth - marginX, currentY - 4.2, 'gray', true);
 
-      currentY += 6;
+      currentY += 5.5;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(9.5);
@@ -725,9 +732,10 @@ export function buildMasterBookletPdfDoc(
       doc.line(marginX, currentY, pageWidth - marginX, currentY);
       currentY += 6;
     } else {
+      const bannerHeight = 1.8;
       doc.setFillColor(138, 42, 67);
-      doc.rect(marginX, currentY, contentWidth, 2, 'F');
-      currentY += 5.5;
+      doc.rect(marginX, currentY, contentWidth, bannerHeight, 'F');
+      currentY += bannerHeight + 4.2;
 
       setPdfTypography(doc, 'heading', 'bold');
       doc.setFontSize(8.5);

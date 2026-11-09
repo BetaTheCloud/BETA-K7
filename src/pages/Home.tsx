@@ -570,9 +570,9 @@ export default function Home() {
             <section className="space-y-4">
               <SectionHeader
                 icon={ChefHat}
-                theme="amber"
+                theme="brand"
                 title="Yemek Menüsü"
-                subtitle="Günün 4 Çeşit Sıcak Öğle & Akşam Menüsü"
+                subtitle="Günün 4 Çeşit Sıcak Öğle Yemeği Menüsü"
                 action={{
                   label: 'Aylık Menü',
                   href: '/menu',
@@ -584,7 +584,7 @@ export default function Home() {
                 <div className="bg-[#fcfbf9] dark:bg-[#264653] border border-[#e6e2d6] dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm relative overflow-hidden">
                   <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-[#e6e2d6] dark:border-white/10 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <Utensils className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <Utensils className="w-4 h-4 text-[var(--brand-primary)]" />
                       <span className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white tabular-nums">
                         {todayMenuInfo.menu.date}
                       </span>
@@ -593,16 +593,25 @@ export default function Home() {
                       className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
                         todayMenuInfo.isToday
                           ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+                          : 'bg-[var(--brand-primary)]/15 text-[var(--brand-primary)] dark:text-[var(--brand-accent)] border border-[var(--brand-primary)]/30'
                       }`}
                     >
                       {todayMenuInfo.badgeLabel}
                     </span>
                   </div>
 
+                  {todayMenuInfo.isWeekend && (
+                    <div className="mb-4 p-3 rounded-xl bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/20 text-xs text-stone-800 dark:text-stone-200 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[var(--brand-primary)] shrink-0" />
+                      <span>
+                        Hafta sonu (Cumartesi – Pazar) yemekhane kapalıdır. Aşağıda sıradaki ilk hafta içi servis menüsü gösterilmektedir.
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-white/5 border border-amber-500/20">
-                      <div className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 tracking-wider mb-1">
+                    <div className="p-3 rounded-xl bg-[var(--brand-primary)]/10 dark:bg-[var(--brand-primary)]/15 border border-[var(--brand-primary)]/25">
+                      <div className="text-[10px] uppercase font-bold text-[var(--brand-primary)] dark:text-[var(--brand-accent)] tracking-wider mb-1">
                         1. Ana Yemek
                       </div>
                       <div className="font-display font-bold text-base sm:text-lg text-stone-900 dark:text-white">

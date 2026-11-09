@@ -38,8 +38,10 @@ export function AboutContent({ isModal = false }: AboutContentProps) {
               <img
                 src="/beta_dev_logo.png"
                 alt="BETA Amblem"
+                width={128}
+                height={128}
                 loading="eager"
-                decoding="sync"
+                decoding="async"
                 className="w-28 h-28 sm:w-32 sm:h-32 object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   const target = e.currentTarget;
@@ -158,10 +160,10 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
     if (onProceed) {
       onProceed();
     } else {
-      // Trigger the welcome guide modal to open next
+      // Trigger the welcome guide modal to open next after this modal cleanly finishes closing
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('k7_open_welcome_guide'));
-      }, 120);
+      }, 220);
     }
   };
 
@@ -184,17 +186,17 @@ export default function AboutModal({ forceOpen = false, onClose, onProceed }: Ab
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
             onClick={handleDismiss}
-            className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] z-0"
+            className="fixed inset-0 bg-stone-950/80 z-0"
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             className="relative z-10 w-full max-w-lg max-h-[92vh] flex flex-col bg-[#fcfbf9] dark:bg-[#1d3540] rounded-3xl shadow-2xl border border-stone-200 dark:border-white/10 overflow-hidden modal-gpu-layer"
           >
             {/* Header */}

@@ -122,7 +122,7 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
       badge: 'Beslenme',
       icon: ChefHat,
       iconBg: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
-      description: 'Merkez ve Karataş yerleşkelerindeki öğle ve akşam yemek listeleri, kalori değerleri, vejetaryen seçenekler ve alerjen bilgilendirmeleri.'
+      description: 'Merkez ve Karataş yerleşkelerindeki öğle yemeği listeleri, kalori değerleri, vejetaryen seçenekler ve alerjen bilgilendirmeleri.'
     },
     {
       id: 'schedule',
@@ -199,19 +199,19 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
             onClick={handleDismiss}
-            className="fixed inset-0 bg-stone-950/80 backdrop-blur-[2px] transition-opacity"
+            className="fixed inset-0 bg-stone-950/80"
             aria-hidden="true"
           />
 
           {/* Symmetrical Modal Card */}
           <motion.div
             key="welcome-modal-card"
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-2xl max-h-[86dvh] sm:max-h-[84vh] bg-[#fcfbf9] dark:bg-[#1f3844] border border-[#e6e2d6] dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col z-10 font-sans mx-auto modal-gpu-layer"
           >
@@ -235,7 +235,7 @@ export default function WelcomeGuideModal({ forceOpen = false, onClose }: Welcom
                 </div>
 
                 {/* Institutional Tag in Pure Turkish Title Case */}
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/15 backdrop-blur-sm text-[11px] font-semibold text-amber-200 border border-white/15 mb-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold text-amber-200 border border-white/15 mb-1.5">
                   <GraduationCap className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                   <span>Kilis 7 Aralık Üniversitesi</span>
                 </div>
